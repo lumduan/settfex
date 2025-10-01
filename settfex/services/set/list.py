@@ -1,9 +1,5 @@
 """SET Stock List Service - Fetch list of stock details from SET API."""
 
-import base64
-import random
-import secrets
-import uuid
 from typing import Any
 
 from loguru import logger
@@ -130,53 +126,6 @@ class StockListService:
         if session_cookies:
             logger.debug("Using provided session cookies for authentication")
 
-    def _generate_incapsula_cookies(self) -> str:
-        """
-        Generate Incapsula-aware randomized cookies for SET API requests.
-
-        This method creates cookies that mimic legitimate browser sessions
-        with Incapsula bot protection, including visitor IDs, session tokens,
-        and load balancer identifiers.
-
-        Returns:
-            Cookie string with Incapsula-compatible randomized values
-        """
-        # Random charlot session token (UUID format)
-        charlot: str = str(uuid.uuid4())
-
-        # Random Incapsula load balancer ID (base64-like format)
-        nlbi_id: str = base64.b64encode(secrets.token_bytes(32)).decode("utf-8")[:40]
-
-        # Random visitor IDs (Incapsula format - base64-like)
-        visid_1: str = base64.b64encode(secrets.token_bytes(48)).decode("utf-8")[:64]
-        visid_2: str = base64.b64encode(secrets.token_bytes(48)).decode("utf-8")[:64]
-
-        # Random session IDs (Incapsula format - base64-like)
-        session_1: str = base64.b64encode(secrets.token_bytes(32)).decode("utf-8")[:48]
-        session_2: str = base64.b64encode(secrets.token_bytes(32)).decode("utf-8")[:48]
-
-        # Random site IDs (7-8 digit numbers)
-        site_id_1: int = random.randint(1000000, 9999999)
-        site_id_2: int = random.randint(1000000, 9999999)
-
-        # Random visit time and API counter
-        visit_time: int = random.randint(10, 300)  # 10 seconds to 5 minutes
-        api_counter: int = random.randint(1, 10)  # 1-10 API calls
-
-        cookie_string: str = (
-            f"charlot={charlot}; "
-            f"nlbi_{site_id_1}={nlbi_id}; "
-            f"visid_incap_{site_id_1}={visid_1}; "
-            f"incap_ses_374_{site_id_1}={session_1}; "
-            f"visid_incap_{site_id_2}={visid_2}; "
-            f"incap_ses_374_{site_id_2}={session_2}; "
-            f"visit_time={visit_time}; "
-            f"api_call_counter={api_counter}"
-        )
-
-        logger.debug(f"Generated Incapsula cookies: {len(cookie_string)} chars")
-        return cookie_string
-
     async def fetch_stock_list(self) -> StockListResponse:
         """
         Fetch the complete list of stocks from SET API.
@@ -202,7 +151,7 @@ class StockListService:
             headers = AsyncDataFetcher.get_set_api_headers()
 
             # Use provided session cookies or generate Incapsula-aware cookies
-            cookies = self.session_cookies or self._generate_incapsula_cookies()
+            cookies = self.session_cookies or AsyncDataFetcher.generate_incapsula_cookies()
 
             # Fetch JSON data from API
             data = await fetcher.fetch_json(
@@ -244,7 +193,7 @@ class StockListService:
             headers = AsyncDataFetcher.get_set_api_headers()
 
             # Use provided session cookies or generate Incapsula-aware cookies
-            cookies = self.session_cookies or self._generate_incapsula_cookies()
+            cookies = self.session_cookies or AsyncDataFetcher.generate_incapsula_cookies()
 
             # Fetch JSON data
             data = await fetcher.fetch_json(

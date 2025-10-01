@@ -1,8 +1,11 @@
 """Async data fetcher with Unicode/Thai language support for SET and TFEX APIs."""
 
 import asyncio
+import base64
 import random
+import secrets
 import time
+import uuid
 from typing import Any
 
 from curl_cffi import requests
@@ -140,6 +143,66 @@ class AsyncDataFetcher:
                 "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
             ),
         }
+
+    @staticmethod
+    def generate_incapsula_cookies() -> str:
+        """
+        Generate Incapsula-aware randomized cookies for SET API requests.
+
+        This method creates cookies that mimic legitimate browser sessions
+        with Incapsula bot protection, including visitor IDs, session tokens,
+        and load balancer identifiers.
+
+        Useful for all SET services that need to bypass Incapsula protection.
+        For production use, real authenticated browser session cookies are
+        recommended over generated cookies.
+
+        Returns:
+            Cookie string with Incapsula-compatible randomized values
+
+        Example:
+            >>> cookies = AsyncDataFetcher.generate_incapsula_cookies()
+            >>> response = await fetcher.fetch(url, cookies=cookies)
+
+        Note:
+            Generated cookies may be blocked by Incapsula. For best results,
+            use real browser session cookies from an authenticated session.
+        """
+        # Random charlot session token (UUID format)
+        charlot: str = str(uuid.uuid4())
+
+        # Random Incapsula load balancer ID (base64-like format)
+        nlbi_id: str = base64.b64encode(secrets.token_bytes(32)).decode("utf-8")[:40]
+
+        # Random visitor IDs (Incapsula format - base64-like)
+        visid_1: str = base64.b64encode(secrets.token_bytes(48)).decode("utf-8")[:64]
+        visid_2: str = base64.b64encode(secrets.token_bytes(48)).decode("utf-8")[:64]
+
+        # Random session IDs (Incapsula format - base64-like)
+        session_1: str = base64.b64encode(secrets.token_bytes(32)).decode("utf-8")[:48]
+        session_2: str = base64.b64encode(secrets.token_bytes(32)).decode("utf-8")[:48]
+
+        # Random site IDs (7-8 digit numbers)
+        site_id_1: int = random.randint(1000000, 9999999)
+        site_id_2: int = random.randint(1000000, 9999999)
+
+        # Random visit time and API counter
+        visit_time: int = random.randint(10, 300)  # 10 seconds to 5 minutes
+        api_counter: int = random.randint(1, 10)  # 1-10 API calls
+
+        cookie_string: str = (
+            f"charlot={charlot}; "
+            f"nlbi_{site_id_1}={nlbi_id}; "
+            f"visid_incap_{site_id_1}={visid_1}; "
+            f"incap_ses_374_{site_id_1}={session_1}; "
+            f"visid_incap_{site_id_2}={visid_2}; "
+            f"incap_ses_374_{site_id_2}={session_2}; "
+            f"visit_time={visit_time}; "
+            f"api_call_counter={api_counter}"
+        )
+
+        logger.debug(f"Generated Incapsula cookies: {len(cookie_string)} chars")
+        return cookie_string
 
     def _generate_random_cookies(self) -> str:
         """

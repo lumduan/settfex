@@ -151,7 +151,21 @@ settfex/
 
 ## Recent Changes
 
-### 2025-10-01: SET Stock List Service
+### 2025-10-01: SET Stock List Service (Updated)
+
+**Reusable SET API Utilities (`settfex/utils/data_fetcher.py`)**
+- Added two static methods for all SET services to use:
+  - `get_set_api_headers()`: Returns optimized headers for SET API requests
+    - Includes all Incapsula bypass headers (Sec-Fetch-*, Cache-Control, Pragma, Priority)
+    - Chrome 140 user agent with proper sec-ch-ua headers
+    - Configurable referer URL
+  - `generate_incapsula_cookies()`: Generates Incapsula-aware randomized cookies
+    - Creates realistic visitor IDs, session tokens, and load balancer IDs
+    - UUID-format charlot session tokens
+    - Base64-encoded Incapsula identifiers
+    - Random site IDs and API counters
+- Both methods are static and can be used by any future SET service
+- Full documentation with examples for service developers
 
 **New Stock List Service (`settfex/services/set/list.py`)**
 - Created async service to fetch complete stock list from SET API
@@ -161,6 +175,7 @@ settfex/
   - **Filtering Capabilities**: Filter by market, industry, or lookup by symbol
   - **Async-First**: Built on AsyncDataFetcher for optimal performance
   - **Shared Constants**: Reusable base URL configuration for all SET services
+  - **Flexible Cookie Support**: Accepts real browser session cookies or generates them
 - Implementation:
   - Three main Pydantic models:
     - `StockSymbol`: Individual stock information (symbol, names, market, industry)

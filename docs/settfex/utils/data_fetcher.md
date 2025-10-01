@@ -86,6 +86,62 @@ async with AsyncDataFetcher(config=config) as fetcher:
 
 ## API Reference
 
+### Static Methods for SET Services
+
+#### `get_set_api_headers(referer: str = "https://www.set.or.th/en/home") -> dict[str, str]`
+
+Get optimized headers for SET (Stock Exchange of Thailand) API requests.
+
+These headers are based on successful browser requests and include all necessary Incapsula/Imperva bot detection bypass headers.
+
+**Parameters:**
+- `referer: str` - Referer URL (default: SET home page)
+
+**Returns:**
+- `dict[str, str]` - Dictionary of HTTP headers optimized for SET API
+
+**Example:**
+```python
+from settfex.utils.data_fetcher import AsyncDataFetcher
+
+# Get SET API headers (can be used by any SET service)
+headers = AsyncDataFetcher.get_set_api_headers()
+
+async with AsyncDataFetcher() as fetcher:
+    response = await fetcher.fetch(url, headers=headers)
+```
+
+#### `generate_incapsula_cookies() -> str`
+
+Generate Incapsula-aware randomized cookies for SET API requests.
+
+Creates cookies that mimic legitimate browser sessions with Incapsula bot protection, including visitor IDs, session tokens, and load balancer identifiers.
+
+**Returns:**
+- `str` - Cookie string with Incapsula-compatible randomized values
+
+**Example:**
+```python
+from settfex.utils.data_fetcher import AsyncDataFetcher
+
+# Generate Incapsula cookies
+cookies = AsyncDataFetcher.generate_incapsula_cookies()
+
+# Use with headers
+headers = AsyncDataFetcher.get_set_api_headers()
+
+async with AsyncDataFetcher() as fetcher:
+    response = await fetcher.fetch(
+        url,
+        headers=headers,
+        cookies=cookies,
+        use_random_cookies=False
+    )
+```
+
+**Note:**
+Generated cookies may be blocked by Incapsula. For production use, real authenticated browser session cookies are recommended.
+
 ### FetcherConfig
 
 Configuration model for `AsyncDataFetcher`.

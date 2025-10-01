@@ -40,8 +40,15 @@ async def main():
         print(f"Status: {response.status_code}")
         print(f"Thai text: {response.text[:200]}")
 
-        # Fetch JSON data
-        data = await fetcher.fetch_json("https://api.example.com/stocks")
+        # Fetch JSON data with SET-optimized headers
+        headers = AsyncDataFetcher.get_set_api_headers()
+        cookies = AsyncDataFetcher.generate_incapsula_cookies()
+        data = await fetcher.fetch_json(
+            "https://www.set.or.th/api/set/stock/list",
+            headers=headers,
+            cookies=cookies,
+            use_random_cookies=False
+        )
         print(f"Data: {data}")
 
 asyncio.run(main())
