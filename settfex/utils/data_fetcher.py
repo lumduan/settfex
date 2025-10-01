@@ -102,6 +102,45 @@ class AsyncDataFetcher:
             f"timeout={self.config.timeout}s"
         )
 
+    @staticmethod
+    def get_set_api_headers(referer: str = "https://www.set.or.th/en/home") -> dict[str, str]:
+        """
+        Get optimized headers for SET (Stock Exchange of Thailand) API requests.
+
+        These headers are based on successful browser requests and include all
+        necessary Incapsula/Imperva bot detection bypass headers.
+
+        Args:
+            referer: Referer URL (default: SET home page)
+
+        Returns:
+            Dictionary of HTTP headers optimized for SET API
+
+        Example:
+            >>> fetcher = AsyncDataFetcher()
+            >>> headers = fetcher.get_set_api_headers()
+            >>> response = await fetcher.fetch(url, headers=headers)
+        """
+        return {
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Encoding": "gzip, deflate, br, zstd",
+            "Accept-Language": "en-US,en;q=0.9,th-TH;q=0.8,th;q=0.7",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "Priority": "u=1, i",
+            "Referer": referer,
+            "Sec-Ch-Ua": '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"macOS"',
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin",
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+            ),
+        }
+
     def _generate_random_cookies(self) -> str:
         """
         Generate randomized cookies for session management.

@@ -47,6 +47,36 @@ async def main():
 asyncio.run(main())
 ```
 
+### Using SET Stock List Service (High-Level)
+
+```python
+import asyncio
+from settfex.services.set import get_stock_list
+from settfex.utils.logging import setup_logger
+
+# Optional: Configure logging
+setup_logger(level="INFO", log_file="logs/settfex.log")
+
+async def main():
+    # Fetch complete stock list from SET
+    stock_list = await get_stock_list()
+
+    print(f"Total stocks: {stock_list.count}")
+
+    # Filter by market
+    set_stocks = stock_list.filter_by_market("SET")
+    mai_stocks = stock_list.filter_by_market("mai")
+    print(f"SET market: {len(set_stocks)} stocks")
+    print(f"mai market: {len(mai_stocks)} stocks")
+
+    # Get specific stock
+    ptt = stock_list.get_symbol("PTT")
+    if ptt:
+        print(f"{ptt.symbol}: {ptt.name_en} ({ptt.name_th})")
+
+asyncio.run(main())
+```
+
 ### Using SET/TFEX Clients (High-Level)
 
 ```python
