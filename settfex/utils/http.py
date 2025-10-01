@@ -1,6 +1,6 @@
 """HTTP utilities and helpers using curl_cffi for requests."""
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from curl_cffi.requests import AsyncSession, Response
 from loguru import logger
@@ -12,7 +12,7 @@ class HTTPClient:
     def __init__(
         self,
         base_url: str = "",
-        headers: Optional[Dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         timeout: int = 30,
         impersonate: str = "chrome",
     ) -> None:
@@ -29,7 +29,7 @@ class HTTPClient:
         self.default_headers = headers or {}
         self.timeout = timeout
         self.impersonate = impersonate
-        self._session: Optional[AsyncSession] = None
+        self._session: AsyncSession[Response] | None = None
         logger.debug(
             f"HTTPClient initialized with base_url={base_url}, "
             f"timeout={timeout}, impersonate={impersonate}"
@@ -37,7 +37,7 @@ class HTTPClient:
 
     async def __aenter__(self) -> "HTTPClient":
         """Enter async context manager."""
-        self._session = AsyncSession(impersonate=self.impersonate)
+        self._session = AsyncSession(impersonate=self.impersonate)  # type: ignore[arg-type]
         logger.debug("HTTP session opened")
         return self
 
@@ -54,7 +54,7 @@ class HTTPClient:
             return path
         return f"{self.base_url}/{path.lstrip('/')}"
 
-    def _merge_headers(self, headers: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    def _merge_headers(self, headers: dict[str, str] | None = None) -> dict[str, str]:
         """Merge default headers with request-specific headers."""
         merged = self.default_headers.copy()
         if headers:
@@ -64,8 +64,8 @@ class HTTPClient:
     async def get(
         self,
         path: str,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> Response:
         """
         Perform GET request.
@@ -89,7 +89,7 @@ class HTTPClient:
 
         logger.debug(f"GET request to {url} with params={params}")
         try:
-            response = await self._session.get(
+            response: Response = await self._session.get(
                 url, params=params, headers=merged_headers, timeout=self.timeout
             )
             logger.debug(f"GET {url} returned status {response.status_code}")
@@ -101,9 +101,9 @@ class HTTPClient:
     async def post(
         self,
         path: str,
-        data: Optional[Dict[str, Any]] = None,
-        json: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> Response:
         """
         Perform POST request.
@@ -128,7 +128,7 @@ class HTTPClient:
 
         logger.debug(f"POST request to {url}")
         try:
-            response = await self._session.post(
+            response: Response = await self._session.post(
                 url, data=data, json=json, headers=merged_headers, timeout=self.timeout
             )
             logger.debug(f"POST {url} returned status {response.status_code}")
@@ -140,9 +140,9 @@ class HTTPClient:
     async def put(
         self,
         path: str,
-        data: Optional[Dict[str, Any]] = None,
-        json: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> Response:
         """
         Perform PUT request.
@@ -167,7 +167,7 @@ class HTTPClient:
 
         logger.debug(f"PUT request to {url}")
         try:
-            response = await self._session.put(
+            response: Response = await self._session.put(
                 url, data=data, json=json, headers=merged_headers, timeout=self.timeout
             )
             logger.debug(f"PUT {url} returned status {response.status_code}")
@@ -179,8 +179,8 @@ class HTTPClient:
     async def delete(
         self,
         path: str,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> Response:
         """
         Perform DELETE request.
@@ -204,7 +204,7 @@ class HTTPClient:
 
         logger.debug(f"DELETE request to {url} with params={params}")
         try:
-            response = await self._session.delete(
+            response: Response = await self._session.delete(
                 url, params=params, headers=merged_headers, timeout=self.timeout
             )
             logger.debug(f"DELETE {url} returned status {response.status_code}")

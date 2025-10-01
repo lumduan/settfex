@@ -33,7 +33,8 @@ settfex/
 │       ├── logging.py        # Logging utilities
 │       ├── validation.py     # Data validation
 │       ├── formatting.py     # Data formatting
-│       └── http.py           # HTTP utilities
+│       ├── http.py           # HTTP utilities
+│       └── data_fetcher.py   # Async data fetcher with Thai/Unicode support
 ├── tests/                     # Test suite
 │   ├── __init__.py
 │   ├── conftest.py           # Pytest configuration
@@ -149,6 +150,60 @@ settfex/
 - Never commit credentials or API keys to version control
 
 ## Recent Changes
+
+### 2025-10-01: AsyncDataFetcher Module
+
+**New Async Data Fetcher (`settfex/utils/data_fetcher.py`)**
+- Created specialized async HTTP client for SET/TFEX data fetching
+- Key features:
+  - **Unicode/Thai Support**: Proper UTF-8 encoding with latin1 fallback
+  - **Browser Impersonation**: Uses curl_cffi to bypass bot detection
+  - **Randomized Cookies**: Generates realistic cookie strings for session management
+  - **Automatic Retries**: Exponential backoff retry mechanism
+  - **Full Type Safety**: Complete type hints and Pydantic validation
+  - **Async Compliance**: Synchronous curl_cffi wrapped with `asyncio.to_thread`
+- Implementation:
+  - Three main components:
+    - `FetcherConfig`: Pydantic model for configuration
+    - `FetchResponse`: Pydantic model for response data
+    - `AsyncDataFetcher`: Main async client class
+  - Two key methods:
+    - `_make_sync_request()`: Synchronous HTTP request wrapped for async
+    - `_generate_random_cookies()`: Creates realistic cookie strings
+  - Public async methods:
+    - `fetch()`: Fetch any URL with full Unicode support
+    - `fetch_json()`: Fetch and parse JSON data
+- Usage pattern:
+  ```python
+  from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
+
+  # Basic usage
+  async with AsyncDataFetcher() as fetcher:
+      response = await fetcher.fetch("https://www.set.or.th")
+      print(response.text)  # Properly decoded Thai text
+
+  # Custom configuration
+  config = FetcherConfig(
+      browser_impersonate="safari17_0",
+      timeout=60,
+      max_retries=5
+  )
+  async with AsyncDataFetcher(config=config) as fetcher:
+      data = await fetcher.fetch_json("https://api.example.com")
+  ```
+- Testing:
+  - Comprehensive test suite: `tests/utils/test_data_fetcher.py`
+  - Covers all functionality including Thai/Unicode handling
+  - Manual verification script: `scripts/settfex/utils/verify_data_fetcher.py`
+- Documentation:
+  - Full API documentation: `docs/settfex/utils/data_fetcher.md`
+  - Usage examples, error handling, best practices
+  - Integration examples with SET/TFEX services
+- Purpose:
+  - Foundation for all SET/TFEX API data fetching
+  - Provides reliable bot detection bypass
+  - Ensures proper Thai language character handling
+  - Simplifies HTTP operations for service modules
 
 ### 2025-10-01: HTTP Client and Logging Migration
 

@@ -15,6 +15,8 @@
 - **Easy to Use**: Simple, intuitive API for fetching market data
 - **Advanced HTTP**: Built with curl_cffi for browser-like requests with impersonation
 - **Smart Logging**: Integrated loguru for beautiful, powerful logging
+- **Unicode Support**: Full Thai language support with proper UTF-8 handling
+- **Bot Detection Bypass**: Browser impersonation and randomized cookies for reliable data fetching
 
 ## Installation
 
@@ -23,6 +25,29 @@ pip install settfex
 ```
 
 ## Quick Start
+
+### Using the Async Data Fetcher (Low-Level)
+
+```python
+import asyncio
+from settfex.utils.data_fetcher import AsyncDataFetcher
+
+async def main():
+    # Basic usage with defaults
+    async with AsyncDataFetcher() as fetcher:
+        # Fetch HTML/text content
+        response = await fetcher.fetch("https://www.set.or.th/th/market/product/stock/quote")
+        print(f"Status: {response.status_code}")
+        print(f"Thai text: {response.text[:200]}")
+
+        # Fetch JSON data
+        data = await fetcher.fetch_json("https://api.example.com/stocks")
+        print(f"Data: {data}")
+
+asyncio.run(main())
+```
+
+### Using SET/TFEX Clients (High-Level)
 
 ```python
 from settfex.services.set import SETClient
@@ -55,6 +80,7 @@ For detailed documentation, please see:
 - [Installation Guide](docs/installation.md)
 - [Quick Start Guide](docs/quickstart.md)
 - [API Reference](docs/api-reference.md)
+- [AsyncDataFetcher Guide](docs/settfex/utils/data_fetcher.md) - Low-level async HTTP client
 - [Contributing Guide](docs/contributing.md)
 
 ## Examples
