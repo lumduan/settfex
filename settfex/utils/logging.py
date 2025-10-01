@@ -2,17 +2,20 @@
 
 import sys
 from pathlib import Path
-from typing import Optional, Union
+from typing import TYPE_CHECKING
 
 from loguru import logger
+
+if TYPE_CHECKING:
+    from loguru import Logger
 
 
 def setup_logger(
     level: str = "INFO",
-    log_file: Optional[Union[str, Path]] = None,
+    log_file: str | Path | None = None,
     rotation: str = "10 MB",
     retention: str = "1 week",
-    format_string: Optional[str] = None,
+    format_string: str | None = None,
     colorize: bool = True,
 ) -> None:
     """
@@ -71,7 +74,7 @@ def setup_logger(
         logger.info(f"Logging to file: {log_path}")
 
 
-def get_logger() -> "logger":
+def get_logger() -> "Logger":
     """
     Get the configured loguru logger instance.
 

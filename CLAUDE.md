@@ -33,7 +33,8 @@ settfex/
 │       ├── logging.py        # Logging utilities
 │       ├── validation.py     # Data validation
 │       ├── formatting.py     # Data formatting
-│       └── http.py           # HTTP utilities
+│       ├── http.py           # HTTP utilities
+│       └── data_fetcher.py   # Async data fetcher with Thai/Unicode support
 ├── tests/                     # Test suite
 │   ├── __init__.py
 │   ├── conftest.py           # Pytest configuration
@@ -149,6 +150,137 @@ settfex/
 - Never commit credentials or API keys to version control
 
 ## Recent Changes
+
+### 2025-10-01: SET Stock List Service (Updated)
+
+**Reusable SET API Utilities (`settfex/utils/data_fetcher.py`)**
+- Added two static methods for all SET services to use:
+  - `get_set_api_headers()`: Returns optimized headers for SET API requests
+    - Includes all Incapsula bypass headers (Sec-Fetch-*, Cache-Control, Pragma, Priority)
+    - Chrome 140 user agent with proper sec-ch-ua headers
+    - Configurable referer URL
+  - `generate_incapsula_cookies()`: Generates Incapsula-aware randomized cookies
+    - Creates realistic visitor IDs, session tokens, and load balancer IDs
+    - UUID-format charlot session tokens
+    - Base64-encoded Incapsula identifiers
+    - Random site IDs and API counters
+- Both methods are static and can be used by any future SET service
+- Full documentation with examples for service developers
+
+**New Stock List Service (`settfex/services/set/list.py`)**
+- Created async service to fetch complete stock list from SET API
+- Key features:
+  - **Full Type Safety**: Complete Pydantic models for all data structures
+  - **Thai/Unicode Support**: Proper handling of Thai company names
+  - **Filtering Capabilities**: Filter by market, industry, or lookup by symbol
+  - **Async-First**: Built on AsyncDataFetcher for optimal performance
+  - **Shared Constants**: Reusable base URL configuration for all SET services
+  - **Flexible Cookie Support**: Accepts real browser session cookies or generates them
+- Implementation:
+  - Three main Pydantic models:
+    - `StockSymbol`: Individual stock information (symbol, names, market, industry)
+    - `StockListResponse`: Complete API response with helper methods
+    - `StockListService`: Main service class
+  - Two fetch methods:
+    - `fetch_stock_list()`: Returns validated Pydantic models
+    - `fetch_stock_list_raw()`: Returns raw dictionary for debugging
+  - Convenience function:
+    - `get_stock_list()`: Quick one-line access to stock list
+  - Helper methods on response:
+    - `filter_by_market()`: Get stocks for specific market (SET, mai)
+    - `filter_by_industry()`: Get stocks in specific industry
+    - `get_symbol()`: Lookup specific stock by symbol
+- Configuration:
+  - Shared constants in `settfex/services/set/constants.py`:
+    - `SET_BASE_URL`: `https://www.set.or.th/`
+    - `SET_STOCK_LIST_ENDPOINT`: `/api/set/stock/list`
+  - Custom headers matching browser behavior for bot detection bypass
+- Usage pattern:
+  ```python
+  from settfex.services.set import get_stock_list
+
+  # Quick access
+  stock_list = await get_stock_list()
+  print(f"Total: {stock_list.count}")
+
+  # Filter operations
+  set_stocks = stock_list.filter_by_market("SET")
+  tech_stocks = stock_list.filter_by_industry("TECH")
+
+  # Lookup specific stock
+  ptt = stock_list.get_symbol("PTT")
+  print(f"{ptt.symbol}: {ptt.name_en} ({ptt.name_th})")
+
+  # Advanced usage with custom config
+  from settfex.services.set import StockListService
+  from settfex.utils.data_fetcher import FetcherConfig
+
+  config = FetcherConfig(timeout=60, max_retries=5)
+  service = StockListService(config=config)
+  response = await service.fetch_stock_list()
+  ```
+- Documentation:
+  - Full service documentation: `docs/settfex/services/set/list.md`
+  - Manual verification script: `scripts/settfex/services/set/verify_stock_list.py`
+- Purpose:
+  - Foundation for stock symbol lookups and validation
+  - Enables market and industry analysis
+  - Provides complete SET market coverage data
+  - Demonstrates service architecture pattern for future SET services
+
+### 2025-10-01: AsyncDataFetcher Module
+
+**New Async Data Fetcher (`settfex/utils/data_fetcher.py`)**
+- Created specialized async HTTP client for SET/TFEX data fetching
+- Key features:
+  - **Unicode/Thai Support**: Proper UTF-8 encoding with latin1 fallback
+  - **Browser Impersonation**: Uses curl_cffi to bypass bot detection
+  - **Randomized Cookies**: Generates realistic cookie strings for session management
+  - **Automatic Retries**: Exponential backoff retry mechanism
+  - **Full Type Safety**: Complete type hints and Pydantic validation
+  - **Async Compliance**: Synchronous curl_cffi wrapped with `asyncio.to_thread`
+- Implementation:
+  - Three main components:
+    - `FetcherConfig`: Pydantic model for configuration
+    - `FetchResponse`: Pydantic model for response data
+    - `AsyncDataFetcher`: Main async client class
+  - Two key methods:
+    - `_make_sync_request()`: Synchronous HTTP request wrapped for async
+    - `_generate_random_cookies()`: Creates realistic cookie strings
+  - Public async methods:
+    - `fetch()`: Fetch any URL with full Unicode support
+    - `fetch_json()`: Fetch and parse JSON data
+- Usage pattern:
+  ```python
+  from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
+
+  # Basic usage
+  async with AsyncDataFetcher() as fetcher:
+      response = await fetcher.fetch("https://www.set.or.th")
+      print(response.text)  # Properly decoded Thai text
+
+  # Custom configuration
+  config = FetcherConfig(
+      browser_impersonate="safari17_0",
+      timeout=60,
+      max_retries=5
+  )
+  async with AsyncDataFetcher(config=config) as fetcher:
+      data = await fetcher.fetch_json("https://api.example.com")
+  ```
+- Testing:
+  - Comprehensive test suite: `tests/utils/test_data_fetcher.py`
+  - Covers all functionality including Thai/Unicode handling
+  - Manual verification script: `scripts/settfex/utils/verify_data_fetcher.py`
+- Documentation:
+  - Full API documentation: `docs/settfex/utils/data_fetcher.md`
+  - Usage examples, error handling, best practices
+  - Integration examples with SET/TFEX services
+- Purpose:
+  - Foundation for all SET/TFEX API data fetching
+  - Provides reliable bot detection bypass
+  - Ensures proper Thai language character handling
+  - Simplifies HTTP operations for service modules
 
 ### 2025-10-01: HTTP Client and Logging Migration
 
