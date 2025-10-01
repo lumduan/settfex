@@ -13,6 +13,8 @@
 - **Modern Python**: Built with Python 3.11+ using modern async patterns
 - **Type Safe**: Full type hints and runtime validation with Pydantic
 - **Easy to Use**: Simple, intuitive API for fetching market data
+- **Advanced HTTP**: Built with curl_cffi for browser-like requests with impersonation
+- **Smart Logging**: Integrated loguru for beautiful, powerful logging
 
 ## Installation
 
@@ -25,6 +27,10 @@ pip install settfex
 ```python
 from settfex.services.set import SETClient
 from settfex.services.tfex import TFEXClient
+from settfex.utils.logging import setup_logger
+
+# Optional: Configure logging
+setup_logger(level="DEBUG", log_file="logs/settfex.log")
 
 # Fetch SET real-time data
 set_client = SETClient()
@@ -34,6 +40,14 @@ set_client = SETClient()
 tfex_client = TFEXClient()
 # Your code here
 ```
+
+### Dependencies
+
+settfex uses modern, powerful libraries:
+
+- **curl_cffi**: Advanced HTTP client with browser impersonation for robust API requests
+- **loguru**: Beautiful, powerful logging with colors and automatic formatting
+- **pydantic**: Runtime validation and settings management with type safety
 
 ## Documentation
 

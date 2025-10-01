@@ -82,7 +82,14 @@ settfex/
 - All functions should have type hints
 
 ### Dependencies
-- **httpx**: Modern async HTTP client
+- **curl_cffi**: Advanced async HTTP client with browser impersonation capabilities
+  - Replaced httpx (2025-10-01) for better bot detection bypass
+  - Supports multiple browser impersonation modes (Chrome, Safari, Edge, etc.)
+  - Fully async/await compatible with AsyncSession
+- **loguru**: Beautiful, powerful logging framework
+  - Replaced standard logging (2025-10-01)
+  - Auto-configured with colored output, file rotation, and compression
+  - Access via `from loguru import logger` or `settfex.utils.logging`
 - **pydantic**: Runtime validation and settings management
 - Minimize external dependencies to keep the library lightweight
 
@@ -140,6 +147,70 @@ settfex/
 - Always respect API rate limits and terms of service
 - Handle sensitive data (API keys, credentials) securely
 - Never commit credentials or API keys to version control
+
+## Recent Changes
+
+### 2025-10-01: HTTP Client and Logging Migration
+
+**HTTP Client Migration (httpx → curl_cffi)**
+- Migrated from httpx to curl_cffi for all HTTP requests
+- Benefits:
+  - Browser impersonation to bypass bot detection
+  - Better compatibility with anti-scraping measures
+  - Full async/await support maintained
+- Implementation:
+  - Created `HTTPClient` class in `settfex/utils/http.py`
+  - Async context manager pattern for session management
+  - Supports GET, POST, PUT, DELETE methods
+  - Configurable browser impersonation (default: Chrome)
+  - Base URL, headers, and timeout configuration
+- Usage pattern:
+  ```python
+  async with HTTPClient(base_url="https://api.example.com") as client:
+      response = await client.get("/endpoint")
+  ```
+
+**Logging Integration (loguru)**
+- Integrated loguru as the primary logging framework
+- Benefits:
+  - Beautiful colored console output
+  - Automatic log rotation and compression
+  - Better exception formatting with backtraces
+  - Simple, intuitive API
+- Implementation:
+  - Created logging utilities in `settfex/utils/logging.py`
+  - `setup_logger()` function for configuration
+  - `get_logger()` function to access logger instance
+  - Default INFO level with stderr output
+- Usage pattern:
+  ```python
+  from loguru import logger
+  from settfex.utils.logging import setup_logger
+
+  # Optional: customize logging
+  setup_logger(level="DEBUG", log_file="logs/app.log")
+
+  # Use logger anywhere
+  logger.info("Starting data fetch")
+  logger.error("Failed to connect", exc_info=True)
+  ```
+
+**Configuration Updates**
+- Updated `pyproject.toml`:
+  - Removed: `httpx>=0.27.0`
+  - Added: `curl-cffi>=0.6.0`
+  - Added: `loguru>=0.7.0`
+- Updated `.gitignore`:
+  - Added `CLAUDE.md` to gitignore
+  - Added `.claude/` directory
+  - Added `.github/` directory
+  - Added `scripts/` directory
+
+**Documentation Updates**
+- Updated `README.md` with new dependencies and features
+- Added logging configuration examples
+- Documented browser impersonation capabilities
+- This file (`CLAUDE.md`) updated with migration details
 
 ## Future Enhancements (Ideas)
 

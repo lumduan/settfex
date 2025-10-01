@@ -191,3 +191,9 @@ config/*.yml
 !config/*.sample.yml
 !config/*.default.yaml
 !config/*.default.yml
+
+# AI Assistant and Meta Files
+CLAUDE.md
+.claude/
+.github/
+scripts/
