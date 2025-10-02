@@ -269,7 +269,38 @@ async def fetch_with_error_handling():
         logger.error(f"Invalid input: {e}")
     except Exception as e:
         logger.error(f"Failed to fetch profile: {e}")
-        # Retry with different config or handle error
+        # Common errors:
+        # - HTTP 452: Incapsula bot detection (use real browser cookies)
+        # - HTTP 404: Invalid symbol
+        # - JSON decode error: Empty or malformed response
+```
+
+## Important Notes on Bot Detection
+
+**Incapsula/Imperva Protection**: The SET API is protected by Incapsula bot detection. You may encounter HTTP 452 errors, especially when:
+- Making multiple concurrent requests
+- Making many requests in a short time
+- Using generated cookies instead of real browser session cookies
+
+**Recommendations**:
+1. **Use Real Browser Cookies**: For production, extract cookies from an authenticated browser session
+2. **Add Delays**: When fetching multiple stocks, add delays between requests (e.g., 0.5-1 second)
+3. **Avoid Concurrent Requests**: Fetch stocks sequentially rather than using `asyncio.gather()`
+4. **Handle Errors Gracefully**: Implement retry logic with exponential backoff
+
+**Example with Delays**:
+```python
+import asyncio
+
+# BAD: Concurrent requests may trigger bot detection
+profiles = await asyncio.gather(*[get_profile(s) for s in symbols])  # May fail!
+
+# GOOD: Sequential with delays
+profiles = []
+for symbol in symbols:
+    profile = await get_profile(symbol)
+    profiles.append(profile)
+    await asyncio.sleep(0.5)  # Delay between requests
 ```
 
 ## Example: Compare Multiple Stocks
@@ -280,11 +311,13 @@ from settfex.services.set.stock import get_profile
 
 async def compare_stocks():
     symbols = ["PTT", "CPALL", "KBANK", "AOT"]
+    profiles = []
 
-    # Fetch all profiles concurrently
-    profiles = await asyncio.gather(*[
-        get_profile(symbol) for symbol in symbols
-    ])
+    # Fetch profiles sequentially with delay to avoid bot detection
+    for symbol in symbols:
+        profile = await get_profile(symbol)
+        profiles.append(profile)
+        await asyncio.sleep(0.5)  # Small delay between requests
 
     # Display comparison
     print(f"\n{'Symbol':<10} {'Name':<40} {'Sector':<20} {'IPO':>10}")

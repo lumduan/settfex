@@ -185,10 +185,30 @@ class StockProfileService:
             # Use provided session cookies or generate Incapsula-aware cookies
             cookies = self.session_cookies or AsyncDataFetcher.generate_incapsula_cookies()
 
-            # Fetch JSON data from API
-            data = await fetcher.fetch_json(
+            # Fetch raw response first to check status
+            response = await fetcher.fetch(
                 url, headers=headers, cookies=cookies, use_random_cookies=False
             )
+
+            # Check for Incapsula/bot detection errors
+            if response.status_code != 200:
+                error_msg = (
+                    f"Failed to fetch profile for {symbol}: "
+                    f"HTTP {response.status_code}. "
+                    f"This may be due to Incapsula bot detection. "
+                    f"Try using real browser session cookies."
+                )
+                logger.error(error_msg)
+                raise Exception(error_msg)
+
+            # Parse JSON
+            import json
+            try:
+                data = json.loads(response.text)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON response: {e}")
+                logger.debug(f"Response text: {response.text[:500]}")
+                raise
 
             # Parse and validate response using Pydantic
             profile = StockProfile(**data)
