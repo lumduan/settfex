@@ -5,6 +5,11 @@ from settfex.services.set.stock.highlight_data import (
     StockHighlightDataService,
     get_highlight_data,
 )
+from settfex.services.set.stock.profile_stock import (
+    StockProfile,
+    StockProfileService,
+    get_profile,
+)
 from settfex.services.set.stock.stock import Stock
 from settfex.services.set.stock.utils import normalize_language, normalize_symbol
 
@@ -18,4 +23,8 @@ __all__ = [
     "StockHighlightDataService",
     "StockHighlightData",
     "get_highlight_data",
+    # Profile Service
+    "StockProfileService",
+    "StockProfile",
+    "get_profile",
 ]

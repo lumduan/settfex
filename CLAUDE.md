@@ -151,6 +151,72 @@ settfex/
 
 ## Recent Changes
 
+### 2025-10-02: Stock Profile Service
+
+**Stock Profile Service (`settfex/services/set/stock/profile_stock.py`)**
+- Created async service to fetch comprehensive profile data for individual stock symbols
+- Key features:
+  - **Full Type Safety**: Complete Pydantic model with 30+ profile fields
+  - **Dual Language Support**: Fetch data in English ('en') or Thai ('th')
+  - **Input Normalization**: Automatic symbol uppercase and language validation
+  - **Async-First**: Built on AsyncDataFetcher for optimal performance
+  - **Flexible Cookie Support**: Accepts real browser session cookies or generates them
+- Implementation:
+  - Two main Pydantic models:
+    - `StockProfile`: Complete company and listing information (30+ fields)
+    - `StockProfileService`: Main service class
+  - Two fetch methods:
+    - `fetch_profile(symbol, lang)`: Returns validated Pydantic model
+    - `fetch_profile_raw(symbol, lang)`: Returns raw dictionary for debugging
+  - Convenience function:
+    - `get_profile(symbol, lang)`: Quick one-line access
+- Data fields include:
+  - Company identification: Name, symbol, market
+  - Classification: Sector (code and name), industry (code and name)
+  - Listing details: Listed date, first trade date, status, IPO price
+  - Share structure: Par value, listed shares, free float percentage
+  - Foreign ownership: Foreign limit, foreign room, available shares
+  - ISIN codes: Local, foreign, and NVDR trading
+  - Fiscal year: Fiscal year end date and display format, account form
+  - Derivative data: Exercise price, exercise ratio, underlying (for warrants)
+- Configuration:
+  - Added to `settfex/services/set/constants.py`:
+    - `SET_STOCK_PROFILE_ENDPOINT`: `/api/set/stock/{symbol}/profile`
+- Usage pattern:
+  ```python
+  from settfex.services.set import get_profile
+
+  # Using convenience function
+  profile = await get_profile("PTT")
+  print(f"Company: {profile.name}")
+  print(f"Sector: {profile.sector_name}")
+  print(f"Listed: {profile.listed_date}")
+  print(f"IPO: {profile.ipo} {profile.currency}")
+
+  # Thai language support
+  profile_th = await get_profile("PTT", lang="th")
+
+  # Using service class
+  from settfex.services.set.stock import StockProfileService
+
+  service = StockProfileService()
+  profile = await service.fetch_profile("CPALL", lang="en")
+  ```
+- Documentation:
+  - Full service documentation: `docs/settfex/services/set/profile_stock.md`
+  - Manual verification script: `scripts/settfex/services/set/verify_profile_stock.py`
+- Module exports:
+  - Updated `settfex/services/set/stock/__init__.py` to export:
+    - `StockProfile`, `StockProfileService`, `get_profile`
+  - Updated `settfex/services/set/__init__.py` to export:
+    - `StockProfile`, `StockProfileService`, `get_profile`
+    - `SET_STOCK_PROFILE_ENDPOINT`
+- Purpose:
+  - Provide detailed company and listing information for stocks
+  - Enable sector and industry classification analysis
+  - Support foreign ownership limit tracking
+  - Foundation for investment research and compliance checks
+
 ### 2025-10-02: Stock Highlight Data Service & Unified Stock Class
 
 **Stock Utilities Module (`settfex/services/set/stock/utils.py`)**
@@ -248,10 +314,12 @@ settfex/
   - `__init__.py`: Exports Stock class and all stock services
   - `utils.py`: Shared utility functions
   - `highlight_data.py`: Highlight data service
+  - `profile_stock.py`: Stock profile service
   - `stock.py`: Unified Stock class
 - Updated `settfex/services/set/__init__.py` to export:
   - `Stock` class
   - `StockHighlightData`, `StockHighlightDataService`, `get_highlight_data`
+  - `StockProfile`, `StockProfileService`, `get_profile`
   - `normalize_symbol`, `normalize_language`
 
 ### 2025-10-01: SET Stock List Service (Updated)

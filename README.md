@@ -90,6 +90,16 @@ async def main():
     print(f"P/B Ratio: {highlight.pb_ratio}")
     print(f"Dividend Yield: {highlight.dividend_yield}%")
 
+    # Fetch stock profile for detailed company information
+    from settfex.services.set import get_profile
+
+    profile = await get_profile("PTT")
+    print(f"\n{profile.name} ({profile.symbol})")
+    print(f"Sector: {profile.sector_name}")
+    print(f"Industry: {profile.industry_name}")
+    print(f"Listed Date: {profile.listed_date}")
+    print(f"IPO Price: {profile.ipo} {profile.currency}")
+
 asyncio.run(main())
 ```
 
