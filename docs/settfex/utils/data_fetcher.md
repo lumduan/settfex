@@ -111,11 +111,14 @@ async with AsyncDataFetcher() as fetcher:
     response = await fetcher.fetch(url, headers=headers)
 ```
 
-#### `generate_incapsula_cookies() -> str`
+#### `generate_incapsula_cookies(landing_url: str | None = None) -> str`
 
 Generate Incapsula-aware randomized cookies for SET API requests.
 
 Creates cookies that mimic legitimate browser sessions with Incapsula bot protection, including visitor IDs, session tokens, and load balancer identifiers.
+
+**Parameters:**
+- `landing_url: str | None` - Optional landing URL to include in cookies (e.g., the referer page). This is critical for some symbols that check the `landing_url` cookie value.
 
 **Returns:**
 - `str` - Cookie string with Incapsula-compatible randomized values
@@ -124,11 +127,16 @@ Creates cookies that mimic legitimate browser sessions with Incapsula bot protec
 ```python
 from settfex.utils.data_fetcher import AsyncDataFetcher
 
-# Generate Incapsula cookies
+# Basic usage (without landing_url)
 cookies = AsyncDataFetcher.generate_incapsula_cookies()
 
+# Symbol-specific usage (recommended for stock services)
+symbol = "CPALL"
+landing_url = f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"
+cookies = AsyncDataFetcher.generate_incapsula_cookies(landing_url=landing_url)
+
 # Use with headers
-headers = AsyncDataFetcher.get_set_api_headers()
+headers = AsyncDataFetcher.get_set_api_headers(referer=landing_url)
 
 async with AsyncDataFetcher() as fetcher:
     response = await fetcher.fetch(
@@ -138,6 +146,12 @@ async with AsyncDataFetcher() as fetcher:
         use_random_cookies=False
     )
 ```
+
+**Important Notes:**
+- The `landing_url` parameter is **critical for symbols with stricter Incapsula rules** (e.g., CPN)
+- The landing_url cookie should match the referer header for best results
+- Without the landing_url cookie, some requests may fail with HTTP 452 (bot detection blocked)
+- For stock services, use: `landing_url=f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"`
 
 **Note:**
 Generated cookies may be blocked by Incapsula. For production use, real authenticated browser session cookies are recommended.
@@ -643,6 +657,56 @@ except json.JSONDecodeError:
     print(f"Response is not JSON: {response.text[:200]}")
 ```
 
+## Bot Detection Bypass for Stock Services
+
+When building stock-related services (highlight_data, profile_stock, etc.), implement the two-part bot detection bypass pattern:
+
+### Pattern Implementation
+
+```python
+async def fetch_stock_data(symbol: str):
+    """Example: Proper bot detection bypass for stock data."""
+
+    # 1. Build symbol-specific referer URL
+    referer = f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"
+
+    # 2. Get headers with symbol-specific referer
+    headers = AsyncDataFetcher.get_set_api_headers(referer=referer)
+
+    # 3. Generate cookies with landing_url matching referer
+    cookies = AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
+
+    # 4. Make request with both bypass components
+    async with AsyncDataFetcher() as fetcher:
+        response = await fetcher.fetch(
+            url,
+            headers=headers,
+            cookies=cookies,
+            use_random_cookies=False
+        )
+```
+
+### Why Both Are Required
+
+- **Referer Header**: Tells Incapsula which page the request came from
+- **Landing URL Cookie**: Confirms the user's landing page (must match referer)
+- **Together**: Bypass Incapsula bot detection for all symbols, including those with stricter rules (e.g., CPN)
+
+### Without This Pattern
+
+```python
+# ❌ BAD: Missing symbol-specific referer and landing_url
+headers = AsyncDataFetcher.get_set_api_headers()  # Generic referer
+cookies = AsyncDataFetcher.generate_incapsula_cookies()  # No landing_url
+# Result: May fail with HTTP 452 for symbols like CPN
+
+# ✅ GOOD: Symbol-specific referer and landing_url
+referer = f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"
+headers = AsyncDataFetcher.get_set_api_headers(referer=referer)
+cookies = AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
+# Result: Works for all symbols, supports concurrent requests
+```
+
 ## Best Practices
 
 1. **Always use context manager** for proper resource cleanup
@@ -653,6 +717,8 @@ except json.JSONDecodeError:
 6. **Handle exceptions** gracefully with try/except blocks
 7. **Use concurrent fetching** with asyncio.gather() for multiple requests
 8. **Test Thai/Unicode** handling with sample data
+9. **For stock services**: Always use symbol-specific referer and landing_url cookie
+10. **Match referer and landing_url**: Both should point to the same stock quote page
 
 ## See Also
 

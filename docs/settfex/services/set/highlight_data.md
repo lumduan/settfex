@@ -13,6 +13,7 @@ The Stock Highlight Data Service provides async methods to fetch highlight data 
 - **Symbol Normalization**: Automatic uppercase conversion for stock symbols
 - **Async-First**: Built on AsyncDataFetcher for optimal performance
 - **Flexible Cookie Support**: Accepts real browser session cookies or generates them
+- **Bot Detection Bypass**: Automatic symbol-specific referer and landing_url cookie for reliable data fetching
 
 ## Installation
 
@@ -576,8 +577,43 @@ https://www.set.or.th/api/set/stock/{symbol}/highlight-data?lang={lang}
 https://www.set.or.th/api/set/stock/CPALL/highlight-data?lang=en
 ```
 
+## Important Notes on Bot Detection
+
+The service implements a two-part bot detection bypass pattern that is critical for reliable data fetching:
+
+### 1. Symbol-Specific Referer Header (✓ Implemented)
+Each request automatically includes a referer header that matches the stock symbol being fetched:
+```
+Referer: https://www.set.or.th/en/market/product/stock/quote/{symbol}/price
+```
+
+### 2. Landing URL Cookie (✓ Implemented)
+The service automatically generates a `landing_url` cookie matching the referer for symbols with stricter Incapsula rules:
+```
+landing_url=https://www.set.or.th/en/market/product/stock/quote/{symbol}/price
+```
+
+**Why This Matters:**
+- Incapsula/Imperva bot protection checks **both** the HTTP referer header and the `landing_url` cookie value
+- Some symbols (like CPN) have stricter security rules and require both to be present and matching
+- Without both, requests may fail with HTTP 452 (bot detection blocked)
+
+**Implementation:**
+```python
+# Automatically applied in fetch_highlight_data()
+referer = f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"
+headers = AsyncDataFetcher.get_set_api_headers(referer=referer)
+cookies = AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
+```
+
+**Best Practices:**
+- ✅ **Concurrent Requests Work**: Thanks to symbol-specific referers and landing_url cookies, you can now fetch multiple stocks concurrently without issues
+- ✅ **No Delays Needed**: The bypass fixes eliminate the need for artificial delays between requests
+- ✅ **All Symbols Supported**: Works with symbols having both standard and strict Incapsula rules (PTT, CPALL, CPN, etc.)
+
 ## See Also
 
+- [Stock Profile Service](profile_stock.md) - Fetch detailed company profile data
 - [Stock List Service](list.md) - Fetch complete list of SET stocks
 - [AsyncDataFetcher](../../utils/data_fetcher.md) - Low-level async HTTP client
 - [SET Client](client.md) - High-level SET API client

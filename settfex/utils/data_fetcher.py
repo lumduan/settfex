@@ -145,7 +145,7 @@ class AsyncDataFetcher:
         }
 
     @staticmethod
-    def generate_incapsula_cookies() -> str:
+    def generate_incapsula_cookies(landing_url: str | None = None) -> str:
         """
         Generate Incapsula-aware randomized cookies for SET API requests.
 
@@ -157,12 +157,20 @@ class AsyncDataFetcher:
         For production use, real authenticated browser session cookies are
         recommended over generated cookies.
 
+        Args:
+            landing_url: Optional landing URL to include in cookies (e.g., the referer page).
+                        This is critical for some symbols that check the landing_url cookie.
+
         Returns:
             Cookie string with Incapsula-compatible randomized values
 
         Example:
             >>> cookies = AsyncDataFetcher.generate_incapsula_cookies()
             >>> response = await fetcher.fetch(url, cookies=cookies)
+            >>>
+            >>> # With landing URL for better bot detection bypass
+            >>> landing = "https://www.set.or.th/en/market/product/stock/quote/CPN/price"
+            >>> cookies = AsyncDataFetcher.generate_incapsula_cookies(landing_url=landing)
 
         Note:
             Generated cookies may be blocked by Incapsula. For best results,
@@ -190,6 +198,7 @@ class AsyncDataFetcher:
         visit_time: int = random.randint(10, 300)  # 10 seconds to 5 minutes
         api_counter: int = random.randint(1, 10)  # 1-10 API calls
 
+        # Build base cookie string
         cookie_string: str = (
             f"charlot={charlot}; "
             f"nlbi_{site_id_1}={nlbi_id}; "
@@ -200,6 +209,11 @@ class AsyncDataFetcher:
             f"visit_time={visit_time}; "
             f"api_call_counter={api_counter}"
         )
+
+        # Add landing_url if provided (critical for some symbols like CPN)
+        if landing_url:
+            cookie_string += f"; landing_url={landing_url}"
+            logger.debug(f"Added landing_url to cookies: {landing_url}")
 
         logger.debug(f"Generated Incapsula cookies: {len(cookie_string)} chars")
         return cookie_string
