@@ -25,6 +25,19 @@ class FetcherConfig(BaseModel):
     retry_delay: float = Field(
         default=1.0, ge=0.1, le=30.0, description="Base delay between retries in seconds"
     )
+    rate_limit_delay: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=10.0,
+        description="Delay between consecutive requests in seconds (0 = no rate limiting)",
+    )
+    use_session: bool = Field(
+        default=True,
+        description=(
+            "Use persistent session with automatic cookie handling "
+            "(recommended for ~100% success)"
+        ),
+    )
     user_agent: str | None = Field(
         default=None, description="Custom User-Agent header (auto-generated if None)"
     )
@@ -100,9 +113,10 @@ class AsyncDataFetcher:
             config: Configuration for the fetcher (uses defaults if None)
         """
         self.config = config or FetcherConfig()
+        self._last_request_time: float = 0.0  # Track last request time for rate limiting
         logger.info(
             f"AsyncDataFetcher initialized with browser={self.config.browser_impersonate}, "
-            f"timeout={self.config.timeout}s"
+            f"timeout={self.config.timeout}s, rate_limit={self.config.rate_limit_delay}s"
         )
 
     @staticmethod
@@ -151,7 +165,10 @@ class AsyncDataFetcher:
 
         This method creates cookies that mimic legitimate browser sessions
         with Incapsula bot protection, including visitor IDs, session tokens,
-        and load balancer identifiers.
+        load balancer identifiers, and analytics tracking cookies.
+
+        Enhanced to include Google Analytics, Facebook Pixel, and other
+        tracking cookies that indicate a legitimate browser session.
 
         Useful for all SET services that need to bypass Incapsula protection.
         For production use, real authenticated browser session cookies are
@@ -176,8 +193,17 @@ class AsyncDataFetcher:
             Generated cookies may be blocked by Incapsula. For best results,
             use real browser session cookies from an authenticated session.
         """
+        import time
+
+        # Current timestamp for realistic session cookies
+        now = int(time.time() * 1000)  # Milliseconds
+        now_seconds = int(time.time())
+
         # Random charlot session token (UUID format)
         charlot: str = str(uuid.uuid4())
+
+        # Random LiveChat customer ID (UUID format)
+        lt_cid: str = str(uuid.uuid4())
 
         # Random Incapsula load balancer ID (base64-like format)
         nlbi_id: str = base64.b64encode(secrets.token_bytes(32)).decode("utf-8")[:40]
@@ -190,32 +216,109 @@ class AsyncDataFetcher:
         session_1: str = base64.b64encode(secrets.token_bytes(32)).decode("utf-8")[:48]
         session_2: str = base64.b64encode(secrets.token_bytes(32)).decode("utf-8")[:48]
 
-        # Random site IDs (7-8 digit numbers)
-        site_id_1: int = random.randint(1000000, 9999999)
-        site_id_2: int = random.randint(1000000, 9999999)
+        # Random site IDs (7-8 digit numbers matching real SET site IDs)
+        site_id_1: int = 2046605  # Real SET Incapsula site ID
+        site_id_2: int = 2771851  # Real SET alternate site ID
 
         # Random visit time and API counter
         visit_time: int = random.randint(10, 300)  # 10 seconds to 5 minutes
         api_counter: int = random.randint(1, 10)  # 1-10 API calls
 
-        # Build base cookie string
+        # Google Analytics client ID (GA1.1.{random}.{timestamp})
+        ga_client_id: int = random.randint(1000000000, 9999999999)
+        ga_timestamp: int = now_seconds - random.randint(3600, 86400)  # 1-24 hours ago
+        ga_cookie: str = f"GA1.1.{ga_client_id}.{ga_timestamp}"
+
+        # Facebook Pixel (fb.{version}.{timestamp}.{random})
+        fbp_random: str = str(random.randint(100000000000000000, 999999999999999999))
+        fbp_cookie: str = f"fb.2.{now - random.randint(3600000, 86400000)}.{fbp_random}"
+
+        # Google Ads conversion tracking (version.subversion.{random}.{timestamp})
+        gcl_random: int = random.randint(1000000000, 9999999999)
+        gcl_timestamp: int = now_seconds - random.randint(3600, 86400)
+        gcl_cookie: str = f"1.1.{gcl_random}.{gcl_timestamp}"
+
+        # GA4 session cookies
+        # Format: GS{version}.{version}.s{timestamp}$o{seq}$g{engaged}$t{timestamp}$j{seq}$l0$h0
+        # $g1$ = user engaged (clicked/scrolled), $g0$ = not engaged
+        # AOT requires $g1$ to prove active interaction!
+        ga4_session_time: int = now_seconds - random.randint(60, 3600)
+        ga4_seq: int = random.randint(60, 99)
+        ga4_cookie_1: str = (
+            f"GS2.1.s{ga4_session_time}$o{ga4_seq}$g1$t{ga4_session_time}"
+            f"$j{ga4_seq}$l0$h0"
+        )
+        ga4_cookie_2: str = (
+            f"GS2.1.s{ga4_session_time}$o{ga4_seq}$g1$t{ga4_session_time}"
+            f"$j{ga4_seq}$l0$h0"
+        )
+
+        # SET Cookie Policy (date format: YYYYMMDDHHMMSS)
+        policy_date: str = "20231111093657"
+
+        # UID tracking cookie (8 hex chars . 2 hex digits)
+        uid_hex: str = secrets.token_hex(4).upper()
+        uid_suffix: str = secrets.token_hex(1).upper()[:2]
+        uid_cookie: str = f"{uid_hex}.{uid_suffix}"
+
+        # LiveChat Session ID (__lt__sid) - Critical for AOT and other Tier 4 symbols
+        # Format: {uuid}-{short_hash}
+        lt_sid: str = f"{str(uuid.uuid4())[:23]}-{secrets.token_hex(4)}"
+
+        # Hotjar Active Session (_hjSession_3931504) - Critical for AOT
+        # Base64 encoded JSON with active session data
+        import json
+        hj_session_data = {
+            "id": str(uuid.uuid4()),
+            "c": now,  # created timestamp (ms)
+            "s": 0,    # session count
+            "r": 0,    # recording
+            "sb": 0,   # session buffer
+            "sr": 0,   # session recording
+            "se": 0,   # session events
+            "fs": 0,   # first session
+            "sp": 0    # session ping
+        }
+        hj_session_json = json.dumps(hj_session_data, separators=(',', ':'))
+        hj_session_cookie = base64.b64encode(hj_session_json.encode()).decode()
+
+        # Build comprehensive cookie string
+        # Order matters - start with analytics/tracking for legitimacy
         cookie_string: str = (
+            # Analytics & Tracking (signals legitimate browser)
+            f"__lt__cid={lt_cid}; "
+            f"_fbp={fbp_cookie}; "
+            f"_ga={ga_cookie}; "
+            f"_tt_enable_cookie=1; "
+            f"_gcl_au={gcl_cookie}; "
+            f"SET_COOKIE_POLICY={policy_date}; "
+            f"_cbclose=1; "
+            f"_cbclose23453=1; "
+            f"_uid23453={uid_cookie}; "
+            f"_ctout23453=1; "
+            # Active Session Cookies (Critical for AOT/Tier 4)
+            f"__lt__sid={lt_sid}; "
+            f"_hjSession_3931504={hj_session_cookie}; "
+            # Incapsula Core (required for bot detection bypass)
             f"charlot={charlot}; "
             f"nlbi_{site_id_1}={nlbi_id}; "
             f"visid_incap_{site_id_1}={visid_1}; "
-            f"incap_ses_374_{site_id_1}={session_1}; "
+            f"incap_ses_357_{site_id_1}={session_1}; "
             f"visid_incap_{site_id_2}={visid_2}; "
-            f"incap_ses_374_{site_id_2}={session_2}; "
+            f"incap_ses_357_{site_id_2}={session_2}; "
+            # Session Management
             f"visit_time={visit_time}; "
+            f"_ga_6WS2P0P25V={ga4_cookie_1}; "
+            f"_ga_ET2H60H2CB={ga4_cookie_2}; "
             f"api_call_counter={api_counter}"
         )
 
-        # Add landing_url if provided (critical for some symbols like CPN)
+        # Add landing_url if provided (critical for some symbols like CPN, 2S)
         if landing_url:
             cookie_string += f"; landing_url={landing_url}"
             logger.debug(f"Added landing_url to cookies: {landing_url}")
 
-        logger.debug(f"Generated Incapsula cookies: {len(cookie_string)} chars")
+        logger.debug(f"Generated enhanced Incapsula cookies: {len(cookie_string)} chars")
         return cookie_string
 
     def _generate_random_cookies(self) -> str:
@@ -256,13 +359,12 @@ class AsyncDataFetcher:
         logger.debug(f"Generated cookies: {len(cookie_string)} chars")
         return cookie_string
 
-    def _make_sync_request(self, url: str, headers: dict[str, str]) -> Any:
+    async def _make_request(self, url: str, headers: dict[str, str]) -> Any:
         """
-        Make a synchronous HTTP request using curl_cffi.
+        Make HTTP GET request using either persistent session or standalone request.
 
-        This method is wrapped by asyncio.to_thread for async compliance while
-        maintaining proper session cleanup. It uses curl_cffi's synchronous API
-        which provides better control over browser impersonation.
+        Uses SessionManager for automatic cookie handling if use_session=True,
+        otherwise makes standalone request.
 
         Args:
             url: URL to fetch
@@ -272,22 +374,37 @@ class AsyncDataFetcher:
             Response object from curl_cffi
 
         Raises:
-            Exception: If request fails after all retries
+            Exception: If request fails
         """
-        logger.debug(f"Making sync request to {url}")
+        if self.config.use_session:
+            # Use persistent session with automatic cookie handling
+            from settfex.utils.session_manager import get_shared_session
 
-        try:
-            response = requests.get(
-                url,
-                headers=headers,
-                timeout=self.config.timeout,
-                impersonate=self.config.browser_impersonate,  # type: ignore
+            session = await get_shared_session(browser=self.config.browser_impersonate)
+            response = await session.get(url, headers=headers, timeout=self.config.timeout)
+            logger.debug(
+                f"Request via session: status={response.status_code}, url={url}"
             )
-            logger.debug(f"Request completed: status={response.status_code}, url={url}")
             return response
-        except Exception as e:
-            logger.error(f"Sync request failed: {e}", exc_info=True)
-            raise
+        else:
+            # Make standalone request (no cookie persistence)
+            logger.debug(f"Making standalone request to {url}")
+
+            def do_request():
+                return requests.get(
+                    url,
+                    headers=headers,
+                    timeout=self.config.timeout,
+                    impersonate=self.config.browser_impersonate,  # type: ignore
+                )
+
+            try:
+                response = await asyncio.to_thread(do_request)
+                logger.debug(f"Request completed: status={response.status_code}, url={url}")
+                return response
+            except Exception as e:
+                logger.error(f"Request failed: {e}", exc_info=True)
+                raise
 
     async def fetch(
         self,
@@ -351,14 +468,25 @@ class AsyncDataFetcher:
         elif use_random_cookies:
             default_headers["Cookie"] = self._generate_random_cookies()
 
+        # Rate limiting: Wait if needed to respect rate_limit_delay
+        if self.config.rate_limit_delay > 0:
+            elapsed_since_last = time.time() - self._last_request_time
+            if elapsed_since_last < self.config.rate_limit_delay:
+                delay = self.config.rate_limit_delay - elapsed_since_last
+                logger.debug(f"Rate limiting: sleeping {delay:.3f}s")
+                await asyncio.sleep(delay)
+
         # Retry loop with exponential backoff
         last_exception: Exception | None = None
         for attempt in range(self.config.max_retries + 1):
             try:
                 start_time = time.time()
 
-                # Run sync request in thread pool to maintain async compliance
-                response = await asyncio.to_thread(self._make_sync_request, url, default_headers)
+                # Update last request time for rate limiting
+                self._last_request_time = start_time
+
+                # Make request (either via persistent session or standalone)
+                response = await self._make_request(url, default_headers)
 
                 elapsed = time.time() - start_time
 

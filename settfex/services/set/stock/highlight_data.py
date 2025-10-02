@@ -94,7 +94,10 @@ class StockHighlightDataService:
     """
 
     def __init__(
-        self, config: FetcherConfig | None = None, session_cookies: str | None = None
+        self,
+        config: FetcherConfig | None = None,
+        session_cookies: str | None = None,
+        use_cookies: bool = True,
     ) -> None:
         """
         Initialize the stock highlight data service.
@@ -102,24 +105,33 @@ class StockHighlightDataService:
         Args:
             config: Optional fetcher configuration (uses defaults if None)
             session_cookies: Optional browser session cookies for authenticated requests.
-                           When None, generated Incapsula cookies are used.
-                           For production use with real API access, provide actual
-                           browser session cookies from an authenticated session.
+                           When provided, overrides use_cookies setting.
+            use_cookies: Whether to generate cookies automatically. Default True (generates
+                        minimal cookies for Incapsula). Set to False for maximum stealth
+                        (requires session_cookies or may fail).
 
         Example:
-            >>> # Using generated cookies (may be blocked by Incapsula)
+            >>> # Default: Auto-generated cookies (recommended)
             >>> service = StockHighlightDataService()
             >>>
-            >>> # Using real browser session cookies (recommended)
+            >>> # With real browser session cookies (most reliable)
             >>> cookies = "charlot=abc123; incap_ses_357_2046605=xyz789; ..."
             >>> service = StockHighlightDataService(session_cookies=cookies)
+            >>>
+            >>> # No cookies mode (may get HTTP 403 without session_cookies)
+            >>> service = StockHighlightDataService(use_cookies=False)
         """
         self.config = config or FetcherConfig()
         self.base_url = SET_BASE_URL
         self.session_cookies = session_cookies
+        self.use_cookies = use_cookies
         logger.info(f"StockHighlightDataService initialized with base_url={self.base_url}")
         if session_cookies:
-            logger.debug("Using provided session cookies for authentication")
+            logger.debug("Using provided session cookies")
+        elif use_cookies:
+            logger.debug("Auto-generating cookies for Incapsula compatibility")
+        else:
+            logger.debug("No cookies mode - may require session_cookies to avoid HTTP 403")
 
     async def fetch_highlight_data(
         self, symbol: str, lang: str = "en"
@@ -166,17 +178,38 @@ class StockHighlightDataService:
             referer = f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"
             headers = AsyncDataFetcher.get_set_api_headers(referer=referer)
 
-            # Use provided session cookies or generate Incapsula-aware cookies with landing_url
-            # The landing_url cookie is critical for some symbols (like CPN) that check this
-            cookies = (
-                self.session_cookies
-                or AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
-            )
+            # Cookie handling (priority: session_cookies > use_cookies > no cookies)
+            # HAR analysis shows real Chrome sends no cookies by default
+            cookies = None
+            if self.session_cookies:
+                cookies = self.session_cookies
+            elif self.use_cookies:
+                cookies = AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
 
-            # Fetch JSON data from API
-            data = await fetcher.fetch_json(
+            # Fetch raw response first to check status
+            response = await fetcher.fetch(
                 url, headers=headers, cookies=cookies, use_random_cookies=False
             )
+
+            # Check for Incapsula/bot detection errors
+            if response.status_code != 200:
+                error_msg = (
+                    f"Failed to fetch highlight data for {symbol}: "
+                    f"HTTP {response.status_code}. "
+                    f"This may be due to Incapsula bot detection. "
+                    f"Try using real browser session cookies."
+                )
+                logger.error(error_msg)
+                raise Exception(error_msg)
+
+            # Parse JSON
+            import json
+            try:
+                data = json.loads(response.text)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON response: {e}")
+                logger.debug(f"Response text: {response.text[:500]}")
+                raise
 
             # Parse and validate response using Pydantic
             highlight_data = StockHighlightData(**data)
@@ -234,16 +267,39 @@ class StockHighlightDataService:
             referer = f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"
             headers = AsyncDataFetcher.get_set_api_headers(referer=referer)
 
-            # Use provided session cookies or generate Incapsula-aware cookies with landing_url
-            cookies = (
-                self.session_cookies
-                or AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
-            )
+            # Cookie handling (priority: session_cookies > use_cookies > no cookies)
+            # HAR analysis shows real Chrome sends no cookies by default
+            cookies = None
+            if self.session_cookies:
+                cookies = self.session_cookies
+            elif self.use_cookies:
+                cookies = AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
 
-            # Fetch JSON data
-            data = await fetcher.fetch_json(
+            # Fetch raw response first to check status
+            response = await fetcher.fetch(
                 url, headers=headers, cookies=cookies, use_random_cookies=False
             )
+
+            # Check for Incapsula/bot detection errors
+            if response.status_code != 200:
+                error_msg = (
+                    f"Failed to fetch highlight data for {symbol}: "
+                    f"HTTP {response.status_code}. "
+                    f"This may be due to Incapsula bot detection. "
+                    f"Try using real browser session cookies."
+                )
+                logger.error(error_msg)
+                raise Exception(error_msg)
+
+            # Parse JSON
+            import json
+            try:
+                data = json.loads(response.text)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON response: {e}")
+                logger.debug(f"Response text: {response.text[:500]}")
+                raise
+
             logger.debug(
                 f"Raw response keys: {list(data.keys()) if isinstance(data, dict) else type(data)}"
             )
@@ -256,6 +312,7 @@ async def get_highlight_data(
     lang: str = "en",
     config: FetcherConfig | None = None,
     session_cookies: str | None = None,
+    use_cookies: bool = False,
 ) -> StockHighlightData:
     """
     Convenience function to fetch stock highlight data.
@@ -265,19 +322,25 @@ async def get_highlight_data(
         lang: Language for response ('en' or 'th', default: 'en')
         config: Optional fetcher configuration
         session_cookies: Optional browser session cookies for authenticated requests
+        use_cookies: Whether to generate cookies automatically (default: False)
 
     Returns:
         StockHighlightData with highlight metrics and statistics
 
     Example:
         >>> from settfex.services.set.stock import get_highlight_data
-        >>> # Using generated cookies
+        >>> # Default: No cookies (matches real Chrome)
         >>> data = await get_highlight_data("CPALL")
         >>> print(f"{data.symbol}: Market Cap = {data.market_cap:,.0f}")
         >>>
-        >>> # Or with real browser session cookies (recommended)
+        >>> # With real browser session cookies
         >>> cookies = "charlot=abc123; incap_ses_357_2046605=xyz789; ..."
-        >>> data = await get_highlight_data("CPALL", lang="th", session_cookies=cookies)
+        >>> data = await get_highlight_data("CPALL", session_cookies=cookies)
+        >>>
+        >>> # With auto-generated cookies (legacy mode)
+        >>> data = await get_highlight_data("CPALL", use_cookies=True)
     """
-    service = StockHighlightDataService(config=config, session_cookies=session_cookies)
+    service = StockHighlightDataService(
+        config=config, session_cookies=session_cookies, use_cookies=use_cookies
+    )
     return await service.fetch_highlight_data(symbol=symbol, lang=lang)
