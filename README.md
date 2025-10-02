@@ -54,11 +54,11 @@ async def main():
 asyncio.run(main())
 ```
 
-### Using SET Stock List Service (High-Level)
+### Using SET Stock Services (High-Level)
 
 ```python
 import asyncio
-from settfex.services.set import get_stock_list
+from settfex.services.set import Stock, get_stock_list
 from settfex.utils.logging import setup_logger
 
 # Optional: Configure logging
@@ -80,6 +80,15 @@ async def main():
     ptt = stock_list.get_symbol("PTT")
     if ptt:
         print(f"{ptt.symbol}: {ptt.name_en} ({ptt.name_th})")
+
+    # Fetch highlight data for individual stock
+    stock = Stock("CPALL")
+    highlight = await stock.get_highlight_data()
+    print(f"\n{highlight.symbol} Highlight Data:")
+    print(f"Market Cap: {highlight.market_cap:,.0f} THB")
+    print(f"P/E Ratio: {highlight.pe_ratio}")
+    print(f"P/B Ratio: {highlight.pb_ratio}")
+    print(f"Dividend Yield: {highlight.dividend_yield}%")
 
 asyncio.run(main())
 ```
