@@ -111,7 +111,10 @@ class StockProfileService:
     """
 
     def __init__(
-        self, config: FetcherConfig | None = None, session_cookies: str | None = None
+        self,
+        config: FetcherConfig | None = None,
+        session_cookies: str | None = None,
+        use_cookies: bool = True,
     ) -> None:
         """
         Initialize the stock profile service.
@@ -119,24 +122,33 @@ class StockProfileService:
         Args:
             config: Optional fetcher configuration (uses defaults if None)
             session_cookies: Optional browser session cookies for authenticated requests.
-                           When None, generated Incapsula cookies are used.
-                           For production use with real API access, provide actual
-                           browser session cookies from an authenticated session.
+                           When provided, overrides use_cookies setting.
+            use_cookies: Whether to generate cookies automatically. Default True (generates
+                        minimal cookies for Incapsula). Set to False for maximum stealth
+                        (requires session_cookies or may fail).
 
         Example:
-            >>> # Using generated cookies (may be blocked by Incapsula)
+            >>> # Default: Auto-generated cookies (recommended)
             >>> service = StockProfileService()
             >>>
-            >>> # Using real browser session cookies (recommended)
+            >>> # With real browser session cookies (most reliable)
             >>> cookies = "charlot=abc123; incap_ses_357_2046605=xyz789; ..."
             >>> service = StockProfileService(session_cookies=cookies)
+            >>>
+            >>> # No cookies mode (may get HTTP 403 without session_cookies)
+            >>> service = StockProfileService(use_cookies=False)
         """
         self.config = config or FetcherConfig()
         self.base_url = SET_BASE_URL
         self.session_cookies = session_cookies
+        self.use_cookies = use_cookies
         logger.info(f"StockProfileService initialized with base_url={self.base_url}")
         if session_cookies:
-            logger.debug("Using provided session cookies for authentication")
+            logger.debug("Using provided session cookies")
+        elif use_cookies:
+            logger.debug("Auto-generating cookies for Incapsula compatibility")
+        else:
+            logger.debug("No cookies mode - may require session_cookies to avoid HTTP 403")
 
     async def fetch_profile(
         self, symbol: str, lang: str = "en"
@@ -184,12 +196,13 @@ class StockProfileService:
             referer = f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"
             headers = AsyncDataFetcher.get_set_api_headers(referer=referer)
 
-            # Use provided session cookies or generate Incapsula-aware cookies with landing_url
-            # The landing_url cookie is critical for some symbols (like CPN) that check this
-            cookies = (
-                self.session_cookies
-                or AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
-            )
+            # Cookie handling (priority: session_cookies > use_cookies > no cookies)
+            # HAR analysis shows real Chrome sends no cookies by default
+            cookies = None
+            if self.session_cookies:
+                cookies = self.session_cookies
+            elif self.use_cookies:
+                cookies = AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
 
             # Fetch raw response first to check status
             response = await fetcher.fetch(
@@ -272,12 +285,13 @@ class StockProfileService:
             referer = f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"
             headers = AsyncDataFetcher.get_set_api_headers(referer=referer)
 
-            # Use provided session cookies or generate Incapsula-aware cookies with landing_url
-            # The landing_url cookie is critical for some symbols (like CPN) that check this
-            cookies = (
-                self.session_cookies
-                or AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
-            )
+            # Cookie handling (priority: session_cookies > use_cookies > no cookies)
+            # HAR analysis shows real Chrome sends no cookies by default
+            cookies = None
+            if self.session_cookies:
+                cookies = self.session_cookies
+            elif self.use_cookies:
+                cookies = AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
 
             # Fetch JSON data
             data = await fetcher.fetch_json(
@@ -295,6 +309,7 @@ async def get_profile(
     lang: str = "en",
     config: FetcherConfig | None = None,
     session_cookies: str | None = None,
+    use_cookies: bool = False,
 ) -> StockProfile:
     """
     Convenience function to fetch stock profile data.
@@ -304,20 +319,25 @@ async def get_profile(
         lang: Language for response ('en' or 'th', default: 'en')
         config: Optional fetcher configuration
         session_cookies: Optional browser session cookies for authenticated requests
+        use_cookies: Whether to generate cookies automatically (default: False)
 
     Returns:
         StockProfile with comprehensive company and listing information
 
     Example:
         >>> from settfex.services.set.stock import get_profile
-        >>> # Using generated cookies
+        >>> # Default: No cookies (matches real Chrome)
         >>> profile = await get_profile("PTT")
         >>> print(f"{profile.symbol}: {profile.name}")
-        >>> print(f"Sector: {profile.sector_name}, Industry: {profile.industry_name}")
         >>>
-        >>> # Or with real browser session cookies (recommended)
+        >>> # With real browser session cookies
         >>> cookies = "charlot=abc123; incap_ses_357_2046605=xyz789; ..."
-        >>> profile = await get_profile("PTT", lang="th", session_cookies=cookies)
+        >>> profile = await get_profile("PTT", session_cookies=cookies)
+        >>>
+        >>> # With auto-generated cookies (legacy mode)
+        >>> profile = await get_profile("PTT", use_cookies=True)
     """
-    service = StockProfileService(config=config, session_cookies=session_cookies)
+    service = StockProfileService(
+        config=config, session_cookies=session_cookies, use_cookies=use_cookies
+    )
     return await service.fetch_profile(symbol=symbol, lang=lang)
