@@ -1,5 +1,18 @@
 """Utility functions and helpers for settfex."""
 
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig, FetchResponse
+from settfex.utils.logging import get_logger, setup_logger
+from settfex.utils.session_cache import SessionCache, get_global_cache
+from settfex.utils.session_manager import SessionManager, get_shared_session
 
-__all__ = ["AsyncDataFetcher", "FetcherConfig", "FetchResponse"]
+__all__ = [
+    "AsyncDataFetcher",
+    "FetcherConfig",
+    "FetchResponse",
+    "setup_logger",
+    "get_logger",
+    "SessionCache",
+    "get_global_cache",
+    "SessionManager",
+    "get_shared_session",
+]
