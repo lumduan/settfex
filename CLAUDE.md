@@ -151,6 +151,109 @@ settfex/
 
 ## Recent Changes
 
+### 2025-10-02: Stock Highlight Data Service & Unified Stock Class
+
+**Stock Utilities Module (`settfex/services/set/stock/utils.py`)**
+- Created shared utilities for all stock-related services
+- Key functions:
+  - `normalize_symbol()`: Normalize stock symbols to uppercase
+  - `normalize_language()`: Normalize language codes to 'en' or 'th'
+- Purpose:
+  - Provide consistent input normalization across all stock services
+  - Support multiple language input formats (en, eng, english, th, tha, thai)
+  - Reusable by future stock services
+
+**Stock Highlight Data Service (`settfex/services/set/stock/highlight_data.py`)**
+- Created async service to fetch highlight data for individual stock symbols
+- Key features:
+  - **Full Type Safety**: Complete Pydantic model with 30+ fields
+  - **Dual Language Support**: Fetch data in English ('en') or Thai ('th')
+  - **Input Normalization**: Automatic symbol uppercase and language validation
+  - **Async-First**: Built on AsyncDataFetcher for optimal performance
+  - **Flexible Cookie Support**: Accepts real browser session cookies or generates them
+- Implementation:
+  - Two main Pydantic models:
+    - `StockHighlightData`: Individual stock metrics (P/E, P/B, market cap, etc.)
+    - `StockHighlightDataService`: Main service class
+  - Two fetch methods:
+    - `fetch_highlight_data(symbol, lang)`: Returns validated Pydantic model
+    - `fetch_highlight_data_raw(symbol, lang)`: Returns raw dictionary for debugging
+  - Convenience function:
+    - `get_highlight_data(symbol, lang)`: Quick one-line access
+- Data fields include:
+  - Valuation metrics: Market cap, P/E ratio, P/B ratio, beta
+  - Dividend data: Yield, amount, ex-dividend date
+  - Trading data: 52-week high/low, turnover ratio
+  - NVDR data: Buy/sell volume and value, net position
+  - Share data: Listed shares, outstanding shares, free float
+- Configuration:
+  - Added to `settfex/services/set/constants.py`:
+    - `SET_STOCK_HIGHLIGHT_DATA_ENDPOINT`: `/api/set/stock/{symbol}/highlight-data`
+- Usage pattern:
+  ```python
+  from settfex.services.set import Stock, get_highlight_data
+
+  # Using Stock class (recommended)
+  stock = Stock("CPALL")
+  data = await stock.get_highlight_data()
+  print(f"P/E: {data.pe_ratio}, P/B: {data.pb_ratio}")
+
+  # Using convenience function
+  data = await get_highlight_data("CPALL", lang="en")
+  print(f"Market Cap: {data.market_cap:,.0f}")
+
+  # Thai language support
+  data = await get_highlight_data("CPALL", lang="th")
+  ```
+- Documentation:
+  - Full service documentation: `docs/settfex/services/set/highlight_data.md`
+  - Manual verification script: `scripts/settfex/services/set/verify_highlight_data.py`
+
+**Unified Stock Class (`settfex/services/set/stock/stock.py`)**
+- Created unified `Stock` class as main entry point for all stock-related services
+- Key features:
+  - **Single Symbol Focus**: Initialize with one stock symbol
+  - **Service Aggregation**: Access multiple services through one interface
+  - **Lazy Initialization**: Services created only when needed
+  - **Extensible Design**: Easy to add new services (shareholders, financials, etc.)
+- Implementation:
+  - Constructor accepts symbol, config, and session_cookies
+  - Property for each service (e.g., `highlight_data_service`)
+  - Method for each data type (e.g., `get_highlight_data()`)
+  - Ready for future services (shareholders, financials, company profile)
+- Usage pattern:
+  ```python
+  from settfex.services.set import Stock
+
+  # Create Stock instance
+  stock = Stock("CPALL")
+
+  # Fetch highlight data
+  highlight = await stock.get_highlight_data()
+
+  # Future services (planned):
+  # shareholders = await stock.get_shareholders()
+  # financials = await stock.get_financials()
+  # profile = await stock.get_company_profile()
+  ```
+- Purpose:
+  - Provide clean, object-oriented interface for stock data
+  - Centralize configuration and authentication
+  - Enable easy addition of future services
+  - Simplify code for users fetching multiple data types
+
+**Module Structure**
+- Created `settfex/services/set/stock/` subdirectory
+- Files:
+  - `__init__.py`: Exports Stock class and all stock services
+  - `utils.py`: Shared utility functions
+  - `highlight_data.py`: Highlight data service
+  - `stock.py`: Unified Stock class
+- Updated `settfex/services/set/__init__.py` to export:
+  - `Stock` class
+  - `StockHighlightData`, `StockHighlightDataService`, `get_highlight_data`
+  - `normalize_symbol`, `normalize_language`
+
 ### 2025-10-01: SET Stock List Service (Updated)
 
 **Reusable SET API Utilities (`settfex/utils/data_fetcher.py`)**
