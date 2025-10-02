@@ -193,9 +193,22 @@ class SessionManager:
             cache = await self._get_cache()
 
             # Extract cookies from session
+            # curl_cffi cookies can be a dict-like object or Cookie objects
             cookies_dict = {}
-            for cookie in self._session.cookies:
-                cookies_dict[cookie.name] = cookie.value
+
+            if hasattr(self._session.cookies, 'items'):
+                # If it's a dict-like object
+                for name, value in self._session.cookies.items():
+                    cookies_dict[name] = value
+            else:
+                # If it's an iterable of Cookie objects
+                for cookie in self._session.cookies:
+                    if hasattr(cookie, 'name') and hasattr(cookie, 'value'):
+                        cookies_dict[cookie.name] = cookie.value
+                    else:
+                        # If it's already a dict or something else, skip
+                        logger.warning(f"Unknown cookie format: {type(cookie)}")
+                        continue
 
             if not cookies_dict:
                 logger.warning("No cookies to cache")
@@ -215,6 +228,7 @@ class SessionManager:
 
         except Exception as e:
             logger.error(f"Failed to save to cache: {e}")
+            logger.debug(f"Cookie type: {type(self._session.cookies) if self._session else 'None'}")
 
     async def ensure_initialized(self, force_warmup: bool = False) -> None:
         """
