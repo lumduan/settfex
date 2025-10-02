@@ -82,6 +82,7 @@ async def main():
         print(f"{ptt.symbol}: {ptt.name_en} ({ptt.name_th})")
 
     # Fetch highlight data for individual stock
+    # Uses symbol-specific referer and landing_url cookie for bot detection bypass
     stock = Stock("CPALL")
     highlight = await stock.get_highlight_data()
     print(f"\n{highlight.symbol} Highlight Data:")
@@ -91,6 +92,7 @@ async def main():
     print(f"Dividend Yield: {highlight.dividend_yield}%")
 
     # Fetch stock profile for detailed company information
+    # Also uses symbol-specific referer and landing_url cookie
     from settfex.services.set import get_profile
 
     profile = await get_profile("PTT")

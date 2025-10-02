@@ -161,11 +161,17 @@ class StockHighlightDataService:
         logger.info(f"Fetching highlight data for symbol '{symbol}' (lang={lang}) from {url}")
 
         async with AsyncDataFetcher(config=self.config) as fetcher:
-            # Get optimized headers for SET API (includes all Incapsula bypass headers)
-            headers = AsyncDataFetcher.get_set_api_headers()
+            # Get optimized headers for SET API with symbol-specific referer
+            # This is critical for bypassing Incapsula bot detection
+            referer = f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"
+            headers = AsyncDataFetcher.get_set_api_headers(referer=referer)
 
-            # Use provided session cookies or generate Incapsula-aware cookies
-            cookies = self.session_cookies or AsyncDataFetcher.generate_incapsula_cookies()
+            # Use provided session cookies or generate Incapsula-aware cookies with landing_url
+            # The landing_url cookie is critical for some symbols (like CPN) that check this
+            cookies = (
+                self.session_cookies
+                or AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
+            )
 
             # Fetch JSON data from API
             data = await fetcher.fetch_json(
@@ -224,11 +230,15 @@ class StockHighlightDataService:
         logger.info(f"Fetching raw highlight data for '{symbol}' (lang={lang}) from {url}")
 
         async with AsyncDataFetcher(config=self.config) as fetcher:
-            # Get optimized headers for SET API
-            headers = AsyncDataFetcher.get_set_api_headers()
+            # Get optimized headers for SET API with symbol-specific referer
+            referer = f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"
+            headers = AsyncDataFetcher.get_set_api_headers(referer=referer)
 
-            # Use provided session cookies or generate Incapsula-aware cookies
-            cookies = self.session_cookies or AsyncDataFetcher.generate_incapsula_cookies()
+            # Use provided session cookies or generate Incapsula-aware cookies with landing_url
+            cookies = (
+                self.session_cookies
+                or AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
+            )
 
             # Fetch JSON data
             data = await fetcher.fetch_json(

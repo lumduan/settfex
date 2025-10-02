@@ -14,6 +14,13 @@ This service fetches detailed company and listing information including:
 - Fiscal year information
 - Derivative-specific data (for warrants)
 
+**Key Features:**
+- **Type Safety**: Complete Pydantic model with 30+ profile fields
+- **Dual Language Support**: English ('en') and Thai ('th') responses
+- **Async-First**: Built on AsyncDataFetcher for optimal performance
+- **Bot Detection Bypass**: Automatic symbol-specific referer and landing_url cookie for reliable data fetching
+- **Concurrent Request Support**: Fetch multiple stock profiles simultaneously without delays
+
 ## Installation
 
 ```bash
@@ -277,30 +284,38 @@ async def fetch_with_error_handling():
 
 ## Important Notes on Bot Detection
 
-**Incapsula/Imperva Protection**: The SET API is protected by Incapsula bot detection. You may encounter HTTP 452 errors, especially when:
-- Making multiple concurrent requests
-- Making many requests in a short time
-- Using generated cookies instead of real browser session cookies
+**Incapsula/Imperva Protection**: The SET API is protected by Incapsula bot detection. This service implements several techniques to bypass detection:
 
-**Recommendations**:
-1. **Use Real Browser Cookies**: For production, extract cookies from an authenticated browser session
-2. **Add Delays**: When fetching multiple stocks, add delays between requests (e.g., 0.5-1 second)
-3. **Avoid Concurrent Requests**: Fetch stocks sequentially rather than using `asyncio.gather()`
-4. **Handle Errors Gracefully**: Implement retry logic with exponential backoff
+1. **Symbol-Specific Referer** (✓ Implemented): Each request includes a referer header that matches the stock symbol being fetched:
+   ```
+   Referer: https://www.set.or.th/en/market/product/stock/quote/{symbol}/price
+   ```
+   This mimics real browser behavior and is **critical** for bypassing Incapsula.
 
-**Example with Delays**:
+2. **Browser Impersonation**: Uses curl_cffi to impersonate Chrome 120 with proper headers
+
+3. **Incapsula Cookies**: Generates realistic Incapsula-aware cookies automatically
+
+**Best Practices**:
+- ✅ **Concurrent Requests Work**: Thanks to symbol-specific referers, you can now fetch multiple stocks concurrently without issues
+- ✅ **No Delays Needed**: The referer fix eliminates the need for artificial delays between requests
+- 💡 **Optional**: For maximum reliability in production, consider using real browser session cookies
+
+**Concurrent Requests Example** (Recommended):
 ```python
 import asyncio
+from settfex.services.set.stock import get_profile
 
-# BAD: Concurrent requests may trigger bot detection
-profiles = await asyncio.gather(*[get_profile(s) for s in symbols])  # May fail!
+async def fetch_multiple():
+    symbols = ["PTT", "CPALL", "KBANK", "AOT"]
 
-# GOOD: Sequential with delays
-profiles = []
-for symbol in symbols:
-    profile = await get_profile(symbol)
-    profiles.append(profile)
-    await asyncio.sleep(0.5)  # Delay between requests
+    # ✓ RECOMMENDED: Concurrent requests work perfectly with symbol-specific referers
+    profiles = await asyncio.gather(*[get_profile(s) for s in symbols])
+
+    for profile in profiles:
+        print(f"{profile.symbol}: {profile.name}")
+
+asyncio.run(fetch_multiple())
 ```
 
 ## Example: Compare Multiple Stocks
@@ -311,13 +326,9 @@ from settfex.services.set.stock import get_profile
 
 async def compare_stocks():
     symbols = ["PTT", "CPALL", "KBANK", "AOT"]
-    profiles = []
 
-    # Fetch profiles sequentially with delay to avoid bot detection
-    for symbol in symbols:
-        profile = await get_profile(symbol)
-        profiles.append(profile)
-        await asyncio.sleep(0.5)  # Small delay between requests
+    # Fetch profiles concurrently (works perfectly with symbol-specific referers!)
+    profiles = await asyncio.gather(*[get_profile(symbol) for symbol in symbols])
 
     # Display comparison
     print(f"\n{'Symbol':<10} {'Name':<40} {'Sector':<20} {'IPO':>10}")
@@ -387,6 +398,40 @@ async def full_stock_analysis(symbol: str):
 
 asyncio.run(full_stock_analysis("CPALL"))
 ```
+
+## Important Notes on Bot Detection
+
+The service implements a two-part bot detection bypass pattern that is critical for reliable data fetching:
+
+### 1. Symbol-Specific Referer Header (✓ Implemented)
+Each request automatically includes a referer header that matches the stock symbol being fetched:
+```
+Referer: https://www.set.or.th/en/market/product/stock/quote/{symbol}/price
+```
+
+### 2. Landing URL Cookie (✓ Implemented)
+The service automatically generates a `landing_url` cookie matching the referer for symbols with stricter Incapsula rules:
+```
+landing_url=https://www.set.or.th/en/market/product/stock/quote/{symbol}/price
+```
+
+**Why This Matters:**
+- Incapsula/Imperva bot protection checks **both** the HTTP referer header and the `landing_url` cookie value
+- Some symbols (like CPN) have stricter security rules and require both to be present and matching
+- Without both, requests may fail with HTTP 452 (bot detection blocked)
+
+**Implementation:**
+```python
+# Automatically applied in fetch_profile()
+referer = f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"
+headers = AsyncDataFetcher.get_set_api_headers(referer=referer)
+cookies = AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
+```
+
+**Best Practices:**
+- ✅ **Concurrent Requests Work**: Thanks to symbol-specific referers and landing_url cookies, you can fetch multiple stocks concurrently without issues
+- ✅ **No Delays Needed**: The bypass fixes eliminate the need for artificial delays between requests
+- ✅ **All Symbols Supported**: Works with symbols having both standard and strict Incapsula rules (PTT, CPALL, CPN, etc.)
 
 ## Notes
 

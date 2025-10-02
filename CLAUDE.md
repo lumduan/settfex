@@ -329,14 +329,43 @@ settfex/
   - `get_set_api_headers()`: Returns optimized headers for SET API requests
     - Includes all Incapsula bypass headers (Sec-Fetch-*, Cache-Control, Pragma, Priority)
     - Chrome 140 user agent with proper sec-ch-ua headers
-    - Configurable referer URL
+    - Configurable referer URL (critical for bot detection bypass)
   - `generate_incapsula_cookies()`: Generates Incapsula-aware randomized cookies
     - Creates realistic visitor IDs, session tokens, and load balancer IDs
     - UUID-format charlot session tokens
     - Base64-encoded Incapsula identifiers
     - Random site IDs and API counters
+    - **Landing URL Cookie Support**: Accepts optional `landing_url` parameter for symbol-specific requests
+      - Critical for symbols with stricter Incapsula rules (e.g., CPN)
+      - Should match the referer header for best results
+      - Format: `landing_url=https://www.set.or.th/en/market/product/stock/quote/{symbol}/price`
 - Both methods are static and can be used by any future SET service
 - Full documentation with examples for service developers
+
+**Bot Detection Bypass Pattern (Critical for All Stock Services)**
+All stock-related services (highlight_data, profile_stock, etc.) now implement a two-part bot detection bypass:
+1. **Symbol-Specific Referer Header**: Each request includes a referer matching the stock being fetched
+2. **Landing URL Cookie**: Cookie value matching the referer for symbols with stricter Incapsula rules
+
+Implementation pattern:
+```python
+# Build symbol-specific referer URL
+referer = f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"
+
+# Get headers with symbol-specific referer
+headers = AsyncDataFetcher.get_set_api_headers(referer=referer)
+
+# Generate cookies with landing_url matching referer
+cookies = (
+    self.session_cookies
+    or AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
+)
+```
+
+This pattern ensures:
+- Bypass of Incapsula/Imperva bot detection for all symbols
+- Support for concurrent requests without delays
+- Compatibility with symbols having stricter security rules (CPN, etc.)
 
 **New Stock List Service (`settfex/services/set/list.py`)**
 - Created async service to fetch complete stock list from SET API
