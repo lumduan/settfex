@@ -144,19 +144,9 @@ settfex uses modern, powerful libraries:
 ## Documentation
 
 For detailed documentation, please see:
-- [Installation Guide](docs/installation.md)
-- [Quick Start Guide](docs/quickstart.md)
-- [API Reference](docs/api-reference.md)
-- [AsyncDataFetcher Guide](docs/settfex/utils/data_fetcher.md) - Low-level async HTTP client
-- [Contributing Guide](docs/contributing.md)
-
-## Examples
-
-Check out the [examples](examples/) directory for more detailed usage examples:
-- [SET Real-time Data](examples/set_realtime_example.py)
-- [SET Historical Data](examples/set_historical_example.py)
-- [TFEX Real-time Data](examples/tfex_realtime_example.py)
-- [TFEX Historical Data](examples/tfex_historical_example.py)
+- [AsyncDataFetcher Guide](docs/settfex/utils/data_fetcher.md) - Low-level async HTTP client with session management
+- [Session Caching Guide](docs/session_caching.md) - Understanding session cache for 25x performance boost
+- [SET API Protection Note](docs/settfex/services/set/API_PROTECTION_NOTE.md) - Important bot detection bypass information
 
 ## Development
 
@@ -189,7 +179,17 @@ mypy settfex
 
 ## Contributing
 
-Contributions are welcome! Please see our [Contributing Guide](docs/contributing.md) for details.
+Contributions are welcome! Please follow these guidelines:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes with proper type hints and tests
+4. Run tests and linting (`pytest` and `ruff check .`)
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+For detailed development guidelines, see the project structure and architecture notes in `CLAUDE.md`.
 
 ## License
 
