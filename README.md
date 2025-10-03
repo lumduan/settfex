@@ -1,200 +1,248 @@
 # settfex
 
-> Fetch real-time and historical data from the Stock Exchange of Thailand (SET) and Thailand Futures Exchange (TFEX)
+> Your friendly Python library for fetching Thai stock market data 🇹🇭
 
 [![PyPI version](https://badge.fury.io/py/settfex.svg)](https://badge.fury.io/py/settfex)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Features
+**settfex** makes it super easy to get stock market data from the Stock Exchange of Thailand (SET) and Thailand Futures Exchange (TFEX). Whether you're building a trading bot, doing market analysis, or just curious about Thai stocks, we've got you covered!
 
-- **SET Data**: Access real-time and historical stock data from the Stock Exchange of Thailand
-- **TFEX Data**: Fetch futures and derivatives data from the Thailand Futures Exchange
-- **Modern Python**: Built with Python 3.11+ using modern async patterns
-- **Type Safe**: Full type hints and runtime validation with Pydantic
-- **Easy to Use**: Simple, intuitive API for fetching market data
-- **Advanced HTTP**: Built with curl_cffi for browser-like requests with impersonation
-- **Smart Logging**: Integrated loguru for beautiful, powerful logging
-- **Unicode Support**: Full Thai language support with proper UTF-8 handling
-- **Session Caching**: Disk-based session caching with 25x performance boost after first request
-- **Auto-Retry**: Automatic session warmup and retry on bot detection
-
-## Installation
+## ⚡ Quick Install
 
 ```bash
 pip install settfex
 ```
 
-## Quick Start
+## 🎯 What Can You Do?
 
-### Using the Async Data Fetcher (Low-Level)
+### 📋 Get Stock List
+
+Want to see all stocks trading on SET? Easy!
 
 ```python
-import asyncio
-from settfex.utils.data_fetcher import AsyncDataFetcher
+from settfex.services.set import get_stock_list
 
-async def main():
-    # Basic usage with defaults - SessionManager handles cookies automatically
-    async with AsyncDataFetcher() as fetcher:
-        # Fetch HTML/text content
-        response = await fetcher.fetch("https://www.set.or.th/th/market/product/stock/quote")
-        print(f"Status: {response.status_code}")
-        print(f"Thai text: {response.text[:200]}")
+stock_list = await get_stock_list()
+print(f"Found {stock_list.count} stocks!")
 
-        # Fetch JSON data with SET-optimized headers
-        headers = AsyncDataFetcher.get_set_api_headers()
-        data = await fetcher.fetch_json(
-            "https://www.set.or.th/api/set/stock/list",
-            headers=headers
-        )
-        print(f"Data: {data}")
-
-asyncio.run(main())
+# Filter by market
+set_stocks = stock_list.filter_by_market("SET")
+mai_stocks = stock_list.filter_by_market("mai")
 ```
 
-### Using SET Stock Services (High-Level)
+**👉 [Learn more about Stock Lists](docs/settfex/services/set/list.md)**
+
+---
+
+### 💰 Get Stock Highlight Data
+
+Need market cap, P/E ratio, dividend yield? We got you!
+
+```python
+from settfex.services.set import Stock
+
+stock = Stock("CPALL")
+data = await stock.get_highlight_data()
+
+print(f"Market Cap: {data.market_cap:,.0f} THB")
+print(f"P/E Ratio: {data.pe_ratio}")
+print(f"Dividend Yield: {data.dividend_yield}%")
+```
+
+**👉 [Learn more about Highlight Data](docs/settfex/services/set/highlight_data.md)**
+
+---
+
+### 📊 Get Stock Profile
+
+Want to know when a company was listed? Its IPO price? Foreign ownership limits?
+
+```python
+from settfex.services.set import get_profile
+
+profile = await get_profile("PTT")
+
+print(f"Listed: {profile.listed_date}")
+print(f"IPO Price: {profile.ipo} {profile.currency}")
+print(f"Foreign Limit: {profile.percent_foreign_limit}%")
+```
+
+**👉 [Learn more about Stock Profiles](docs/settfex/services/set/profile_stock.md)**
+
+---
+
+### 🏢 Get Company Profile
+
+Curious about company details, management, auditors, or ESG ratings?
+
+```python
+from settfex.services.set import get_company_profile
+
+company = await get_company_profile("CPN")
+
+print(f"Company: {company.name}")
+print(f"Website: {company.url}")
+print(f"CG Score: {company.cg_score}/5")
+print(f"ESG Rating: {company.setesg_rating}")
+print(f"Executives: {len(company.managements)}")
+```
+
+**👉 [Learn more about Company Profiles](docs/settfex/services/set/profile_company.md)**
+
+---
+
+## 🚀 Why settfex?
+
+### ⚡ Blazing Fast
+
+First request takes ~2 seconds (warming up). After that? **100ms!** That's 25x faster thanks to smart session caching.
+
+**👉 [Learn about Session Caching](docs/settfex/utils/session_caching.md)**
+
+### 🇹🇭 Thai Language Support
+
+Full UTF-8 support for Thai characters. Company names, sectors, everything just works!
+
+### 🤖 Bot Detection Handled
+
+We handle Incapsula/Imperva bot protection automatically. You just focus on your code.
+
+### 🔒 Type Safe
+
+Everything is type-hinted and validated with Pydantic. Your IDE will love it!
+
+### 🪵 Smart Logging
+
+Beautiful logs with loguru. Debug issues easily or turn them off in production.
+
+## 📚 Full Documentation
+
+Want to dig deeper? Check out our detailed guides:
+
+### Services
+
+- **[Stock List Service](docs/settfex/services/set/list.md)** - Get all stocks on SET/mai
+- **[Highlight Data Service](docs/settfex/services/set/highlight_data.md)** - Market metrics and valuations  
+- **[Stock Profile Service](docs/settfex/services/set/profile_stock.md)** - Listing details and share structure
+- **[Company Profile Service](docs/settfex/services/set/profile_company.md)** - Full company information
+
+### Utilities
+
+- **[AsyncDataFetcher](docs/settfex/utils/data_fetcher.md)** - Low-level async HTTP client
+- **[Session Caching](docs/settfex/utils/session_caching.md)** - How we make things 25x faster
+
+## 💡 Quick Example
+
+Here's everything in action:
 
 ```python
 import asyncio
-from settfex.services.set import Stock, get_stock_list
-from settfex.utils.logging import setup_logger
+from settfex.services.set import get_stock_list, get_profile, get_company_profile, Stock
 
-# Optional: Configure logging
-setup_logger(level="INFO", log_file="logs/settfex.log")
-
-async def main():
-    # Fetch complete stock list from SET
+async def analyze_stock(symbol: str):
+    # Get basic info from stock list
     stock_list = await get_stock_list()
-
-    print(f"Total stocks: {stock_list.count}")
-
-    # Filter by market
-    set_stocks = stock_list.filter_by_market("SET")
-    mai_stocks = stock_list.filter_by_market("mai")
-    print(f"SET market: {len(set_stocks)} stocks")
-    print(f"mai market: {len(mai_stocks)} stocks")
-
-    # Get specific stock
-    ptt = stock_list.get_symbol("PTT")
-    if ptt:
-        print(f"{ptt.symbol}: {ptt.name_en} ({ptt.name_th})")
-
-    # Fetch highlight data for individual stock
-    # SessionManager handles automatic cookie warmup and caching (25x faster after first run!)
-    stock = Stock("CPALL")
+    stock_info = stock_list.get_symbol(symbol)
+    
+    if not stock_info:
+        print(f"Stock {symbol} not found!")
+        return
+    
+    print(f"📊 {stock_info.name_en} ({symbol})")
+    print(f"Market: {stock_info.market}")
+    print(f"Sector: {stock_info.sector}")
+    
+    # Get detailed metrics
+    stock = Stock(symbol)
     highlight = await stock.get_highlight_data()
-    print(f"\n{highlight.symbol} Highlight Data:")
+    
+    print(f"\n💰 Valuation:")
     print(f"Market Cap: {highlight.market_cap:,.0f} THB")
     print(f"P/E Ratio: {highlight.pe_ratio}")
-    print(f"P/B Ratio: {highlight.pb_ratio}")
     print(f"Dividend Yield: {highlight.dividend_yield}%")
-
-    # Fetch stock profile for detailed listing information
-    from settfex.services.set import get_profile
-
-    profile = await get_profile("PTT")
-    print(f"\n{profile.name} ({profile.symbol})")
-    print(f"Sector: {profile.sector_name}")
-    print(f"Industry: {profile.industry_name}")
-    print(f"Listed Date: {profile.listed_date}")
-    print(f"IPO Price: {profile.ipo} {profile.currency}")
-
-    # Fetch company profile for comprehensive company information
-    from settfex.services.set import get_company_profile
-
-    company = await get_company_profile("CPN")
-    print(f"\n{company.name} ({company.symbol})")
+    
+    # Get listing details
+    profile = await get_profile(symbol)
+    print(f"\n📅 Listed: {profile.listed_date}")
+    print(f"IPO: {profile.ipo} {profile.currency}")
+    
+    # Get company info
+    company = await get_company_profile(symbol)
+    print(f"\n🏢 {company.name}")
     print(f"Website: {company.url}")
-    print(f"CG Score: {company.cg_score}/5")
     print(f"ESG Rating: {company.setesg_rating}")
-    print(f"CAC Certified: {'Yes' if company.cac_flag else 'No'}")
-    print(f"Management: {len(company.managements)} executives")
 
-asyncio.run(main())
+# Run it!
+asyncio.run(analyze_stock("PTT"))
 ```
 
-### Using SET/TFEX Clients (High-Level)
+## 🛠️ Advanced Usage
+
+Need more control? We've got you covered!
 
 ```python
-from settfex.services.set import SETClient
-from settfex.services.tfex import TFEXClient
+from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
+
+# Custom configuration
+config = FetcherConfig(
+    timeout=60,           # Longer timeout
+    max_retries=5,        # More retries
+    browser_impersonate="safari17_0"  # Different browser
+)
+
+# Use with any service
+from settfex.services.set.stock import StockHighlightDataService
+
+service = StockHighlightDataService(config=config)
+data = await service.fetch_highlight_data("CPALL")
+```
+
+**👉 [Learn more about AsyncDataFetcher](docs/settfex/utils/data_fetcher.md)**
+
+## 🧪 Optional: Configure Logging
+
+Want to see what's happening under the hood?
+
+```python
 from settfex.utils.logging import setup_logger
 
-# Optional: Configure logging
+# Turn on detailed logs
 setup_logger(level="DEBUG", log_file="logs/settfex.log")
 
-# Fetch SET real-time data
-set_client = SETClient()
-# Your code here
-
-# Fetch TFEX real-time data
-tfex_client = TFEXClient()
-# Your code here
+# Now run your code - you'll see everything!
+stock_list = await get_stock_list()
 ```
 
-### Dependencies
+Great for debugging or monitoring in production.
 
-settfex uses modern, powerful libraries:
+## 🤝 Contributing
 
-- **curl_cffi**: Advanced HTTP client with browser impersonation for robust API requests
-- **loguru**: Beautiful, powerful logging with colors and automatic formatting
-- **pydantic**: Runtime validation and settings management with type safety
-- **diskcache**: Persistent disk-based caching for 25x performance boost
+We'd love your help making settfex better! Here's how:
 
-## Documentation
-
-For detailed documentation, please see:
-- [AsyncDataFetcher Guide](docs/settfex/utils/data_fetcher.md) - Low-level async HTTP client with session management
-- [Session Caching Guide](docs/session_caching.md) - Understanding session cache for 25x performance boost
-- [SET API Protection Note](docs/settfex/services/set/API_PROTECTION_NOTE.md) - Important bot detection bypass information
-
-## Development
-
-### Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/settfex.git
-cd settfex
-
-# Install dependencies
-pip install -e ".[dev]"
-```
-
-### Running Tests
-
-```bash
-pytest
-```
-
-### Code Quality
-
-```bash
-# Run linting
-ruff check .
-
-# Run type checking
-mypy settfex
-```
-
-## Contributing
-
-Contributions are welcome! Please follow these guidelines:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+1. Fork the repo
+2. Create a feature branch: `git checkout -b feature/cool-new-thing`
 3. Make your changes with proper type hints and tests
-4. Run tests and linting (`pytest` and `ruff check .`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
+4. Run tests: `pytest`
+5. Run linting: `ruff check .`
+6. Commit: `git commit -m 'Add cool new thing'`
+7. Push: `git push origin feature/cool-new-thing`
+8. Open a Pull Request
 
-For detailed development guidelines, see the project structure and architecture notes in `CLAUDE.md`.
+## 📜 License
 
-## License
+MIT License - feel free to use this in your projects!
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## ⚠️ Disclaimer
 
-## Disclaimer
+This library is not officially affiliated with the Stock Exchange of Thailand or Thailand Futures Exchange. Use at your own risk for educational and informational purposes.
 
-This library is not officially affiliated with the Stock Exchange of Thailand or Thailand Futures Exchange. Use at your own risk.
+## 🙋 Need Help?
+
+- 📖 Check the [detailed documentation](docs/settfex/)
+- 🐛 Found a bug? [Open an issue](https://github.com/lumduan/settfex/issues)
+- 💬 Have questions? Start a [discussion](https://github.com/lumduan/settfex/discussions)
+
+---
+
+Made with ❤️ for the Thai stock market community
