@@ -31,8 +31,6 @@ class Stock:
         self,
         symbol: str,
         config: FetcherConfig | None = None,
-        session_cookies: str | None = None,
-        use_cookies: bool = True,
     ) -> None:
         """
         Initialize Stock instance for a specific symbol.
@@ -40,29 +38,17 @@ class Stock:
         Args:
             symbol: Stock symbol (e.g., "CPALL", "PTT", "kbank")
             config: Optional fetcher configuration
-            session_cookies: Optional browser session cookies
-            use_cookies: Whether to generate cookies automatically. Default True (recommended
-                        for compatibility). Set to False only if providing session_cookies.
 
         Example:
-            >>> # Basic usage (auto-generated cookies - recommended)
+            >>> # Basic usage - SessionManager handles cookies automatically
             >>> stock = Stock("CPALL")
             >>>
-            >>> # With rate limiting to avoid HTTP 452
-            >>> config = FetcherConfig(rate_limit_delay=0.2)
+            >>> # With custom configuration
+            >>> config = FetcherConfig(timeout=60, max_retries=5)
             >>> stock = Stock("CPALL", config=config)
-            >>>
-            >>> # With real browser session cookies (most reliable)
-            >>> cookies = "charlot=abc123; incap_ses_357_2046605=xyz789; ..."
-            >>> stock = Stock("CPALL", session_cookies=cookies)
-            >>>
-            >>> # No cookies mode (may get HTTP 403)
-            >>> stock = Stock("CPALL", use_cookies=False)
         """
         self.symbol = normalize_symbol(symbol)
         self.config = config
-        self.session_cookies = session_cookies
-        self.use_cookies = use_cookies
 
         # Initialize service instances (lazy initialization for future services)
         self._highlight_data_service: StockHighlightDataService | None = None
@@ -79,11 +65,7 @@ class Stock:
             StockHighlightDataService instance
         """
         if self._highlight_data_service is None:
-            self._highlight_data_service = StockHighlightDataService(
-                config=self.config,
-                session_cookies=self.session_cookies,
-                use_cookies=self.use_cookies,
-            )
+            self._highlight_data_service = StockHighlightDataService(config=self.config)
         return self._highlight_data_service
 
     async def get_highlight_data(self, lang: str = "en") -> StockHighlightData:
@@ -124,11 +106,7 @@ class Stock:
         if self._profile_service is None:
             from settfex.services.set.stock.profile_stock import StockProfileService
 
-            self._profile_service = StockProfileService(
-                config=self.config,
-                session_cookies=self.session_cookies,
-                use_cookies=self.use_cookies,
-            )
+            self._profile_service = StockProfileService(config=self.config)
         return self._profile_service
 
     async def get_profile(self, lang: str = "en") -> "StockProfile":
