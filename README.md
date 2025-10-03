@@ -115,6 +115,26 @@ for action in actions:
 
 ---
 
+### 👥 Get Shareholder Data
+
+See who owns what! Get major shareholders, free float, and ownership distribution:
+
+```python
+from settfex.services.set import get_shareholder_data
+
+data = await get_shareholder_data("MINT")
+
+print(f"Total Shareholders: {data.total_shareholder:,}")
+print(f"Free Float: {data.free_float.percent_free_float:.2f}%")
+
+for sh in data.major_shareholders[:5]:
+    print(f"{sh.sequence}. {sh.name}: {sh.percent_of_share:.2f}%")
+```
+
+**👉 [Learn more about Shareholder Data](docs/settfex/services/set/shareholder.md)**
+
+---
+
 ## 🚀 Why settfex?
 
 ### ⚡ Blazing Fast

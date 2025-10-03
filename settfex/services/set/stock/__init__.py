@@ -20,6 +20,11 @@ from settfex.services.set.stock.profile_stock import (
     StockProfileService,
     get_profile,
 )
+from settfex.services.set.stock.shareholder import (
+    ShareholderData,
+    ShareholderService,
+    get_shareholder_data,
+)
 from settfex.services.set.stock.stock import Stock
 from settfex.services.set.stock.utils import normalize_language, normalize_symbol
 
@@ -45,4 +50,8 @@ __all__ = [
     "CorporateActionService",
     "CorporateAction",
     "get_corporate_actions",
+    # Shareholder Service
+    "ShareholderService",
+    "ShareholderData",
+    "get_shareholder_data",
 ]
