@@ -135,6 +135,26 @@ for sh in data.major_shareholders[:5]:
 
 ---
 
+### 📜 Get NVDR Holder Data
+
+Track Non-Voting Depository Receipt (NVDR) holders and their ownership:
+
+```python
+from settfex.services.set import get_nvdr_holder_data
+
+data = await get_nvdr_holder_data("MINT")
+
+print(f"Symbol: {data.symbol}")  # MINT-R
+print(f"Total NVDR Holders: {data.total_shareholder:,}")
+
+for holder in data.major_shareholders[:5]:
+    print(f"{holder.sequence}. {holder.name}: {holder.percent_of_share:.2f}%")
+```
+
+**👉 [Learn more about NVDR Holder Data](docs/settfex/services/set/nvdr_holder.md)**
+
+---
+
 ## 🚀 Why settfex?
 
 ### ⚡ Blazing Fast
@@ -166,6 +186,8 @@ Want to dig deeper? Check out our detailed guides:
 - **[Stock Profile Service](docs/settfex/services/set/profile_stock.md)** - Listing details and share structure
 - **[Company Profile Service](docs/settfex/services/set/profile_company.md)** - Full company information
 - **[Corporate Action Service](docs/settfex/services/set/corporate_action.md)** - Dividends, meetings, and events
+- **[Shareholder Service](docs/settfex/services/set/shareholder.md)** - Major shareholders and ownership data
+- **[NVDR Holder Service](docs/settfex/services/set/nvdr_holder.md)** - NVDR holder information and ownership
 
 ### Utilities
 
