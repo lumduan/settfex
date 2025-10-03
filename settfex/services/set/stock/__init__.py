@@ -1,5 +1,10 @@
 """Stock-specific utilities and services for SET stock operations."""
 
+from settfex.services.set.stock.corporate_action import (
+    CorporateAction,
+    CorporateActionService,
+    get_corporate_actions,
+)
 from settfex.services.set.stock.highlight_data import (
     StockHighlightData,
     StockHighlightDataService,
@@ -36,4 +41,8 @@ __all__ = [
     "CompanyProfileService",
     "CompanyProfile",
     "get_company_profile",
+    # Corporate Action Service
+    "CorporateActionService",
+    "CorporateAction",
+    "get_corporate_actions",
 ]

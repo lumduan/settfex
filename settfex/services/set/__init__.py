@@ -3,6 +3,7 @@
 from settfex.services.set.constants import (
     SET_BASE_URL,
     SET_COMPANY_PROFILE_ENDPOINT,
+    SET_CORPORATE_ACTION_ENDPOINT,
     SET_STOCK_HIGHLIGHT_DATA_ENDPOINT,
     SET_STOCK_LIST_ENDPOINT,
     SET_STOCK_PROFILE_ENDPOINT,
@@ -16,12 +17,15 @@ from settfex.services.set.list import (
 from settfex.services.set.stock import (
     CompanyProfile,
     CompanyProfileService,
+    CorporateAction,
+    CorporateActionService,
     Stock,
     StockHighlightData,
     StockHighlightDataService,
     StockProfile,
     StockProfileService,
     get_company_profile,
+    get_corporate_actions,
     get_highlight_data,
     get_profile,
     normalize_language,
@@ -35,6 +39,7 @@ __all__ = [
     "SET_STOCK_HIGHLIGHT_DATA_ENDPOINT",
     "SET_STOCK_PROFILE_ENDPOINT",
     "SET_COMPANY_PROFILE_ENDPOINT",
+    "SET_CORPORATE_ACTION_ENDPOINT",
     # Stock List Service
     "StockListService",
     "StockListResponse",
@@ -51,6 +56,9 @@ __all__ = [
     "CompanyProfileService",
     "CompanyProfile",
     "get_company_profile",
+    "CorporateActionService",
+    "CorporateAction",
+    "get_corporate_actions",
     # Stock Utilities
     "normalize_symbol",
     "normalize_language",

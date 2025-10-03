@@ -92,6 +92,29 @@ print(f"Executives: {len(company.managements)}")
 
 ---
 
+### 📅 Get Corporate Actions
+
+Track dividends, shareholder meetings, and other corporate events:
+
+```python
+from settfex.services.set import get_corporate_actions
+
+actions = await get_corporate_actions("AOT")
+
+for action in actions:
+    if action.ca_type == "XD":
+        print(f"Dividend: {action.dividend} {action.currency}")
+        print(f"XD Date: {action.x_date}")
+        print(f"Payment Date: {action.payment_date}")
+    elif action.ca_type == "XM":
+        print(f"Meeting: {action.meeting_type}")
+        print(f"Agenda: {action.agenda}")
+```
+
+**👉 [Learn more about Corporate Actions](docs/settfex/services/set/corporate_action.md)**
+
+---
+
 ## 🚀 Why settfex?
 
 ### ⚡ Blazing Fast
@@ -119,9 +142,10 @@ Want to dig deeper? Check out our detailed guides:
 ### Services
 
 - **[Stock List Service](docs/settfex/services/set/list.md)** - Get all stocks on SET/mai
-- **[Highlight Data Service](docs/settfex/services/set/highlight_data.md)** - Market metrics and valuations  
+- **[Highlight Data Service](docs/settfex/services/set/highlight_data.md)** - Market metrics and valuations
 - **[Stock Profile Service](docs/settfex/services/set/profile_stock.md)** - Listing details and share structure
 - **[Company Profile Service](docs/settfex/services/set/profile_company.md)** - Full company information
+- **[Corporate Action Service](docs/settfex/services/set/corporate_action.md)** - Dividends, meetings, and events
 
 ### Utilities
 
@@ -134,40 +158,55 @@ Here's everything in action:
 
 ```python
 import asyncio
-from settfex.services.set import get_stock_list, get_profile, get_company_profile, Stock
+from settfex.services.set import (
+    get_stock_list,
+    get_profile,
+    get_company_profile,
+    get_corporate_actions,
+    Stock
+)
 
 async def analyze_stock(symbol: str):
     # Get basic info from stock list
     stock_list = await get_stock_list()
     stock_info = stock_list.get_symbol(symbol)
-    
+
     if not stock_info:
         print(f"Stock {symbol} not found!")
         return
-    
+
     print(f"📊 {stock_info.name_en} ({symbol})")
     print(f"Market: {stock_info.market}")
     print(f"Sector: {stock_info.sector}")
-    
+
     # Get detailed metrics
     stock = Stock(symbol)
     highlight = await stock.get_highlight_data()
-    
+
     print(f"\n💰 Valuation:")
     print(f"Market Cap: {highlight.market_cap:,.0f} THB")
     print(f"P/E Ratio: {highlight.pe_ratio}")
     print(f"Dividend Yield: {highlight.dividend_yield}%")
-    
+
     # Get listing details
     profile = await get_profile(symbol)
     print(f"\n📅 Listed: {profile.listed_date}")
     print(f"IPO: {profile.ipo} {profile.currency}")
-    
+
     # Get company info
     company = await get_company_profile(symbol)
     print(f"\n🏢 {company.name}")
     print(f"Website: {company.url}")
     print(f"ESG Rating: {company.setesg_rating}")
+
+    # Get corporate actions
+    actions = await get_corporate_actions(symbol)
+    print(f"\n📅 Corporate Actions: {len(actions)}")
+    for action in actions[:3]:  # Show first 3
+        if action.ca_type == "XD":
+            print(f"  Dividend: {action.dividend} {action.currency}")
+        elif action.ca_type == "XM":
+            print(f"  Meeting: {action.meeting_type}")
 
 # Run it!
 asyncio.run(analyze_stock("PTT"))
