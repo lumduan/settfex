@@ -30,6 +30,11 @@ from settfex.services.set.stock.shareholder import (
     ShareholderService,
     get_shareholder_data,
 )
+from settfex.services.set.stock.board_of_director import (
+    Director,
+    BoardOfDirectorService,
+    get_board_of_directors,
+)
 from settfex.services.set.stock.stock import Stock
 from settfex.services.set.stock.utils import normalize_language, normalize_symbol
 
@@ -63,4 +68,8 @@ __all__ = [
     "NVDRHolderService",
     "NVDRHolderData",
     "get_nvdr_holder_data",
+    # Board of Director Service
+    "BoardOfDirectorService",
+    "Director",
+    "get_board_of_directors",
 ]
