@@ -155,6 +155,29 @@ for holder in data.major_shareholders[:5]:
 
 ---
 
+### 👔 Get Board of Directors
+
+See who's running the show! Get board of directors and management information:
+
+```python
+from settfex.services.set import get_board_of_directors
+
+directors = await get_board_of_directors("MINT")
+
+for director in directors:
+    positions = ", ".join(director.positions)
+    print(f"{director.name}: {positions}")
+
+# Find the Chairman
+chairman = next((d for d in directors if "CHAIRMAN" in d.positions), None)
+if chairman:
+    print(f"Chairman: {chairman.name}")
+```
+
+**👉 [Learn more about Board of Directors](docs/settfex/services/set/board_of_director.md)**
+
+---
+
 ## 🚀 Why settfex?
 
 ### ⚡ Blazing Fast
@@ -188,6 +211,7 @@ Want to dig deeper? Check out our detailed guides:
 - **[Corporate Action Service](docs/settfex/services/set/corporate_action.md)** - Dividends, meetings, and events
 - **[Shareholder Service](docs/settfex/services/set/shareholder.md)** - Major shareholders and ownership data
 - **[NVDR Holder Service](docs/settfex/services/set/nvdr_holder.md)** - NVDR holder information and ownership
+- **[Board of Director Service](docs/settfex/services/set/board_of_director.md)** - Board of directors and management structure
 
 ### Utilities
 
@@ -205,6 +229,7 @@ from settfex.services.set import (
     get_profile,
     get_company_profile,
     get_corporate_actions,
+    get_board_of_directors,
     Stock
 )
 
@@ -249,6 +274,13 @@ async def analyze_stock(symbol: str):
             print(f"  Dividend: {action.dividend} {action.currency}")
         elif action.ca_type == "XM":
             print(f"  Meeting: {action.meeting_type}")
+
+    # Get board of directors
+    directors = await get_board_of_directors(symbol)
+    print(f"\n👔 Board of Directors: {len(directors)}")
+    chairman = next((d for d in directors if "CHAIRMAN" in d.positions), None)
+    if chairman:
+        print(f"  Chairman: {chairman.name}")
 
 # Run it!
 asyncio.run(analyze_stock("PTT"))
