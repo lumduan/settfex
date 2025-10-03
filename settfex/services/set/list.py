@@ -98,33 +98,20 @@ class StockListService:
     market classifications, and industry sectors.
     """
 
-    def __init__(
-        self, config: FetcherConfig | None = None, session_cookies: str | None = None
-    ) -> None:
+    def __init__(self, config: FetcherConfig | None = None) -> None:
         """
         Initialize the stock list service.
 
         Args:
             config: Optional fetcher configuration (uses defaults if None)
-            session_cookies: Optional browser session cookies for authenticated requests.
-                           When None, generated Incapsula cookies are used.
-                           For production use with real API access, provide actual
-                           browser session cookies from an authenticated session.
 
         Example:
-            >>> # Using generated cookies (may be blocked by Incapsula)
+            >>> # Uses SessionManager for automatic cookie handling
             >>> service = StockListService()
-            >>>
-            >>> # Using real browser session cookies (recommended)
-            >>> cookies = "charlot=abc123; incap_ses_357_2046605=xyz789; ..."
-            >>> service = StockListService(session_cookies=cookies)
         """
         self.config = config or FetcherConfig()
         self.base_url = SET_BASE_URL
-        self.session_cookies = session_cookies
         logger.info(f"StockListService initialized with base_url={self.base_url}")
-        if session_cookies:
-            logger.debug("Using provided session cookies for authentication")
 
     async def fetch_stock_list(self) -> StockListResponse:
         """
@@ -150,13 +137,8 @@ class StockListService:
             # Get optimized headers for SET API (includes all Incapsula bypass headers)
             headers = AsyncDataFetcher.get_set_api_headers()
 
-            # Use provided session cookies or generate Incapsula-aware cookies
-            cookies = self.session_cookies or AsyncDataFetcher.generate_incapsula_cookies()
-
-            # Fetch JSON data from API
-            data = await fetcher.fetch_json(
-                url, headers=headers, cookies=cookies, use_random_cookies=False
-            )
+            # Fetch JSON data from API - SessionManager handles cookies automatically
+            data = await fetcher.fetch_json(url, headers=headers)
 
             # Parse and validate response using Pydantic
             response = StockListResponse(**data)
@@ -204,28 +186,22 @@ class StockListService:
 
 
 # Convenience function for quick access
-async def get_stock_list(
-    config: FetcherConfig | None = None, session_cookies: str | None = None
-) -> StockListResponse:
+async def get_stock_list(config: FetcherConfig | None = None) -> StockListResponse:
     """
     Convenience function to fetch stock list.
 
     Args:
         config: Optional fetcher configuration
-        session_cookies: Optional browser session cookies for authenticated requests
 
     Returns:
         StockListResponse with all stock symbols
 
     Example:
         >>> from settfex.services.set import get_stock_list
-        >>> # Using generated cookies
+        >>> # Uses SessionManager for automatic cookie handling
         >>> response = await get_stock_list()
-        >>> # Or with real browser session cookies (recommended)
-        >>> cookies = "charlot=abc123; incap_ses_357_2046605=xyz789; ..."
-        >>> response = await get_stock_list(session_cookies=cookies)
         >>> for stock in response.security_symbols[:5]:
         ...     print(f"{stock.symbol}: {stock.name_en}")
     """
-    service = StockListService(config=config, session_cookies=session_cookies)
+    service = StockListService(config=config)
     return await service.fetch_stock_list()

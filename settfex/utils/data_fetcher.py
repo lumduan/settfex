@@ -1,11 +1,7 @@
 """Async data fetcher with Unicode/Thai language support for SET and TFEX APIs."""
 
 import asyncio
-import base64
-import random
-import secrets
 import time
-import uuid
 from typing import Any
 
 from curl_cffi import requests
@@ -158,206 +154,6 @@ class AsyncDataFetcher:
             ),
         }
 
-    @staticmethod
-    def generate_incapsula_cookies(landing_url: str | None = None) -> str:
-        """
-        Generate Incapsula-aware randomized cookies for SET API requests.
-
-        This method creates cookies that mimic legitimate browser sessions
-        with Incapsula bot protection, including visitor IDs, session tokens,
-        load balancer identifiers, and analytics tracking cookies.
-
-        Enhanced to include Google Analytics, Facebook Pixel, and other
-        tracking cookies that indicate a legitimate browser session.
-
-        Useful for all SET services that need to bypass Incapsula protection.
-        For production use, real authenticated browser session cookies are
-        recommended over generated cookies.
-
-        Args:
-            landing_url: Optional landing URL to include in cookies (e.g., the referer page).
-                        This is critical for some symbols that check the landing_url cookie.
-
-        Returns:
-            Cookie string with Incapsula-compatible randomized values
-
-        Example:
-            >>> cookies = AsyncDataFetcher.generate_incapsula_cookies()
-            >>> response = await fetcher.fetch(url, cookies=cookies)
-            >>>
-            >>> # With landing URL for better bot detection bypass
-            >>> landing = "https://www.set.or.th/en/market/product/stock/quote/CPN/price"
-            >>> cookies = AsyncDataFetcher.generate_incapsula_cookies(landing_url=landing)
-
-        Note:
-            Generated cookies may be blocked by Incapsula. For best results,
-            use real browser session cookies from an authenticated session.
-        """
-        import time
-
-        # Current timestamp for realistic session cookies
-        now = int(time.time() * 1000)  # Milliseconds
-        now_seconds = int(time.time())
-
-        # Random charlot session token (UUID format)
-        charlot: str = str(uuid.uuid4())
-
-        # Random LiveChat customer ID (UUID format)
-        lt_cid: str = str(uuid.uuid4())
-
-        # Random Incapsula load balancer ID (base64-like format)
-        nlbi_id: str = base64.b64encode(secrets.token_bytes(32)).decode("utf-8")[:40]
-
-        # Random visitor IDs (Incapsula format - base64-like)
-        visid_1: str = base64.b64encode(secrets.token_bytes(48)).decode("utf-8")[:64]
-        visid_2: str = base64.b64encode(secrets.token_bytes(48)).decode("utf-8")[:64]
-
-        # Random session IDs (Incapsula format - base64-like)
-        session_1: str = base64.b64encode(secrets.token_bytes(32)).decode("utf-8")[:48]
-        session_2: str = base64.b64encode(secrets.token_bytes(32)).decode("utf-8")[:48]
-
-        # Random site IDs (7-8 digit numbers matching real SET site IDs)
-        site_id_1: int = 2046605  # Real SET Incapsula site ID
-        site_id_2: int = 2771851  # Real SET alternate site ID
-
-        # Random visit time and API counter
-        visit_time: int = random.randint(10, 300)  # 10 seconds to 5 minutes
-        api_counter: int = random.randint(1, 10)  # 1-10 API calls
-
-        # Google Analytics client ID (GA1.1.{random}.{timestamp})
-        ga_client_id: int = random.randint(1000000000, 9999999999)
-        ga_timestamp: int = now_seconds - random.randint(3600, 86400)  # 1-24 hours ago
-        ga_cookie: str = f"GA1.1.{ga_client_id}.{ga_timestamp}"
-
-        # Facebook Pixel (fb.{version}.{timestamp}.{random})
-        fbp_random: str = str(random.randint(100000000000000000, 999999999999999999))
-        fbp_cookie: str = f"fb.2.{now - random.randint(3600000, 86400000)}.{fbp_random}"
-
-        # Google Ads conversion tracking (version.subversion.{random}.{timestamp})
-        gcl_random: int = random.randint(1000000000, 9999999999)
-        gcl_timestamp: int = now_seconds - random.randint(3600, 86400)
-        gcl_cookie: str = f"1.1.{gcl_random}.{gcl_timestamp}"
-
-        # GA4 session cookies
-        # Format: GS{version}.{version}.s{timestamp}$o{seq}$g{engaged}$t{timestamp}$j{seq}$l0$h0
-        # $g1$ = user engaged (clicked/scrolled), $g0$ = not engaged
-        # AOT requires $g1$ to prove active interaction!
-        ga4_session_time: int = now_seconds - random.randint(60, 3600)
-        ga4_seq: int = random.randint(60, 99)
-        ga4_cookie_1: str = (
-            f"GS2.1.s{ga4_session_time}$o{ga4_seq}$g1$t{ga4_session_time}"
-            f"$j{ga4_seq}$l0$h0"
-        )
-        ga4_cookie_2: str = (
-            f"GS2.1.s{ga4_session_time}$o{ga4_seq}$g1$t{ga4_session_time}"
-            f"$j{ga4_seq}$l0$h0"
-        )
-
-        # SET Cookie Policy (date format: YYYYMMDDHHMMSS)
-        policy_date: str = "20231111093657"
-
-        # UID tracking cookie (8 hex chars . 2 hex digits)
-        uid_hex: str = secrets.token_hex(4).upper()
-        uid_suffix: str = secrets.token_hex(1).upper()[:2]
-        uid_cookie: str = f"{uid_hex}.{uid_suffix}"
-
-        # LiveChat Session ID (__lt__sid) - Critical for AOT and other Tier 4 symbols
-        # Format: {uuid}-{short_hash}
-        lt_sid: str = f"{str(uuid.uuid4())[:23]}-{secrets.token_hex(4)}"
-
-        # Hotjar Active Session (_hjSession_3931504) - Critical for AOT
-        # Base64 encoded JSON with active session data
-        import json
-        hj_session_data = {
-            "id": str(uuid.uuid4()),
-            "c": now,  # created timestamp (ms)
-            "s": 0,    # session count
-            "r": 0,    # recording
-            "sb": 0,   # session buffer
-            "sr": 0,   # session recording
-            "se": 0,   # session events
-            "fs": 0,   # first session
-            "sp": 0    # session ping
-        }
-        hj_session_json = json.dumps(hj_session_data, separators=(',', ':'))
-        hj_session_cookie = base64.b64encode(hj_session_json.encode()).decode()
-
-        # Build comprehensive cookie string
-        # Order matters - start with analytics/tracking for legitimacy
-        cookie_string: str = (
-            # Analytics & Tracking (signals legitimate browser)
-            f"__lt__cid={lt_cid}; "
-            f"_fbp={fbp_cookie}; "
-            f"_ga={ga_cookie}; "
-            f"_tt_enable_cookie=1; "
-            f"_gcl_au={gcl_cookie}; "
-            f"SET_COOKIE_POLICY={policy_date}; "
-            f"_cbclose=1; "
-            f"_cbclose23453=1; "
-            f"_uid23453={uid_cookie}; "
-            f"_ctout23453=1; "
-            # Active Session Cookies (Critical for AOT/Tier 4)
-            f"__lt__sid={lt_sid}; "
-            f"_hjSession_3931504={hj_session_cookie}; "
-            # Incapsula Core (required for bot detection bypass)
-            f"charlot={charlot}; "
-            f"nlbi_{site_id_1}={nlbi_id}; "
-            f"visid_incap_{site_id_1}={visid_1}; "
-            f"incap_ses_357_{site_id_1}={session_1}; "
-            f"visid_incap_{site_id_2}={visid_2}; "
-            f"incap_ses_357_{site_id_2}={session_2}; "
-            # Session Management
-            f"visit_time={visit_time}; "
-            f"_ga_6WS2P0P25V={ga4_cookie_1}; "
-            f"_ga_ET2H60H2CB={ga4_cookie_2}; "
-            f"api_call_counter={api_counter}"
-        )
-
-        # Add landing_url if provided (critical for some symbols like CPN, 2S)
-        if landing_url:
-            cookie_string += f"; landing_url={landing_url}"
-            logger.debug(f"Added landing_url to cookies: {landing_url}")
-
-        logger.debug(f"Generated enhanced Incapsula cookies: {len(cookie_string)} chars")
-        return cookie_string
-
-    def _generate_random_cookies(self) -> str:
-        """
-        Generate randomized cookies for session management.
-
-        This method creates realistic-looking cookies to simulate browser behavior
-        and avoid detection as a bot. Cookies include session identifiers and
-        tracking parameters commonly used by Thai financial websites.
-
-        Returns:
-            Cookie string in the format "key1=value1; key2=value2; ..."
-        """
-        # Generate session ID (32 hex chars)
-        session_id = "".join(random.choices("0123456789abcdef", k=32))
-
-        # Generate tracking ID (mix of timestamp and random)
-        timestamp = int(time.time() * 1000)
-        tracking_id = f"{timestamp}_{random.randint(1000000, 9999999)}"
-
-        # Generate user preference ID
-        user_pref = "".join(random.choices("0123456789ABCDEF", k=16))
-
-        # Common cookie names used by Thai financial sites
-        cookies = {
-            "_ga": f"GA1.2.{random.randint(100000000, 999999999)}.{int(time.time())}",
-            "_gid": f"GA1.2.{random.randint(100000000, 999999999)}.{int(time.time())}",
-            "_gat": "1",
-            "PHPSESSID": session_id,
-            "_fbp": f"fb.1.{timestamp}.{random.randint(1000000000, 9999999999)}",
-            "tracking_id": tracking_id,
-            "user_pref": user_pref,
-            "lang": "th",  # Thai language preference
-            "accept_cookies": "1",
-        }
-
-        cookie_string = "; ".join([f"{key}={value}" for key, value in cookies.items()])
-        logger.debug(f"Generated cookies: {len(cookie_string)} chars")
-        return cookie_string
 
     async def _make_request(self, url: str, headers: dict[str, str]) -> Any:
         """
@@ -410,14 +206,12 @@ class AsyncDataFetcher:
         self,
         url: str,
         headers: dict[str, str] | None = None,
-        cookies: str | None = None,
-        use_random_cookies: bool = True,
     ) -> FetchResponse:
         """
         Fetch data from a URL asynchronously with proper Unicode handling.
 
         This is the main entry point for fetching data. It automatically:
-        - Generates randomized cookies (unless disabled)
+        - Uses SessionManager for automatic cookie handling (if use_session=True)
         - Handles Unicode/Thai characters correctly
         - Retries on failure with exponential backoff
         - Logs all operations for debugging
@@ -425,8 +219,6 @@ class AsyncDataFetcher:
         Args:
             url: URL to fetch
             headers: Optional custom headers (merged with defaults)
-            cookies: Optional custom cookies (overrides random cookies if provided)
-            use_random_cookies: Whether to generate random cookies (default: True)
 
         Returns:
             FetchResponse with status, content, and metadata
@@ -461,12 +253,6 @@ class AsyncDataFetcher:
         # Merge custom headers
         if headers:
             default_headers.update(headers)
-
-        # Handle cookies
-        if cookies:
-            default_headers["Cookie"] = cookies
-        elif use_random_cookies:
-            default_headers["Cookie"] = self._generate_random_cookies()
 
         # Rate limiting: Wait if needed to respect rate_limit_delay
         if self.config.rate_limit_delay > 0:
@@ -542,8 +328,6 @@ class AsyncDataFetcher:
         self,
         url: str,
         headers: dict[str, str] | None = None,
-        cookies: str | None = None,
-        use_random_cookies: bool = True,
     ) -> Any:
         """
         Fetch JSON data from a URL.
@@ -554,8 +338,6 @@ class AsyncDataFetcher:
         Args:
             url: URL to fetch
             headers: Optional custom headers
-            cookies: Optional custom cookies
-            use_random_cookies: Whether to generate random cookies
 
         Returns:
             Parsed JSON data (dict, list, or primitive)
@@ -568,9 +350,7 @@ class AsyncDataFetcher:
         if headers:
             json_headers.update(headers)
 
-        response = await self.fetch(
-            url, headers=json_headers, cookies=cookies, use_random_cookies=use_random_cookies
-        )
+        response = await self.fetch(url, headers=json_headers)
 
         try:
             # Use standard json parsing which handles Unicode correctly
