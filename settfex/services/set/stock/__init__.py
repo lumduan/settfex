@@ -20,6 +20,11 @@ from settfex.services.set.stock.profile_stock import (
     StockProfileService,
     get_profile,
 )
+from settfex.services.set.stock.nvdr_holder import (
+    NVDRHolderData,
+    NVDRHolderService,
+    get_nvdr_holder_data,
+)
 from settfex.services.set.stock.shareholder import (
     ShareholderData,
     ShareholderService,
@@ -54,4 +59,8 @@ __all__ = [
     "ShareholderService",
     "ShareholderData",
     "get_shareholder_data",
+    # NVDR Holder Service
+    "NVDRHolderService",
+    "NVDRHolderData",
+    "get_nvdr_holder_data",
 ]
