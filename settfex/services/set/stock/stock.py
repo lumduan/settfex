@@ -53,6 +53,7 @@ class Stock:
         # Initialize service instances (lazy initialization for future services)
         self._highlight_data_service: StockHighlightDataService | None = None
         self._profile_service: StockProfileService | None = None
+        self._shareholder_service: ShareholderService | None = None
 
         logger.info(f"Stock instance created for symbol '{self.symbol}'")
 
@@ -132,11 +133,48 @@ class Stock:
         logger.debug(f"Fetching profile for {self.symbol} (lang={lang})")
         return await self.profile_service.fetch_profile(symbol=self.symbol, lang=lang)
 
+    @property
+    def shareholder_service(self) -> "ShareholderService":
+        """
+        Get or create shareholder service instance.
+
+        Returns:
+            ShareholderService instance
+        """
+        if self._shareholder_service is None:
+            from settfex.services.set.stock.shareholder import ShareholderService
+
+            self._shareholder_service = ShareholderService(config=self.config)
+        return self._shareholder_service
+
+    async def get_shareholder_data(self, lang: str = "en") -> "ShareholderData":
+        """
+        Fetch shareholder data for this stock.
+
+        Args:
+            lang: Language for response ('en' or 'th', default: 'en')
+
+        Returns:
+            ShareholderData with major shareholders and free float information
+
+        Raises:
+            ValueError: If language is invalid
+            Exception: If request fails
+
+        Example:
+            >>> stock = Stock("MINT")
+            >>> data = await stock.get_shareholder_data()
+            >>> print(f"Total Shareholders: {data.total_shareholder:,}")
+            >>> print(f"Free Float: {data.free_float.percent_free_float:.2f}%")
+            >>> for sh in data.major_shareholders[:5]:
+            ...     print(f"{sh.sequence}. {sh.name}: {sh.percent_of_share:.2f}%")
+        """
+        logger.debug(f"Fetching shareholder data for {self.symbol} (lang={lang})")
+        return await self.shareholder_service.fetch_shareholder_data(
+            symbol=self.symbol, lang=lang
+        )
+
     # Future service methods (placeholders for documentation)
-    # async def get_shareholders(self, lang: str = "en") -> ShareholdersData:
-    #     """Fetch shareholder information for this stock."""
-    #     pass
-    #
     # async def get_financials(self, lang: str = "en") -> FinancialsData:
     #     """Fetch financial statements for this stock."""
     #     pass
