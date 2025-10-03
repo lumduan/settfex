@@ -9,10 +9,11 @@
 - **Async-First Design**: Built on `asyncio` with proper async/await patterns
 - **Unicode/Thai Support**: Proper encoding handling for Thai characters (UTF-8 with latin1 fallback)
 - **Browser Impersonation**: Uses curl_cffi to impersonate modern browsers (Chrome, Safari, Edge)
-- **Randomized Cookies**: Generates realistic cookie strings to avoid bot detection
+- **Session Management**: Integrates with SessionManager for automatic cookie handling and caching
 - **Automatic Retries**: Exponential backoff retry mechanism for failed requests
 - **Type Safety**: Full type hints and Pydantic validation for all data structures
 - **Comprehensive Logging**: Detailed logging via loguru for debugging and monitoring
+- **25x Performance Boost**: Uses SessionManager's disk-based cache for 25x speedup after first request
 
 ## Architecture
 
@@ -111,50 +112,8 @@ async with AsyncDataFetcher() as fetcher:
     response = await fetcher.fetch(url, headers=headers)
 ```
 
-#### `generate_incapsula_cookies(landing_url: str | None = None) -> str`
-
-Generate Incapsula-aware randomized cookies for SET API requests.
-
-Creates cookies that mimic legitimate browser sessions with Incapsula bot protection, including visitor IDs, session tokens, and load balancer identifiers.
-
-**Parameters:**
-- `landing_url: str | None` - Optional landing URL to include in cookies (e.g., the referer page). This is critical for some symbols that check the `landing_url` cookie value.
-
-**Returns:**
-- `str` - Cookie string with Incapsula-compatible randomized values
-
-**Example:**
-```python
-from settfex.utils.data_fetcher import AsyncDataFetcher
-
-# Basic usage (without landing_url)
-cookies = AsyncDataFetcher.generate_incapsula_cookies()
-
-# Symbol-specific usage (recommended for stock services)
-symbol = "CPALL"
-landing_url = f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"
-cookies = AsyncDataFetcher.generate_incapsula_cookies(landing_url=landing_url)
-
-# Use with headers
-headers = AsyncDataFetcher.get_set_api_headers(referer=landing_url)
-
-async with AsyncDataFetcher() as fetcher:
-    response = await fetcher.fetch(
-        url,
-        headers=headers,
-        cookies=cookies,
-        use_random_cookies=False
-    )
-```
-
-**Important Notes:**
-- The `landing_url` parameter is **critical for symbols with stricter Incapsula rules** (e.g., CPN)
-- The landing_url cookie should match the referer header for best results
-- Without the landing_url cookie, some requests may fail with HTTP 452 (bot detection blocked)
-- For stock services, use: `landing_url=f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"`
-
 **Note:**
-Generated cookies may be blocked by Incapsula. For production use, real authenticated browser session cookies are recommended.
+Cookie management is handled automatically by SessionManager. No need to manually generate or pass cookies.
 
 ### FetcherConfig
 
@@ -223,15 +182,13 @@ fetcher = AsyncDataFetcher()
 fetcher = AsyncDataFetcher(config=FetcherConfig(timeout=60))
 ```
 
-##### `async fetch(url: str, headers: Optional[dict[str, str]] = None, cookies: Optional[str] = None, use_random_cookies: bool = True) -> FetchResponse`
+##### `async fetch(url: str, headers: Optional[dict[str, str]] = None) -> FetchResponse`
 
 Fetch data from a URL asynchronously.
 
 **Parameters:**
 - `url` - URL to fetch
 - `headers` - Optional custom headers (merged with defaults)
-- `cookies` - Optional custom cookies (overrides random cookies)
-- `use_random_cookies` - Generate random cookies (default: True)
 
 **Returns:**
 - `FetchResponse` with status, content, and metadata
@@ -241,7 +198,7 @@ Fetch data from a URL asynchronously.
 
 **Example:**
 ```python
-# Basic fetch
+# Basic fetch (SessionManager handles cookies automatically)
 response = await fetcher.fetch("https://www.set.or.th")
 
 # With custom headers
@@ -249,21 +206,12 @@ response = await fetcher.fetch(
     "https://api.example.com",
     headers={"X-API-Key": "secret"}
 )
-
-# With custom cookies
-response = await fetcher.fetch(
-    "https://example.com",
-    cookies="session=abc123; user=test"
-)
-
-# Disable random cookies
-response = await fetcher.fetch(
-    "https://example.com",
-    use_random_cookies=False
-)
 ```
 
-##### `async fetch_json(url: str, headers: Optional[dict[str, str]] = None, cookies: Optional[str] = None, use_random_cookies: bool = True) -> Any`
+**Note:**
+Cookie management is handled automatically by SessionManager when `use_session=True` (default).
+
+##### `async fetch_json(url: str, headers: Optional[dict[str, str]] = None) -> Any`
 
 Fetch and parse JSON data.
 
@@ -284,33 +232,11 @@ for stock in data["stocks"]:
     print(f"{stock['symbol']}: {stock['price']}")
 ```
 
-##### `_generate_random_cookies() -> str`
+##### `_make_request(url: str, headers: dict[str, str]) -> Any`
 
-Generate randomized cookies for session management.
+Internal method to make HTTP request using SessionManager or standalone request.
 
-**Returns:**
-- Cookie string in format "key1=value1; key2=value2; ..."
-
-**Generated Cookies:**
-- `_ga`, `_gid`, `_gat` - Google Analytics
-- `PHPSESSID` - PHP session ID
-- `_fbp` - Facebook pixel
-- `tracking_id` - Custom tracking
-- `user_pref` - User preferences
-- `lang=th` - Thai language preference
-- `accept_cookies=1` - Cookie consent
-
-**Example:**
-```python
-cookies = fetcher._generate_random_cookies()
-# "_ga=GA1.2.123456789.1234567890; PHPSESSID=abc123...; lang=th; ..."
-```
-
-##### `_make_sync_request(url: str, headers: dict[str, str]) -> Any`
-
-Internal method to make synchronous HTTP request.
-
-**Note:** This method is wrapped by `asyncio.to_thread` for async compliance.
+**Note:** This method uses SessionManager when `use_session=True` (default).
 
 **Parameters:**
 - `url` - URL to fetch
@@ -657,55 +583,42 @@ except json.JSONDecodeError:
     print(f"Response is not JSON: {response.text[:200]}")
 ```
 
-## Bot Detection Bypass for Stock Services
+## Session Management and Bot Detection Bypass
 
-When building stock-related services (highlight_data, profile_stock, etc.), implement the two-part bot detection bypass pattern:
+The `AsyncDataFetcher` integrates with `SessionManager` to handle bot detection bypass automatically:
 
-### Pattern Implementation
+### How It Works
+
+1. **First Request**: SessionManager warms up by visiting SET homepage (~2-3 seconds)
+2. **Cookie Storage**: Cookies are cached to disk (`~/.settfex/cache/`)
+3. **Subsequent Requests**: Use cached cookies (~100ms) - **25x faster!**
+4. **Auto-Retry**: On HTTP 403/452, SessionManager re-warms and retries automatically
+
+### Example Usage
 
 ```python
-async def fetch_stock_data(symbol: str):
-    """Example: Proper bot detection bypass for stock data."""
+from settfex.utils.data_fetcher import AsyncDataFetcher
 
-    # 1. Build symbol-specific referer URL
+async def fetch_stock_data(symbol: str):
+    """Fetch stock data with automatic session management."""
+
+    # Build symbol-specific referer URL
     referer = f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"
 
-    # 2. Get headers with symbol-specific referer
+    # Get headers with symbol-specific referer
     headers = AsyncDataFetcher.get_set_api_headers(referer=referer)
 
-    # 3. Generate cookies with landing_url matching referer
-    cookies = AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
-
-    # 4. Make request with both bypass components
+    # Make request - SessionManager handles all cookies automatically!
     async with AsyncDataFetcher() as fetcher:
-        response = await fetcher.fetch(
-            url,
-            headers=headers,
-            cookies=cookies,
-            use_random_cookies=False
-        )
+        response = await fetcher.fetch(url, headers=headers)
 ```
 
-### Why Both Are Required
+### Key Benefits
 
-- **Referer Header**: Tells Incapsula which page the request came from
-- **Landing URL Cookie**: Confirms the user's landing page (must match referer)
-- **Together**: Bypass Incapsula bot detection for all symbols, including those with stricter rules (e.g., CPN)
-
-### Without This Pattern
-
-```python
-# ❌ BAD: Missing symbol-specific referer and landing_url
-headers = AsyncDataFetcher.get_set_api_headers()  # Generic referer
-cookies = AsyncDataFetcher.generate_incapsula_cookies()  # No landing_url
-# Result: May fail with HTTP 452 for symbols like CPN
-
-# ✅ GOOD: Symbol-specific referer and landing_url
-referer = f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"
-headers = AsyncDataFetcher.get_set_api_headers(referer=referer)
-cookies = AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
-# Result: Works for all symbols, supports concurrent requests
-```
+- **Zero Configuration**: Works out of the box
+- **25x Performance**: Cached sessions dramatically reduce request time
+- **Automatic Recovery**: Re-warms on bot detection without manual intervention
+- **Persistent Cache**: Survives program restarts
 
 ## Best Practices
 
@@ -717,8 +630,8 @@ cookies = AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
 6. **Handle exceptions** gracefully with try/except blocks
 7. **Use concurrent fetching** with asyncio.gather() for multiple requests
 8. **Test Thai/Unicode** handling with sample data
-9. **For stock services**: Always use symbol-specific referer and landing_url cookie
-10. **Match referer and landing_url**: Both should point to the same stock quote page
+9. **For stock services**: Always use symbol-specific referer headers
+10. **Trust SessionManager**: Let it handle all cookie management automatically
 
 ## See Also
 

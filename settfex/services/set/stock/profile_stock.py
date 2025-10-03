@@ -110,45 +110,20 @@ class StockProfileService:
     company details, listing information, share structure, and foreign ownership limits.
     """
 
-    def __init__(
-        self,
-        config: FetcherConfig | None = None,
-        session_cookies: str | None = None,
-        use_cookies: bool = True,
-    ) -> None:
+    def __init__(self, config: FetcherConfig | None = None) -> None:
         """
         Initialize the stock profile service.
 
         Args:
             config: Optional fetcher configuration (uses defaults if None)
-            session_cookies: Optional browser session cookies for authenticated requests.
-                           When provided, overrides use_cookies setting.
-            use_cookies: Whether to generate cookies automatically. Default True (generates
-                        minimal cookies for Incapsula). Set to False for maximum stealth
-                        (requires session_cookies or may fail).
 
         Example:
-            >>> # Default: Auto-generated cookies (recommended)
+            >>> # Default: Uses SessionManager for automatic cookie handling
             >>> service = StockProfileService()
-            >>>
-            >>> # With real browser session cookies (most reliable)
-            >>> cookies = "charlot=abc123; incap_ses_357_2046605=xyz789; ..."
-            >>> service = StockProfileService(session_cookies=cookies)
-            >>>
-            >>> # No cookies mode (may get HTTP 403 without session_cookies)
-            >>> service = StockProfileService(use_cookies=False)
         """
         self.config = config or FetcherConfig()
         self.base_url = SET_BASE_URL
-        self.session_cookies = session_cookies
-        self.use_cookies = use_cookies
         logger.info(f"StockProfileService initialized with base_url={self.base_url}")
-        if session_cookies:
-            logger.debug("Using provided session cookies")
-        elif use_cookies:
-            logger.debug("Auto-generating cookies for Incapsula compatibility")
-        else:
-            logger.debug("No cookies mode - may require session_cookies to avoid HTTP 403")
 
     async def fetch_profile(
         self, symbol: str, lang: str = "en"
@@ -196,27 +171,12 @@ class StockProfileService:
             referer = f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"
             headers = AsyncDataFetcher.get_set_api_headers(referer=referer)
 
-            # Cookie handling (priority: session_cookies > use_cookies > no cookies)
-            # HAR analysis shows real Chrome sends no cookies by default
-            cookies = None
-            if self.session_cookies:
-                cookies = self.session_cookies
-            elif self.use_cookies:
-                cookies = AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
+            # Fetch raw response - SessionManager handles cookies automatically
+            response = await fetcher.fetch(url, headers=headers)
 
-            # Fetch raw response first to check status
-            response = await fetcher.fetch(
-                url, headers=headers, cookies=cookies, use_random_cookies=False
-            )
-
-            # Check for Incapsula/bot detection errors
+            # Check for errors
             if response.status_code != 200:
-                error_msg = (
-                    f"Failed to fetch profile for {symbol}: "
-                    f"HTTP {response.status_code}. "
-                    f"This may be due to Incapsula bot detection. "
-                    f"Try using real browser session cookies."
-                )
+                error_msg = f"Failed to fetch profile for {symbol}: HTTP {response.status_code}"
                 logger.error(error_msg)
                 raise Exception(error_msg)
 
@@ -308,8 +268,6 @@ async def get_profile(
     symbol: str,
     lang: str = "en",
     config: FetcherConfig | None = None,
-    session_cookies: str | None = None,
-    use_cookies: bool = False,
 ) -> StockProfile:
     """
     Convenience function to fetch stock profile data.
@@ -318,26 +276,15 @@ async def get_profile(
         symbol: Stock symbol (e.g., "PTT", "CPALL", "kbank")
         lang: Language for response ('en' or 'th', default: 'en')
         config: Optional fetcher configuration
-        session_cookies: Optional browser session cookies for authenticated requests
-        use_cookies: Whether to generate cookies automatically (default: False)
 
     Returns:
         StockProfile with comprehensive company and listing information
 
     Example:
         >>> from settfex.services.set.stock import get_profile
-        >>> # Default: No cookies (matches real Chrome)
+        >>> # Uses SessionManager for automatic cookie handling
         >>> profile = await get_profile("PTT")
         >>> print(f"{profile.symbol}: {profile.name}")
-        >>>
-        >>> # With real browser session cookies
-        >>> cookies = "charlot=abc123; incap_ses_357_2046605=xyz789; ..."
-        >>> profile = await get_profile("PTT", session_cookies=cookies)
-        >>>
-        >>> # With auto-generated cookies (legacy mode)
-        >>> profile = await get_profile("PTT", use_cookies=True)
     """
-    service = StockProfileService(
-        config=config, session_cookies=session_cookies, use_cookies=use_cookies
-    )
+    service = StockProfileService(config=config)
     return await service.fetch_profile(symbol=symbol, lang=lang)
