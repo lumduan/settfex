@@ -104,10 +104,6 @@ First request takes ~2 seconds (warming up). After that? **100ms!** That's 25x f
 
 Full UTF-8 support for Thai characters. Company names, sectors, everything just works!
 
-### 🤖 Bot Detection Handled
-
-We handle Incapsula/Imperva bot protection automatically. You just focus on your code.
-
 ### 🔒 Type Safe
 
 Everything is type-hinted and validated with Pydantic. Your IDE will love it!
