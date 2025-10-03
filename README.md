@@ -89,7 +89,7 @@ async def main():
     print(f"P/B Ratio: {highlight.pb_ratio}")
     print(f"Dividend Yield: {highlight.dividend_yield}%")
 
-    # Fetch stock profile for detailed company information
+    # Fetch stock profile for detailed listing information
     from settfex.services.set import get_profile
 
     profile = await get_profile("PTT")
@@ -98,6 +98,17 @@ async def main():
     print(f"Industry: {profile.industry_name}")
     print(f"Listed Date: {profile.listed_date}")
     print(f"IPO Price: {profile.ipo} {profile.currency}")
+
+    # Fetch company profile for comprehensive company information
+    from settfex.services.set import get_company_profile
+
+    company = await get_company_profile("CPN")
+    print(f"\n{company.name} ({company.symbol})")
+    print(f"Website: {company.url}")
+    print(f"CG Score: {company.cg_score}/5")
+    print(f"ESG Rating: {company.setesg_rating}")
+    print(f"CAC Certified: {'Yes' if company.cac_flag else 'No'}")
+    print(f"Management: {len(company.managements)} executives")
 
 asyncio.run(main())
 ```
