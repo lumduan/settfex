@@ -5,6 +5,11 @@ from settfex.services.set.stock.highlight_data import (
     StockHighlightDataService,
     get_highlight_data,
 )
+from settfex.services.set.stock.profile_company import (
+    CompanyProfile,
+    CompanyProfileService,
+    get_company_profile,
+)
 from settfex.services.set.stock.profile_stock import (
     StockProfile,
     StockProfileService,
@@ -27,4 +32,8 @@ __all__ = [
     "StockProfileService",
     "StockProfile",
     "get_profile",
+    # Company Profile Service
+    "CompanyProfileService",
+    "CompanyProfile",
+    "get_company_profile",
 ]
