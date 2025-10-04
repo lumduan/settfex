@@ -161,6 +161,78 @@ settfex/
 
 ## Recent Changes
 
+### 2025-10-04: Price Performance Service
+
+**New Price Performance Service (`settfex/services/set/stock/price_performance.py`)**
+- Created async service to fetch comprehensive price performance data for individual stock symbols
+- Key features:
+  - **Full Type Safety**: Complete Pydantic models for stock, sector, and market performance metrics
+  - **Dual Language Support**: Fetch data in English ('en') or Thai ('th')
+  - **Input Normalization**: Automatic symbol uppercase and language validation
+  - **Async-First**: Built on AsyncDataFetcher for optimal performance
+  - **Comparative Analysis**: Returns performance data for stock, sector, and market for easy comparison
+  - **Multi-Period Data**: Returns price changes for 5-day, 1-month, 3-month, 6-month, and YTD periods
+  - **Valuation Metrics**: P/E ratio, P/B ratio, and turnover ratio for each entity
+- Implementation:
+  - Two main Pydantic models:
+    - `PricePerformanceMetrics`: Individual performance metrics (stock/sector/market)
+    - `PricePerformanceData`: Complete performance data with stock, sector, and market
+  - Two fetch methods:
+    - `fetch_price_performance(symbol, lang)`: Returns validated Pydantic model
+    - `fetch_price_performance_raw(symbol, lang)`: Returns raw dictionary for debugging
+  - Convenience function:
+    - `get_price_performance(symbol, lang)`: Quick one-line access
+- Data fields include:
+  - **Price Changes**: 5-day, 1-month, 3-month, 6-month, and YTD percentage changes
+  - **Valuation Metrics**: P/E ratio, P/B ratio, turnover ratio
+  - **Entity Identification**: Symbol for stock, sector code, and market code ("SET")
+  - **Three Entities**: Stock-specific, sector aggregate, and market (SET) aggregate metrics
+- Configuration:
+  - Added to `settfex/services/set/constants.py`:
+    - `SET_PRICE_PERFORMANCE_ENDPOINT`: `/api/set/factsheet/{symbol}/price-performance`
+- Usage pattern:
+  ```python
+  from settfex.services.set import get_price_performance
+
+  # Using convenience function
+  data = await get_price_performance("MINT")
+
+  # Stock performance
+  print(f"Stock: {data.stock.symbol}")
+  print(f"  YTD: {data.stock.ytd_percent_change:+.2f}%")
+  print(f"  P/E: {data.stock.pe_ratio}, P/B: {data.stock.pb_ratio}")
+
+  # Sector comparison
+  print(f"Sector ({data.sector.symbol}): {data.sector.ytd_percent_change:+.2f}%")
+
+  # Market comparison
+  print(f"Market ({data.market.symbol}): {data.market.ytd_percent_change:+.2f}%")
+
+  # Calculate relative performance
+  vs_sector = data.stock.ytd_percent_change - data.sector.ytd_percent_change
+  vs_market = data.stock.ytd_percent_change - data.market.ytd_percent_change
+  print(f"vs Sector: {vs_sector:+.2f}%, vs Market: {vs_market:+.2f}%")
+
+  # Thai language support
+  data_th = await get_price_performance("MINT", lang="th")
+  ```
+- Documentation:
+  - Full service documentation: `docs/settfex/services/set/price_performance.md`
+  - Manual verification script: `scripts/settfex/services/set/verify_price_performance.py`
+  - 10 verification tests covering all features and edge cases
+- Module exports:
+  - Updated `settfex/services/set/stock/__init__.py` to export:
+    - `PricePerformanceMetrics`, `PricePerformanceData`, `PricePerformanceService`, `get_price_performance`
+  - Updated `settfex/services/set/__init__.py` to export:
+    - `PricePerformanceMetrics`, `PricePerformanceData`, `PricePerformanceService`, `get_price_performance`
+    - `SET_PRICE_PERFORMANCE_ENDPOINT`
+- Purpose:
+  - Compare stock performance against sector and overall market
+  - Track price changes across multiple time periods (5D, 1M, 3M, 6M, YTD)
+  - Analyze valuation metrics (P/E, P/B, turnover) for stock, sector, and market
+  - Support relative performance analysis for investment decisions
+  - Enable sector rotation and market timing strategies
+
 ### 2025-10-04: Trading Statistics Service
 
 **New Trading Statistics Service (`settfex/services/set/stock/trading_stat.py`)**

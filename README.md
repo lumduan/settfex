@@ -202,6 +202,31 @@ for stat in stats:
 
 ---
 
+### 📈 Get Price Performance
+
+Compare stock performance against sector and market with comprehensive price change data:
+
+```python
+from settfex.services.set import get_price_performance
+
+data = await get_price_performance("MINT")
+
+# Stock performance
+print(f"Stock: {data.stock.symbol}")
+print(f"  YTD: {data.stock.ytd_percent_change:+.2f}%")
+print(f"  P/E: {data.stock.pe_ratio}, P/B: {data.stock.pb_ratio}")
+
+# Sector comparison
+print(f"Sector ({data.sector.symbol}): {data.sector.ytd_percent_change:+.2f}%")
+
+# Market comparison
+print(f"Market ({data.market.symbol}): {data.market.ytd_percent_change:+.2f}%")
+```
+
+**👉 [Learn more about Price Performance](docs/settfex/services/set/price_performance.md)**
+
+---
+
 ## 🚀 Why settfex?
 
 ### ⚡ Blazing Fast
@@ -237,6 +262,7 @@ Want to dig deeper? Check out our detailed guides:
 - **[NVDR Holder Service](docs/settfex/services/set/nvdr_holder.md)** - NVDR holder information and ownership
 - **[Board of Director Service](docs/settfex/services/set/board_of_director.md)** - Board of directors and management structure
 - **[Trading Statistics Service](docs/settfex/services/set/trading_stat.md)** - Historical trading performance and metrics
+- **[Price Performance Service](docs/settfex/services/set/price_performance.md)** - Stock, sector, and market price performance comparison
 
 ### Utilities
 
