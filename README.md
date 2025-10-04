@@ -178,6 +178,30 @@ if chairman:
 
 ---
 
+### 📊 Get Trading Statistics
+
+Track historical trading performance with comprehensive statistics across multiple time periods:
+
+```python
+from settfex.services.set import get_trading_stats
+
+stats = await get_trading_stats("MINT")
+
+# YTD performance
+ytd = next(s for s in stats if s.period == "YTD")
+print(f"YTD Performance: {ytd.percent_change:.2f}%")
+print(f"Current Price: {ytd.close:.2f} THB")
+print(f"P/E Ratio: {ytd.pe}, Market Cap: {ytd.market_cap:,.0f} THB")
+
+# Compare different periods
+for stat in stats:
+    print(f"{stat.period}: {stat.close:.2f} THB ({stat.percent_change:+.2f}%)")
+```
+
+**👉 [Learn more about Trading Statistics](docs/settfex/services/set/trading_stat.md)**
+
+---
+
 ## 🚀 Why settfex?
 
 ### ⚡ Blazing Fast
@@ -212,6 +236,7 @@ Want to dig deeper? Check out our detailed guides:
 - **[Shareholder Service](docs/settfex/services/set/shareholder.md)** - Major shareholders and ownership data
 - **[NVDR Holder Service](docs/settfex/services/set/nvdr_holder.md)** - NVDR holder information and ownership
 - **[Board of Director Service](docs/settfex/services/set/board_of_director.md)** - Board of directors and management structure
+- **[Trading Statistics Service](docs/settfex/services/set/trading_stat.md)** - Historical trading performance and metrics
 
 ### Utilities
 
@@ -230,6 +255,7 @@ from settfex.services.set import (
     get_company_profile,
     get_corporate_actions,
     get_board_of_directors,
+    get_trading_stats,
     Stock
 )
 
@@ -281,6 +307,15 @@ async def analyze_stock(symbol: str):
     chairman = next((d for d in directors if "CHAIRMAN" in d.positions), None)
     if chairman:
         print(f"  Chairman: {chairman.name}")
+
+    # Get trading statistics
+    stats = await get_trading_stats(symbol)
+    ytd = next((s for s in stats if s.period == "YTD"), None)
+    if ytd:
+        print(f"\n📊 Trading Statistics (YTD):")
+        print(f"  Performance: {ytd.percent_change:+.2f}%")
+        print(f"  Volume: {ytd.total_volume:,.0f} shares")
+        print(f"  Turnover: {ytd.turnover_ratio:.2f}%")
 
 # Run it!
 asyncio.run(analyze_stock("PTT"))

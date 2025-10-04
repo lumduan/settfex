@@ -161,6 +161,71 @@ settfex/
 
 ## Recent Changes
 
+### 2025-10-04: Trading Statistics Service
+
+**New Trading Statistics Service (`settfex/services/set/stock/trading_stat.py`)**
+- Created async service to fetch comprehensive trading statistics for individual stock symbols
+- Key features:
+  - **Full Type Safety**: Complete Pydantic model with 30+ trading statistics fields
+  - **Dual Language Support**: Fetch data in English ('en') or Thai ('th')
+  - **Input Normalization**: Automatic symbol uppercase and language validation
+  - **Async-First**: Built on AsyncDataFetcher for optimal performance
+  - **Multi-Period Data**: Returns statistics for YTD, 1M, 3M, 6M, and 1Y periods
+  - **Comprehensive Metrics**: Price, volume, valuation ratios, financial data, and volatility measures
+- Implementation:
+  - Main Pydantic model:
+    - `TradingStat`: Individual trading statistics record with 30+ fields
+  - Two fetch methods:
+    - `fetch_trading_stats(symbol, lang)`: Returns list of validated Pydantic models
+    - `fetch_trading_stats_raw(symbol, lang)`: Returns raw list of dictionaries for debugging
+  - Convenience function:
+    - `get_trading_stats(symbol, lang)`: Quick one-line access
+- Data fields include:
+  - **Period & Identification**: Date, period (YTD/1M/3M/6M/1Y), symbol, market, industry, sector
+  - **Price Data**: Prior, open, high, low, average, close, change, percent change
+  - **Volume & Value**: Total volume, total value, average daily value, turnover ratio
+  - **Valuation Metrics**: P/E ratio, P/B ratio, market cap, book value per share
+  - **Share Data**: Listed shares, par value
+  - **Financial Metrics**: Dividend yield, dividend payout ratio, financial date
+  - **Risk Metrics**: Beta coefficient
+- Configuration:
+  - Added to `settfex/services/set/constants.py`:
+    - `SET_TRADING_STAT_ENDPOINT`: `/api/set/factsheet/{symbol}/trading-stat`
+- Usage pattern:
+  ```python
+  from settfex.services.set import get_trading_stats
+
+  # Using convenience function
+  stats = await get_trading_stats("MINT")
+  for stat in stats:
+      print(f"{stat.period}: {stat.close:.2f} THB ({stat.percent_change:+.2f}%)")
+
+  # Get specific period
+  ytd = next(s for s in stats if s.period == "YTD")
+  print(f"YTD Performance: {ytd.percent_change:.2f}%")
+  print(f"P/E: {ytd.pe}, Market Cap: {ytd.market_cap:,.0f} THB")
+
+  # Thai language support
+  stats_th = await get_trading_stats("MINT", lang="th")
+  ```
+- Documentation:
+  - Full service documentation: `docs/settfex/services/set/trading_stat.md`
+  - Manual verification script: `scripts/settfex/services/set/verify_trading_stat.py`
+  - 8 verification tests covering all features and edge cases
+- Module exports:
+  - Updated `settfex/services/set/stock/__init__.py` to export:
+    - `TradingStat`, `TradingStatService`, `get_trading_stats`
+  - Updated `settfex/services/set/__init__.py` to export:
+    - `TradingStat`, `TradingStatService`, `get_trading_stats`
+    - `SET_TRADING_STAT_ENDPOINT`
+- Purpose:
+  - Track historical trading performance across multiple periods
+  - Analyze price movements, volume, and liquidity
+  - Monitor valuation metrics (P/E, P/B, market cap)
+  - Evaluate dividend metrics and payout ratios
+  - Assess volatility and risk (beta coefficient)
+  - Support investment analysis and trading decisions
+
 ### 2025-10-03: Board of Director Service
 
 **New Board of Director Service (`settfex/services/set/stock/board_of_director.py`)**
