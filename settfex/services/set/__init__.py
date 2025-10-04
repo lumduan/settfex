@@ -10,6 +10,7 @@ from settfex.services.set.constants import (
     SET_STOCK_LIST_ENDPOINT,
     SET_STOCK_PROFILE_ENDPOINT,
     SET_STOCK_SHAREHOLDER_ENDPOINT,
+    SET_TRADING_STAT_ENDPOINT,
 )
 from settfex.services.set.list import (
     StockListResponse,
@@ -33,6 +34,8 @@ from settfex.services.set.stock import (
     StockHighlightDataService,
     StockProfile,
     StockProfileService,
+    TradingStat,
+    TradingStatService,
     get_board_of_directors,
     get_company_profile,
     get_corporate_actions,
@@ -40,6 +43,7 @@ from settfex.services.set.stock import (
     get_nvdr_holder_data,
     get_profile,
     get_shareholder_data,
+    get_trading_stats,
     normalize_language,
     normalize_symbol,
 )
@@ -55,6 +59,7 @@ __all__ = [
     "SET_STOCK_SHAREHOLDER_ENDPOINT",
     "SET_NVDR_HOLDER_ENDPOINT",
     "SET_BOARD_OF_DIRECTOR_ENDPOINT",
+    "SET_TRADING_STAT_ENDPOINT",
     # Stock List Service
     "StockListService",
     "StockListResponse",
@@ -83,6 +88,9 @@ __all__ = [
     "BoardOfDirectorService",
     "Director",
     "get_board_of_directors",
+    "TradingStatService",
+    "TradingStat",
+    "get_trading_stats",
     # Stock Utilities
     "normalize_symbol",
     "normalize_language",

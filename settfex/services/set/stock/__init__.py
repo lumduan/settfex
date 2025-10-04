@@ -35,6 +35,11 @@ from settfex.services.set.stock.board_of_director import (
     BoardOfDirectorService,
     get_board_of_directors,
 )
+from settfex.services.set.stock.trading_stat import (
+    TradingStat,
+    TradingStatService,
+    get_trading_stats,
+)
 from settfex.services.set.stock.stock import Stock
 from settfex.services.set.stock.utils import normalize_language, normalize_symbol
 
@@ -72,4 +77,8 @@ __all__ = [
     "BoardOfDirectorService",
     "Director",
     "get_board_of_directors",
+    # Trading Statistics Service
+    "TradingStatService",
+    "TradingStat",
+    "get_trading_stats",
 ]
