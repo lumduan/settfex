@@ -23,13 +23,17 @@ The `settfex` library uses **disk-based session caching** to dramatically improv
                   │
                   ▼
 ┌─────────────────────────────────────────────────┐
-│  SessionManager (Singleton)                     │
+│  SessionManager (Site-Specific Singletons)      │
 │  ┌───────────────────────────────────────────┐  │
+│  │ Auto-detect SET vs TFEX from URL          │  │
 │  │ 1. Check disk cache for cookies           │  │
 │  │ 2. If found & valid → Use (FAST PATH)     │  │
-│  │ 3. If not found → Warm up                 │  │
+│  │ 3. If not found → Warm up (SET or TFEX)   │  │
 │  │ 4. Save to cache for next time            │  │
 │  └───────────────────────────────────────────┘  │
+│  • Separate instances for SET and TFEX        │
+│  • SET warmup: https://www.set.or.th          │
+│  • TFEX warmup: https://www.tfex.co.th        │
 └─────────────────┬───────────────────────────────┘
                   │
                   ▼
@@ -38,6 +42,9 @@ The `settfex` library uses **disk-based session caching** to dramatically improv
 │  Location: ~/.settfex/cache/                    │
 │  Format: SQLite + pickled data                  │
 │  TTL: 1 hour (configurable)                     │
+│  Keys:                                          │
+│    - set_session_chrome120                      │
+│    - tfex_session_chrome120                     │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -45,15 +52,16 @@ The `settfex` library uses **disk-based session caching** to dramatically improv
 
 #### First Request (Cache Miss)
 ```
-Request → Check cache → MISS → Warm up session (visit SET homepage)
-                                 ↓
-                            Get Incapsula cookies
-                                 ↓
-                            Save to disk cache
-                                 ↓
-                            Make API call
-                                 ↓
-                            Return data
+Request → Auto-detect site → Check cache → MISS → Warm up session
+  (SET or TFEX URL)                                 (visit SET or TFEX homepage)
+                                                     ↓
+                                                Get Incapsula cookies
+                                                     ↓
+                                                Save to disk cache
+                                                     ↓
+                                                Make API call
+                                                     ↓
+                                                Return data
 
 Time: ~2-3 seconds
 ```
@@ -101,25 +109,61 @@ Request → Use cached session → API call → HTTP 403/452 (bot detected!)
 Automatic - no manual intervention needed!
 ```
 
+## Dual-Site Support (SET & TFEX)
+
+The session manager maintains **separate cached sessions** for SET and TFEX:
+
+### Automatic Site Detection
+
+The library automatically detects whether you're accessing SET or TFEX based on the URL:
+
+```python
+from settfex.services.set import get_stock_list
+from settfex.services.tfex import get_series_list
+
+# SET API: Warms up with https://www.set.or.th
+stock_list = await get_stock_list()
+
+# TFEX API: Warms up with https://www.tfex.co.th
+series_list = await get_series_list()
+
+# Both sessions are cached separately!
+# - ~/.settfex/cache/set_session_chrome120
+# - ~/.settfex/cache/tfex_session_chrome120
+```
+
+### Benefits
+
+- **Independent Sessions**: SET and TFEX sessions don't interfere with each other
+- **Optimal Performance**: Each site gets its own optimized warmup strategy
+- **Separate Caching**: Each site maintains its own 1-hour cache
+- **No Manual Config**: URL-based detection works automatically
+
 ## Usage
 
 ### Automatic (Recommended)
 
-The `Stock` class and services automatically use cached sessions:
+All services automatically use the correct cached session:
 
 ```python
 from settfex.services.set import Stock
+from settfex.services.tfex import get_series_list
 
-# First call: Warmup + cache (~2-3s)
+# SET: First call warms up SET homepage (~2-3s)
 stock = Stock("PTT")
 data = await stock.get_highlight_data()
 
-# Subsequent calls: Use cache (~100ms)
+# SET: Subsequent calls use cached SET session (~100ms)
 stock2 = Stock("CPALL")
 data2 = await stock2.get_highlight_data()  # FAST!
 
-# Even after program restart: Use cached cookies!
-# (as long as cache hasn't expired)
+# TFEX: First call warms up TFEX homepage (~2-3s)
+series = await get_series_list()
+
+# TFEX: Subsequent calls use cached TFEX session (~100ms)
+series2 = await get_series_list()  # FAST!
+
+# Even after program restart: Use cached cookies for both sites!
 ```
 
 ### Manual Control
@@ -127,24 +171,48 @@ data2 = await stock2.get_highlight_data()  # FAST!
 For advanced use cases, you can manually control the session:
 
 ```python
-from settfex.utils import SessionManager
+from settfex.utils.session_manager import SessionManager
 
-# Get singleton instance
-manager = await SessionManager.get_instance(
-    browser="chrome120",        # Browser to impersonate
-    cache_ttl=3600,            # Cache TTL in seconds (1 hour)
-    enable_cache=True          # Enable disk caching
+# Get SET session instance
+set_manager = await SessionManager.get_instance(
+    browser="chrome120",
+    warmup_site="set"  # Explicit SET warmup
+)
+
+# Get TFEX session instance
+tfex_manager = await SessionManager.get_instance(
+    browser="chrome120",
+    warmup_site="tfex"  # Explicit TFEX warmup
 )
 
 # Initialize (uses cache if available)
-await manager.ensure_initialized()
+await set_manager.ensure_initialized()
+await tfex_manager.ensure_initialized()
 
-# Make request
-response = await manager.get(
-    "https://www.set.or.th/api/set/stock/PTT/highlight-data",
-    headers={...},
-    auto_retry_on_bot_detection=True  # Auto re-warm on bot detection
+# Make requests
+set_response = await set_manager.get(
+    "https://www.set.or.th/api/set/stock/list",
+    auto_retry_on_bot_detection=True
 )
+
+tfex_response = await tfex_manager.get(
+    "https://www.tfex.co.th/api/set/tfex/series/list",
+    auto_retry_on_bot_detection=True
+)
+```
+
+### URL-Based Session Selection
+
+Or use the convenience function that auto-detects the site:
+
+```python
+from settfex.utils.session_manager import get_session_for_url
+
+# Automatically selects SET warmup
+set_session = await get_session_for_url("https://www.set.or.th/api/...")
+
+# Automatically selects TFEX warmup
+tfex_session = await get_session_for_url("https://www.tfex.co.th/api/...")
 ```
 
 ### Force Refresh

@@ -17,7 +17,7 @@ Key features:
 import asyncio
 import time
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from curl_cffi import requests
 from loguru import logger
@@ -63,7 +63,7 @@ class SessionManager:
         >>> response = await manager.get("https://www.set.or.th/api/...")
     """
 
-    _instance: ClassVar["SessionManager | None"] = None
+    _instances: ClassVar[dict[str, "SessionManager"]] = {}
     _lock: ClassVar[asyncio.Lock] = asyncio.Lock()
 
     def __init__(
@@ -72,6 +72,7 @@ class SessionManager:
         cache_dir: str | Path | None = None,
         cache_ttl: int = 3600,
         enable_cache: bool = True,
+        warmup_site: str = "set",
     ) -> None:
         """
         Initialize session manager.
@@ -81,45 +82,72 @@ class SessionManager:
             cache_dir: Directory for session cache (default: ~/.settfex/cache)
             cache_ttl: Cache time-to-live in seconds (default: 3600 = 1 hour)
             enable_cache: Enable disk caching (default: True)
+            warmup_site: Site to warmup with - 'set' or 'tfex' (default: 'set')
         """
         self.browser = browser
         self.cache_dir = cache_dir
         self.cache_ttl = cache_ttl
         self.enable_cache = enable_cache
-        self._session: requests.Session | None = None
+        self.warmup_site = warmup_site.lower()
+        self._session: requests.Session[Any] | None = None
         self._initialized = False
         self._last_warmup_time = 0.0
         self._warmup_interval = cache_ttl
         self._cache: SessionCache | None = None
-        self._cache_key = f"set_session_{browser}"
+        self._cache_key = f"{warmup_site}_session_{browser}"
         logger.info(
-            f"SessionManager created with browser={browser}, "
+            f"SessionManager created with browser={browser}, warmup_site={warmup_site}, "
             f"cache={'enabled' if enable_cache else 'disabled'}"
         )
 
     @classmethod
-    async def get_instance(cls, browser: str = "chrome120") -> "SessionManager":
+    async def get_instance(
+        cls, browser: str = "chrome120", warmup_site: str = "set"
+    ) -> "SessionManager":
         """
         Get singleton instance of SessionManager.
 
+        Creates separate instances for SET and TFEX to maintain independent sessions.
+
         Args:
             browser: Browser to impersonate (default: chrome120)
+            warmup_site: Site to warmup with - 'set' or 'tfex' (default: 'set')
 
         Returns:
             SessionManager instance
         """
+        instance_key = f"{warmup_site}_{browser}"
         async with cls._lock:
-            if cls._instance is None:
-                cls._instance = cls(browser=browser)
-            return cls._instance
+            if instance_key not in cls._instances:
+                cls._instances[instance_key] = cls(
+                    browser=browser, warmup_site=warmup_site
+                )
+            return cls._instances[instance_key]
 
     @classmethod
-    def reset_instance(cls) -> None:
-        """Reset singleton instance (useful for testing)."""
-        if cls._instance and cls._instance._session:
-            cls._instance._session.close()
-        cls._instance = None
-        logger.debug("SessionManager instance reset")
+    def reset_instance(cls, warmup_site: str | None = None) -> None:
+        """
+        Reset singleton instance (useful for testing).
+
+        Args:
+            warmup_site: Specific site to reset ('set' or 'tfex'), or None to reset all
+        """
+        if warmup_site:
+            # Reset specific site
+            for key in list(cls._instances.keys()):
+                if key.startswith(warmup_site):
+                    instance = cls._instances[key]
+                    if instance._session:
+                        instance._session.close()
+                    del cls._instances[key]
+            logger.debug(f"SessionManager instance for {warmup_site} reset")
+        else:
+            # Reset all instances
+            for instance in cls._instances.values():
+                if instance._session:
+                    instance._session.close()
+            cls._instances.clear()
+            logger.debug("All SessionManager instances reset")
 
     async def _get_cache(self) -> SessionCache:
         """Get or create cache instance."""
@@ -259,7 +287,15 @@ class SessionManager:
             return
 
         # Slow path: Warm up session
-        logger.info("Warming up session with SET homepage visit...")
+        # Determine warmup URL based on site
+        if self.warmup_site == "tfex":
+            warmup_url = "https://www.tfex.co.th/en/home"
+            site_name = "TFEX"
+        else:
+            warmup_url = "https://www.set.or.th/en/home"
+            site_name = "SET"
+
+        logger.info(f"Warming up session with {site_name} homepage visit...")
 
         try:
             # Create session if needed
@@ -267,8 +303,7 @@ class SessionManager:
                 self._session = requests.Session()
                 logger.debug("Created new curl_cffi Session")
 
-            # Warm-up: Visit SET homepage to get Incapsula cookies
-            warmup_url = "https://www.set.or.th/en/home"
+            # Warm-up: Visit homepage to get Incapsula cookies
             headers = {
                 "User-Agent": (
                     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -289,7 +324,8 @@ class SessionManager:
             }
 
             # Run in thread since curl_cffi Session is sync
-            def do_warmup():
+            def do_warmup() -> Any:
+                assert self._session is not None
                 response = self._session.get(
                     warmup_url,
                     headers=headers,
@@ -298,7 +334,7 @@ class SessionManager:
                 )
                 return response
 
-            response = await asyncio.to_thread(do_warmup)
+            response: Any = await asyncio.to_thread(do_warmup)
 
             if response.status_code == 200:
                 # Check if we got cookies
@@ -329,7 +365,7 @@ class SessionManager:
         headers: dict[str, str] | None = None,
         timeout: int = 30,
         auto_retry_on_bot_detection: bool = True,
-    ) -> requests.Response:
+    ) -> Any:
         """
         Make GET request using persistent session.
 
@@ -355,7 +391,8 @@ class SessionManager:
 
         logger.debug(f"GET {url} (using persistent session with cookies)")
 
-        def do_request():
+        def do_request() -> Any:
+            assert self._session is not None
             return self._session.get(
                 url,
                 headers=headers or {},
@@ -363,7 +400,7 @@ class SessionManager:
                 timeout=timeout,
             )
 
-        response = await asyncio.to_thread(do_request)
+        response: Any = await asyncio.to_thread(do_request)
         logger.debug(
             f"Response: {response.status_code}, cookies in session: {len(self._session.cookies)}"
         )
@@ -397,8 +434,10 @@ class SessionManager:
             logger.debug("Session closed")
 
 
-# Convenience function for quick access
-async def get_shared_session(browser: str = "chrome120") -> SessionManager:
+# Convenience functions for quick access
+async def get_shared_session(
+    browser: str = "chrome120", warmup_site: str = "set"
+) -> SessionManager:
     """
     Get the shared SessionManager instance.
 
@@ -406,14 +445,49 @@ async def get_shared_session(browser: str = "chrome120") -> SessionManager:
 
     Args:
         browser: Browser to impersonate (default: chrome120)
+        warmup_site: Site to warmup with - 'set' or 'tfex' (default: 'set')
 
     Returns:
         Initialized SessionManager instance
 
     Example:
-        >>> session = await get_shared_session()
+        >>> # For SET APIs
+        >>> session = await get_shared_session(warmup_site="set")
         >>> response = await session.get("https://www.set.or.th/api/...")
+        >>>
+        >>> # For TFEX APIs
+        >>> session = await get_shared_session(warmup_site="tfex")
+        >>> response = await session.get("https://www.tfex.co.th/api/...")
     """
-    manager = await SessionManager.get_instance(browser=browser)
+    manager = await SessionManager.get_instance(browser=browser, warmup_site=warmup_site)
     await manager.ensure_initialized()
     return manager
+
+
+async def get_session_for_url(url: str, browser: str = "chrome120") -> SessionManager:
+    """
+    Get SessionManager instance appropriate for the given URL.
+
+    Automatically detects whether to use SET or TFEX warmup based on URL.
+
+    Args:
+        url: URL to fetch (e.g., "https://www.set.or.th/api/..." or "https://www.tfex.co.th/api/...")
+        browser: Browser to impersonate (default: chrome120)
+
+    Returns:
+        Initialized SessionManager instance
+
+    Example:
+        >>> session = await get_session_for_url("https://www.set.or.th/api/...")
+        >>> # Automatically uses SET warmup
+        >>>
+        >>> session = await get_session_for_url("https://www.tfex.co.th/api/...")
+        >>> # Automatically uses TFEX warmup
+    """
+    # Auto-detect warmup site based on URL
+    if "tfex.co.th" in url.lower():
+        warmup_site = "tfex"
+    else:
+        warmup_site = "set"
+
+    return await get_shared_session(browser=browser, warmup_site=warmup_site)

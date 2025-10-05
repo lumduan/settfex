@@ -161,6 +161,80 @@ settfex/
 
 ## Recent Changes
 
+### 2025-10-05: TFEX Series List Service
+
+**New TFEX Series List Service (`settfex/services/tfex/list.py`)**
+- Created async service to fetch complete list of futures and options series from TFEX API
+- Key features:
+  - **Full Type Safety**: Complete Pydantic models for all series data fields
+  - **Async-First**: Built on AsyncDataFetcher with SessionManager integration
+  - **Rich Filtering**: Filter by instrument, market, underlying, active status, futures/options
+  - **DateTime Support**: Automatic parsing of trading dates with timezone support
+  - **Comprehensive Data**: Instrument details, contract months, strike prices, night sessions
+- Implementation:
+  - Two main Pydantic models:
+    - `TFEXSeries`: Individual series information with 13 fields
+    - `TFEXSeriesListResponse`: Complete response with helper methods
+  - Two fetch methods:
+    - `fetch_series_list()`: Returns validated Pydantic models
+    - `fetch_series_list_raw()`: Returns raw dictionary for debugging
+  - Convenience function:
+    - `get_series_list(config)`: Quick one-line access
+  - Eight filter methods on response:
+    - `filter_by_instrument(instrument_id)`: Filter by instrument ID
+    - `filter_by_market(market_list_id)`: Filter by market list
+    - `filter_by_underlying(underlying)`: Filter by underlying asset
+    - `filter_active_only()`: Get only active series
+    - `get_futures()`: Get only futures contracts
+    - `get_options()`: Get only options contracts
+    - `get_symbol(symbol)`: Lookup specific series by symbol
+    - `count` property: Total number of series
+- Data fields include:
+  - **Series Identification**: Symbol, instrument ID/name, market ID/name
+  - **Trading Dates**: First trading date, last trading date (with timezone)
+  - **Contract Details**: Contract month, options type, strike price
+  - **Trading Info**: Underlying asset, active status, night session flag
+- Configuration:
+  - Added to `settfex/services/tfex/constants.py`:
+    - `TFEX_BASE_URL`: `https://www.tfex.co.th`
+    - `TFEX_SERIES_LIST_ENDPOINT`: `/api/set/tfex/series/list`
+- Usage pattern:
+  ```python
+  from settfex.services.tfex import get_series_list
+
+  # Basic fetch
+  series_list = await get_series_list()
+  print(f"Total: {series_list.count}")
+  print(f"Active: {len(series_list.filter_active_only())}")
+
+  # Filter futures only
+  futures = series_list.get_futures()
+  active_futures = [s for s in futures if s.active]
+
+  # Filter by underlying
+  set50_series = series_list.filter_by_underlying("SET50")
+
+  # Lookup specific series
+  series = series_list.get_symbol("S50V25")
+  ```
+- Documentation:
+  - Full service documentation: `docs/settfex/services/tfex/list.md`
+  - Manual verification script: `scripts/settfex/services/tfex/verify_series_list.py`
+  - 10 verification tests covering all features and edge cases
+- Module exports:
+  - Updated `settfex/services/tfex/__init__.py` to export:
+    - `TFEXSeries`, `TFEXSeriesListResponse`, `TFEXSeriesListService`, `get_series_list`
+    - `TFEX_BASE_URL`, `TFEX_SERIES_LIST_ENDPOINT`
+- Documentation updates:
+  - Updated `README.md` to separate SET and TFEX sections
+  - Added TFEX section with series list example
+  - Updated Full Documentation section to list SET and TFEX services separately
+- Purpose:
+  - Get complete list of all TFEX futures and options series
+  - Filter by instrument type, underlying asset, market, or active status
+  - Support contract rollover monitoring and options chain analysis
+  - Enable futures/options research and trading strategy development
+
 ### 2025-10-05: Financial Service
 
 **New Financial Service (`settfex/services/set/stock/financial/financial.py`)**

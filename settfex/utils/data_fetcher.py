@@ -160,7 +160,8 @@ class AsyncDataFetcher:
         Make HTTP GET request using either persistent session or standalone request.
 
         Uses SessionManager for automatic cookie handling if use_session=True,
-        otherwise makes standalone request.
+        otherwise makes standalone request. Automatically detects SET vs TFEX URLs
+        and uses the appropriate warmup strategy.
 
         Args:
             url: URL to fetch
@@ -174,9 +175,10 @@ class AsyncDataFetcher:
         """
         if self.config.use_session:
             # Use persistent session with automatic cookie handling
-            from settfex.utils.session_manager import get_shared_session
+            # Auto-detects SET vs TFEX based on URL
+            from settfex.utils.session_manager import get_session_for_url
 
-            session = await get_shared_session(browser=self.config.browser_impersonate)
+            session = await get_session_for_url(url, browser=self.config.browser_impersonate)
             response = await session.get(url, headers=headers, timeout=self.config.timeout)
             logger.debug(
                 f"Request via session: status={response.status_code}, url={url}"
@@ -186,7 +188,7 @@ class AsyncDataFetcher:
             # Make standalone request (no cookie persistence)
             logger.debug(f"Making standalone request to {url}")
 
-            def do_request():
+            def do_request() -> Any:
                 return requests.get(
                     url,
                     headers=headers,

@@ -16,7 +16,9 @@ pip install settfex
 
 ## 🎯 What Can You Do?
 
-### 📋 Get Stock List
+### SET (Stock Exchange of Thailand)
+
+#### 📋 Get Stock List
 
 Want to see all stocks trading on SET? Easy!
 
@@ -35,7 +37,7 @@ mai_stocks = stock_list.filter_by_market("mai")
 
 ---
 
-### 💰 Get Stock Highlight Data
+#### 💰 Get Stock Highlight Data
 
 Need market cap, P/E ratio, dividend yield? We got you!
 
@@ -54,7 +56,7 @@ print(f"Dividend Yield: {data.dividend_yield}%")
 
 ---
 
-### 📊 Get Stock Profile
+#### 📊 Get Stock Profile
 
 Want to know when a company was listed? Its IPO price? Foreign ownership limits?
 
@@ -72,7 +74,7 @@ print(f"Foreign Limit: {profile.percent_foreign_limit}%")
 
 ---
 
-### 🏢 Get Company Profile
+#### 🏢 Get Company Profile
 
 Curious about company details, management, auditors, or ESG ratings?
 
@@ -92,7 +94,7 @@ print(f"Executives: {len(company.managements)}")
 
 ---
 
-### 📅 Get Corporate Actions
+#### 📅 Get Corporate Actions
 
 Track dividends, shareholder meetings, and other corporate events:
 
@@ -115,7 +117,7 @@ for action in actions:
 
 ---
 
-### 👥 Get Shareholder Data
+#### 👥 Get Shareholder Data
 
 See who owns what! Get major shareholders, free float, and ownership distribution:
 
@@ -135,7 +137,7 @@ for sh in data.major_shareholders[:5]:
 
 ---
 
-### 📜 Get NVDR Holder Data
+#### 📜 Get NVDR Holder Data
 
 Track Non-Voting Depository Receipt (NVDR) holders and their ownership:
 
@@ -155,7 +157,7 @@ for holder in data.major_shareholders[:5]:
 
 ---
 
-### 👔 Get Board of Directors
+#### 👔 Get Board of Directors
 
 See who's running the show! Get board of directors and management information:
 
@@ -178,7 +180,7 @@ if chairman:
 
 ---
 
-### 📊 Get Trading Statistics
+#### 📊 Get Trading Statistics
 
 Track historical trading performance with comprehensive statistics across multiple time periods:
 
@@ -202,7 +204,7 @@ for stat in stats:
 
 ---
 
-### 📈 Get Price Performance
+#### 📈 Get Price Performance
 
 Compare stock performance against sector and market with comprehensive price change data:
 
@@ -227,7 +229,7 @@ print(f"Market ({data.market.symbol}): {data.market.ytd_percent_change:+.2f}%")
 
 ---
 
-### 💰 Get Financial Statements
+#### 💰 Get Financial Statements
 
 Fetch comprehensive financial data including balance sheet, income statement, and cash flow:
 
@@ -257,11 +259,38 @@ cash_flows = await get_cash_flow("CPALL")
 
 ---
 
+### TFEX (Thailand Futures Exchange)
+
+#### 📋 Get TFEX Series List
+
+Want to see all futures and options trading on TFEX? Easy!
+
+```python
+from settfex.services.tfex import get_series_list
+
+series_list = await get_series_list()
+print(f"Found {series_list.count} series!")
+
+# Filter active futures only
+active_futures = [s for s in series_list.get_futures() if s.active]
+print(f"Active futures: {len(active_futures)}")
+
+# Filter by underlying
+set50_series = series_list.filter_by_underlying("SET50")
+print(f"SET50 contracts: {len(set50_series)}")
+```
+
+**👉 [Learn more about TFEX Series List](docs/settfex/services/tfex/list.md)**
+
+---
+
 ## 🚀 Why settfex?
 
 ### ⚡ Blazing Fast
 
 First request takes ~2 seconds (warming up). After that? **100ms!** That's 25x faster thanks to smart session caching.
+
+**Dual-Site Support**: Separate cached sessions for SET and TFEX - each optimized for its own API!
 
 **👉 [Learn about Session Caching](docs/settfex/utils/session_caching.md)**
 
@@ -281,7 +310,7 @@ Beautiful logs with loguru. Debug issues easily or turn them off in production.
 
 Want to dig deeper? Check out our detailed guides:
 
-### Services
+### SET Services
 
 - **[Stock List Service](docs/settfex/services/set/list.md)** - Get all stocks on SET/mai
 - **[Highlight Data Service](docs/settfex/services/set/highlight_data.md)** - Market metrics and valuations
@@ -294,6 +323,10 @@ Want to dig deeper? Check out our detailed guides:
 - **[Trading Statistics Service](docs/settfex/services/set/trading_stat.md)** - Historical trading performance and metrics
 - **[Price Performance Service](docs/settfex/services/set/price_performance.md)** - Stock, sector, and market price performance comparison
 - **[Financial Service](docs/settfex/services/set/financial.md)** - Balance sheet, income statement, and cash flow data
+
+### TFEX Services
+
+- **[TFEX Series List Service](docs/settfex/services/tfex/list.md)** - Get all futures and options series on TFEX
 
 ### Utilities
 
