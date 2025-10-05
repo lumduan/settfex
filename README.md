@@ -13,6 +13,33 @@
 ```bash
 pip install settfex
 ```
+## 📚 Full Documentation
+
+Want to dig deeper? Check out our detailed guides:
+
+### SET Services
+
+- **[Stock List Service](docs/settfex/services/set/list.md)** - Get all stocks on SET/mai
+- **[Highlight Data Service](docs/settfex/services/set/highlight_data.md)** - Market metrics and valuations
+- **[Stock Profile Service](docs/settfex/services/set/profile_stock.md)** - Listing details and share structure
+- **[Company Profile Service](docs/settfex/services/set/profile_company.md)** - Full company information
+- **[Corporate Action Service](docs/settfex/services/set/corporate_action.md)** - Dividends, meetings, and events
+- **[Shareholder Service](docs/settfex/services/set/shareholder.md)** - Major shareholders and ownership data
+- **[NVDR Holder Service](docs/settfex/services/set/nvdr_holder.md)** - NVDR holder information and ownership
+- **[Board of Director Service](docs/settfex/services/set/board_of_director.md)** - Board of directors and management structure
+- **[Trading Statistics Service](docs/settfex/services/set/trading_stat.md)** - Historical trading performance and metrics
+- **[Price Performance Service](docs/settfex/services/set/price_performance.md)** - Stock, sector, and market price performance comparison
+- **[Financial Service](docs/settfex/services/set/financial.md)** - Balance sheet, income statement, and cash flow data
+
+### TFEX Services
+
+- **[TFEX Series List Service](docs/settfex/services/tfex/list.md)** - Get all futures and options series on TFEX
+- **[TFEX Trading Statistics Service](docs/settfex/services/tfex/trading_statistics.md)** - Trading statistics, settlement prices, and margin requirements
+
+### Utilities
+
+- **[AsyncDataFetcher](docs/settfex/utils/data_fetcher.md)** - Low-level async HTTP client
+- **[Session Caching](docs/settfex/utils/session_caching.md)** - How we make things 25x faster
 
 ## 🎯 What Can You Do?
 
@@ -330,34 +357,6 @@ Everything is type-hinted and validated with Pydantic. Your IDE will love it!
 
 Beautiful logs with loguru. Debug issues easily or turn them off in production.
 
-## 📚 Full Documentation
-
-Want to dig deeper? Check out our detailed guides:
-
-### SET Services
-
-- **[Stock List Service](docs/settfex/services/set/list.md)** - Get all stocks on SET/mai
-- **[Highlight Data Service](docs/settfex/services/set/highlight_data.md)** - Market metrics and valuations
-- **[Stock Profile Service](docs/settfex/services/set/profile_stock.md)** - Listing details and share structure
-- **[Company Profile Service](docs/settfex/services/set/profile_company.md)** - Full company information
-- **[Corporate Action Service](docs/settfex/services/set/corporate_action.md)** - Dividends, meetings, and events
-- **[Shareholder Service](docs/settfex/services/set/shareholder.md)** - Major shareholders and ownership data
-- **[NVDR Holder Service](docs/settfex/services/set/nvdr_holder.md)** - NVDR holder information and ownership
-- **[Board of Director Service](docs/settfex/services/set/board_of_director.md)** - Board of directors and management structure
-- **[Trading Statistics Service](docs/settfex/services/set/trading_stat.md)** - Historical trading performance and metrics
-- **[Price Performance Service](docs/settfex/services/set/price_performance.md)** - Stock, sector, and market price performance comparison
-- **[Financial Service](docs/settfex/services/set/financial.md)** - Balance sheet, income statement, and cash flow data
-
-### TFEX Services
-
-- **[TFEX Series List Service](docs/settfex/services/tfex/list.md)** - Get all futures and options series on TFEX
-- **[TFEX Trading Statistics Service](docs/settfex/services/tfex/trading_statistics.md)** - Trading statistics, settlement prices, and margin requirements
-
-### Utilities
-
-- **[AsyncDataFetcher](docs/settfex/utils/data_fetcher.md)** - Low-level async HTTP client
-- **[Session Caching](docs/settfex/utils/session_caching.md)** - How we make things 25x faster
-
 ## 💡 Quick Example
 
 Here's everything in action:
@@ -500,8 +499,6 @@ This library is not officially affiliated with the Stock Exchange of Thailand or
 
 - 📖 Check the [detailed documentation](docs/settfex/)
 - 🐛 Found a bug? [Open an issue](https://github.com/lumduan/settfex/issues)
-- 💬 Have questions? Start a [discussion](https://github.com/lumduan/settfex/discussions)
 
 ---
 
-Made with ❤️ for the Thai stock market community
