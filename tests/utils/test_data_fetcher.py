@@ -3,7 +3,7 @@
 import asyncio
 import json
 from typing import Any
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -24,6 +24,8 @@ class TestFetcherConfig:
         assert config.timeout == 30
         assert config.max_retries == 3
         assert config.retry_delay == 1.0
+        assert config.rate_limit_delay == 0.0
+        assert config.use_session is True
         assert config.user_agent is None
 
     def test_custom_config(self) -> None:
@@ -33,12 +35,16 @@ class TestFetcherConfig:
             timeout=60,
             max_retries=5,
             retry_delay=2.0,
+            rate_limit_delay=0.5,
+            use_session=False,
             user_agent="CustomAgent/1.0",
         )
         assert config.browser_impersonate == "safari17_0"
         assert config.timeout == 60
         assert config.max_retries == 5
         assert config.retry_delay == 2.0
+        assert config.rate_limit_delay == 0.5
+        assert config.use_session is False
         assert config.user_agent == "CustomAgent/1.0"
 
     def test_validation_timeout_bounds(self) -> None:
@@ -61,6 +67,13 @@ class TestFetcherConfig:
             FetcherConfig(retry_delay=0.05)
         with pytest.raises(ValueError):
             FetcherConfig(retry_delay=31.0)
+
+    def test_validation_rate_limit_delay_bounds(self) -> None:
+        """Test rate_limit_delay validation bounds."""
+        with pytest.raises(ValueError):
+            FetcherConfig(rate_limit_delay=-0.1)
+        with pytest.raises(ValueError):
+            FetcherConfig(rate_limit_delay=11.0)
 
     def test_browser_validation_warning(self, caplog: Any) -> None:
         """Test browser validation logs warning for non-standard browsers."""
@@ -113,52 +126,47 @@ class TestAsyncDataFetcher:
         fetcher = AsyncDataFetcher()
         assert fetcher.config.browser_impersonate == "chrome120"
         assert fetcher.config.timeout == 30
+        assert fetcher.config.use_session is True
+        assert fetcher.config.rate_limit_delay == 0.0
 
     def test_initialization_custom_config(self) -> None:
         """Test fetcher initialization with custom config."""
-        config = FetcherConfig(browser_impersonate="safari17_0", timeout=60)
+        config = FetcherConfig(
+            browser_impersonate="safari17_0",
+            timeout=60,
+            use_session=False,
+            rate_limit_delay=0.5,
+        )
         fetcher = AsyncDataFetcher(config=config)
         assert fetcher.config.browser_impersonate == "safari17_0"
         assert fetcher.config.timeout == 60
+        assert fetcher.config.use_session is False
+        assert fetcher.config.rate_limit_delay == 0.5
 
-    def test_generate_random_cookies(self) -> None:
-        """Test random cookie generation."""
-        fetcher = AsyncDataFetcher()
-        cookies1 = fetcher._generate_random_cookies()
-        cookies2 = fetcher._generate_random_cookies()
+    def test_get_set_api_headers(self) -> None:
+        """Test SET API headers generation."""
+        headers = AsyncDataFetcher.get_set_api_headers()
 
-        # Cookies should be different each time
-        assert cookies1 != cookies2
+        # Verify essential headers are present
+        assert "Accept" in headers
+        assert "application/json" in headers["Accept"]
+        assert "Accept-Language" in headers
+        assert "th-TH" in headers["Accept-Language"]
+        assert "User-Agent" in headers
+        assert "Chrome" in headers["User-Agent"]
+        assert "Referer" in headers
+        assert "set.or.th" in headers["Referer"]
 
-        # Cookies should contain expected keys
-        assert "_ga=" in cookies1
-        assert "PHPSESSID=" in cookies1
-        assert "lang=th" in cookies1
-        assert "accept_cookies=1" in cookies1
+        # Verify bot detection headers
+        assert "Sec-Ch-Ua" in headers
+        assert "Sec-Fetch-Dest" in headers
+        assert "Sec-Fetch-Mode" in headers
 
-        # Should be properly formatted
-        assert "; " in cookies1
-        parts = cookies1.split("; ")
-        assert len(parts) > 5
-
-    def test_generate_random_cookies_format(self) -> None:
-        """Test random cookie format is valid."""
-        fetcher = AsyncDataFetcher()
-        cookies = fetcher._generate_random_cookies()
-
-        # Parse cookies
-        cookie_dict = {}
-        for part in cookies.split("; "):
-            if "=" in part:
-                key, value = part.split("=", 1)
-                cookie_dict[key] = value
-
-        # Verify expected cookies exist
-        assert "_ga" in cookie_dict
-        assert "_gid" in cookie_dict
-        assert "PHPSESSID" in cookie_dict
-        assert "lang" in cookie_dict
-        assert cookie_dict["lang"] == "th"
+    def test_get_set_api_headers_custom_referer(self) -> None:
+        """Test SET API headers with custom referer."""
+        custom_referer = "https://example.com"
+        headers = AsyncDataFetcher.get_set_api_headers(referer=custom_referer)
+        assert headers["Referer"] == custom_referer
 
     @pytest.mark.asyncio
     async def test_fetch_success(self) -> None:
@@ -172,7 +180,7 @@ class TestAsyncDataFetcher:
         mock_response.headers = {"Content-Type": "text/plain"}
         mock_response.url = "https://example.com"
 
-        with patch.object(fetcher, "_make_sync_request", return_value=mock_response):
+        with patch.object(fetcher, "_make_request", return_value=mock_response):
             response = await fetcher.fetch("https://example.com")
 
         assert response.status_code == 200
@@ -191,7 +199,7 @@ class TestAsyncDataFetcher:
         mock_response.headers = {"Content-Type": "text/html; charset=utf-8"}
         mock_response.url = "https://example.com"
 
-        with patch.object(fetcher, "_make_sync_request", return_value=mock_response):
+        with patch.object(fetcher, "_make_request", return_value=mock_response):
             response = await fetcher.fetch("https://example.com")
 
         assert response.status_code == 200
@@ -210,52 +218,13 @@ class TestAsyncDataFetcher:
         mock_response.headers = {}
         mock_response.url = "https://example.com"
 
-        with patch.object(fetcher, "_make_sync_request", return_value=mock_response) as mock:
+        with patch.object(fetcher, "_make_request", return_value=mock_response) as mock:
             await fetcher.fetch("https://example.com", headers=custom_headers)
 
         # Verify custom header was included
         call_args = mock.call_args
         headers = call_args[0][1]
         assert headers["X-Custom-Header"] == "test-value"
-
-    @pytest.mark.asyncio
-    async def test_fetch_with_custom_cookies(self) -> None:
-        """Test fetch with custom cookies."""
-        fetcher = AsyncDataFetcher()
-        custom_cookies = "session=abc123; user=test"
-
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.content = b"test"
-        mock_response.headers = {}
-        mock_response.url = "https://example.com"
-
-        with patch.object(fetcher, "_make_sync_request", return_value=mock_response) as mock:
-            await fetcher.fetch("https://example.com", cookies=custom_cookies)
-
-        # Verify custom cookies were used
-        call_args = mock.call_args
-        headers = call_args[0][1]
-        assert headers["Cookie"] == custom_cookies
-
-    @pytest.mark.asyncio
-    async def test_fetch_without_random_cookies(self) -> None:
-        """Test fetch with random cookies disabled."""
-        fetcher = AsyncDataFetcher()
-
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.content = b"test"
-        mock_response.headers = {}
-        mock_response.url = "https://example.com"
-
-        with patch.object(fetcher, "_make_sync_request", return_value=mock_response) as mock:
-            await fetcher.fetch("https://example.com", use_random_cookies=False)
-
-        # Verify no Cookie header was set
-        call_args = mock.call_args
-        headers = call_args[0][1]
-        assert "Cookie" not in headers
 
     @pytest.mark.asyncio
     async def test_fetch_retry_on_failure(self) -> None:
@@ -279,7 +248,7 @@ class TestAsyncDataFetcher:
                 raise ConnectionError("Connection failed")
             return mock_response
 
-        with patch.object(fetcher, "_make_sync_request", side_effect=side_effect):
+        with patch.object(fetcher, "_make_request", side_effect=side_effect):
             response = await fetcher.fetch("https://example.com")
 
         assert call_count == 3
@@ -292,7 +261,7 @@ class TestAsyncDataFetcher:
         fetcher = AsyncDataFetcher(config=config)
 
         with patch.object(
-            fetcher, "_make_sync_request", side_effect=ConnectionError("Connection failed")
+            fetcher, "_make_request", side_effect=ConnectionError("Connection failed")
         ):
             with pytest.raises(Exception, match="Failed to fetch"):
                 await fetcher.fetch("https://example.com")
@@ -311,7 +280,7 @@ class TestAsyncDataFetcher:
         mock_response.headers = {}
         mock_response.url = "https://example.com"
 
-        with patch.object(fetcher, "_make_sync_request", return_value=mock_response):
+        with patch.object(fetcher, "_make_request", return_value=mock_response):
             response = await fetcher.fetch("https://example.com")
 
         assert response.status_code == 200
@@ -331,7 +300,7 @@ class TestAsyncDataFetcher:
         mock_response.headers = {"Content-Type": "application/json"}
         mock_response.url = "https://example.com/api"
 
-        with patch.object(fetcher, "_make_sync_request", return_value=mock_response):
+        with patch.object(fetcher, "_make_request", return_value=mock_response):
             data = await fetcher.fetch_json("https://example.com/api")
 
         assert data == json_data
@@ -348,7 +317,7 @@ class TestAsyncDataFetcher:
         mock_response.headers = {}
         mock_response.url = "https://example.com/api"
 
-        with patch.object(fetcher, "_make_sync_request", return_value=mock_response):
+        with patch.object(fetcher, "_make_request", return_value=mock_response):
             with pytest.raises(json.JSONDecodeError):
                 await fetcher.fetch_json("https://example.com/api")
 
@@ -359,9 +328,10 @@ class TestAsyncDataFetcher:
             assert isinstance(fetcher, AsyncDataFetcher)
 
     @pytest.mark.asyncio
-    async def test_make_sync_request_called_in_thread(self) -> None:
-        """Test that sync request is called via asyncio.to_thread."""
-        fetcher = AsyncDataFetcher()
+    async def test_rate_limiting_delay(self) -> None:
+        """Test rate limiting behavior."""
+        config = FetcherConfig(rate_limit_delay=0.1)
+        fetcher = AsyncDataFetcher(config=config)
 
         mock_response = Mock()
         mock_response.status_code = 200
@@ -369,13 +339,29 @@ class TestAsyncDataFetcher:
         mock_response.headers = {}
         mock_response.url = "https://example.com"
 
-        with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
-            mock_to_thread.return_value = mock_response
-
+        with patch.object(fetcher, "_make_request", return_value=mock_response):
+            # First request
+            start_time = asyncio.get_event_loop().time()
             await fetcher.fetch("https://example.com")
 
-            # Verify asyncio.to_thread was called
-            mock_to_thread.assert_called_once()
+            # Second request should be delayed
+            await fetcher.fetch("https://example.com")
+            elapsed = asyncio.get_event_loop().time() - start_time
+
+            # Should take at least the rate limit delay
+            assert elapsed >= 0.1
+
+    @pytest.mark.asyncio
+    async def test_session_vs_standalone_mode(self) -> None:
+        """Test difference between session and standalone mode."""
+        # Test with session disabled
+        config = FetcherConfig(use_session=False)
+        fetcher = AsyncDataFetcher(config=config)
+        assert fetcher.config.use_session is False
+
+        # Test with session enabled (default)
+        fetcher_with_session = AsyncDataFetcher()
+        assert fetcher_with_session.config.use_session is True
 
     @pytest.mark.asyncio
     async def test_fetch_includes_thai_accept_language(self) -> None:
@@ -388,7 +374,7 @@ class TestAsyncDataFetcher:
         mock_response.headers = {}
         mock_response.url = "https://example.com"
 
-        with patch.object(fetcher, "_make_sync_request", return_value=mock_response) as mock:
+        with patch.object(fetcher, "_make_request", return_value=mock_response) as mock:
             await fetcher.fetch("https://example.com")
 
         call_args = mock.call_args
@@ -407,11 +393,12 @@ class TestAsyncDataFetcher:
         mock_response.headers = {}
         mock_response.url = "https://example.com"
 
+        # Mock a slow response
         async def slow_request(*args: Any, **kwargs: Any) -> Any:
             await asyncio.sleep(0.1)
             return mock_response
 
-        with patch("asyncio.to_thread", side_effect=slow_request):
+        with patch.object(fetcher, "_make_request", side_effect=slow_request):
             response = await fetcher.fetch("https://example.com")
 
         assert response.elapsed >= 0.1
