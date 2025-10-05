@@ -1,0 +1,116 @@
+period,year,quarter,account_code,account_name,amount,level,status
+6M 2025,2025,6M,601,Cash And Cash Equivalents,37680002.0,0,Reviewed
+6M 2025,2025,6M,602,A/R Net,19980524.0,0,Reviewed
+6M 2025,2025,6M,603,Inventories,62317937.0,0,Reviewed
+6M 2025,2025,6M,604,Current Assets,120616420.0,0,Reviewed
+6M 2025,2025,6M,605,PP&E Net,216004797.0,0,Reviewed
+6M 2025,2025,6M,606,Non-Current Assets,811155788.0,0,Reviewed
+6M 2025,2025,6M,607,Total Assets,931772208.0,-1,Reviewed
+6M 2025,2025,6M,608,OD,21647016.0,0,Reviewed
+6M 2025,2025,6M,609,A/P Net,144469658.0,0,Reviewed
+6M 2025,2025,6M,610,Current portion of LT,62804529.0,0,Reviewed
+6M 2025,2025,6M,611,Current Liabilities,246231613.0,0,Reviewed
+6M 2025,2025,6M,612,Non-Current Liabilities,366045256.0,0,Reviewed
+6M 2025,2025,6M,613,Total Liabilities,612276869.0,-1,Reviewed
+6M 2025,2025,6M,614,Authorized Capital,8986296.0,0,Reviewed
+6M 2025,2025,6M,615,Paid-Up Capital,8983101.0,0,Reviewed
+6M 2025,2025,6M,616,Premium (Discount) on Share Capital,1684317.0,0,Reviewed
+6M 2025,2025,6M,617,Retained Earnings (Deficit),108724511.0,0,Reviewed
+6M 2025,2025,6M,618,Treasury Stock,1730580.0,0,Reviewed
+6M 2025,2025,6M,619,Shares Of The Company Held By Subsidiaries,,0,Reviewed
+6M 2025,2025,6M,620,Other Components Of Equity,-595186.0,0,Reviewed
+6M 2025,2025,6M,621,- Surplus (Deficits),294547.0,1,Reviewed
+6M 2025,2025,6M,622,Shareholders' Equity,127021163.0,-1,Reviewed
+6M 2025,2025,6M,623,Minority Interest,192474176.0,0,Reviewed
+6M 2024,2024,6M,601,Cash And Cash Equivalents,54086956.0,0,Reviewed
+6M 2024,2024,6M,602,A/R Net,17018567.0,0,Reviewed
+6M 2024,2024,6M,603,Inventories,56401938.0,0,Reviewed
+6M 2024,2024,6M,604,Current Assets,127847974.0,0,Reviewed
+6M 2024,2024,6M,605,PP&E Net,214745372.0,0,Reviewed
+6M 2024,2024,6M,606,Non-Current Assets,787961558.0,0,Reviewed
+6M 2024,2024,6M,607,Total Assets,915809532.0,-1,Reviewed
+6M 2024,2024,6M,608,OD,14955013.0,0,Reviewed
+6M 2024,2024,6M,609,A/P Net,142326285.0,0,Reviewed
+6M 2024,2024,6M,610,Current portion of LT,56385964.0,0,Reviewed
+6M 2024,2024,6M,611,Current Liabilities,229628368.0,0,Reviewed
+6M 2024,2024,6M,612,Non-Current Liabilities,379518974.0,0,Reviewed
+6M 2024,2024,6M,613,Total Liabilities,609147342.0,-1,Reviewed
+6M 2024,2024,6M,614,Authorized Capital,8986296.0,0,Reviewed
+6M 2024,2024,6M,615,Paid-Up Capital,8983101.0,0,Reviewed
+6M 2024,2024,6M,616,Premium (Discount) on Share Capital,1684317.0,0,Reviewed
+6M 2024,2024,6M,617,Retained Earnings (Deficit),94752629.0,0,Reviewed
+6M 2024,2024,6M,618,Treasury Stock,,0,Reviewed
+6M 2024,2024,6M,619,Shares Of The Company Held By Subsidiaries,,0,Reviewed
+6M 2024,2024,6M,620,Other Components Of Equity,175845.0,0,Reviewed
+6M 2024,2024,6M,621,- Surplus (Deficits),288833.0,1,Reviewed
+6M 2024,2024,6M,622,Shareholders' Equity,115550892.0,-1,Reviewed
+6M 2024,2024,6M,623,Minority Interest,191111298.0,0,Reviewed
+Q9 2024,2024,Q9,601,Cash And Cash Equivalents,54612894.797,0,Audited
+Q9 2024,2024,Q9,602,A/R Net,20988275.265,0,Audited
+Q9 2024,2024,Q9,603,Inventories,61269361.604,0,Audited
+Q9 2024,2024,Q9,604,Current Assets,137152611.874,0,Audited
+Q9 2024,2024,Q9,605,PP&E Net,216588517.65,0,Audited
+Q9 2024,2024,Q9,606,Non-Current Assets,806967678.088,0,Audited
+Q9 2024,2024,Q9,607,Total Assets,944120289.962,-1,Audited
+Q9 2024,2024,Q9,608,OD,9445971.795,0,Audited
+Q9 2024,2024,Q9,609,A/P Net,161242147.453,0,Audited
+Q9 2024,2024,Q9,610,Current portion of LT,43954730.102,0,Audited
+Q9 2024,2024,Q9,611,Current Liabilities,232376274.387,0,Audited
+Q9 2024,2024,Q9,612,Non-Current Liabilities,392133296.132,0,Audited
+Q9 2024,2024,Q9,613,Total Liabilities,624509570.519,-1,Audited
+Q9 2024,2024,Q9,614,Authorized Capital,8986296.048,0,Audited
+Q9 2024,2024,Q9,615,Paid-Up Capital,8983101.348,0,Audited
+Q9 2024,2024,Q9,616,Premium (Discount) on Share Capital,1684316.879,0,Audited
+Q9 2024,2024,Q9,617,Retained Earnings (Deficit),106726114.429,0,Audited
+Q9 2024,2024,Q9,618,Treasury Stock,,0,Audited
+Q9 2024,2024,Q9,619,Shares Of The Company Held By Subsidiaries,,0,Audited
+Q9 2024,2024,Q9,620,Other Components Of Equity,-488289.602,0,Audited
+Q9 2024,2024,Q9,621,- Surplus (Deficits),294546.834,1,Audited
+Q9 2024,2024,Q9,622,Shareholders' Equity,126860243.054,-1,Audited
+Q9 2024,2024,Q9,623,Minority Interest,192750476.389,0,Audited
+Q9 2023,2023,Q9,601,Cash And Cash Equivalents,67234118.746,0,Audited
+Q9 2023,2023,Q9,602,A/R Net,18733781.849,0,Audited
+Q9 2023,2023,Q9,603,Inventories,57500567.087,0,Audited
+Q9 2023,2023,Q9,604,Current Assets,143797754.635,0,Audited
+Q9 2023,2023,Q9,605,PP&E Net,213791757.252,0,Audited
+Q9 2023,2023,Q9,606,Non-Current Assets,782693440.047,0,Audited
+Q9 2023,2023,Q9,607,Total Assets,926491194.682,-1,Audited
+Q9 2023,2023,Q9,608,OD,9471993.733,0,Audited
+Q9 2023,2023,Q9,609,A/P Net,159811456.3,0,Audited
+Q9 2023,2023,Q9,610,Current portion of LT,52710334.669,0,Audited
+Q9 2023,2023,Q9,611,Current Liabilities,238196904.941,0,Audited
+Q9 2023,2023,Q9,612,Non-Current Liabilities,386699177.306,0,Audited
+Q9 2023,2023,Q9,613,Total Liabilities,624896082.247,-1,Audited
+Q9 2023,2023,Q9,614,Authorized Capital,8986296.048,0,Audited
+Q9 2023,2023,Q9,615,Paid-Up Capital,8983101.348,0,Audited
+Q9 2023,2023,Q9,616,Premium (Discount) on Share Capital,1684316.879,0,Audited
+Q9 2023,2023,Q9,617,Retained Earnings (Deficit),91406223.11,0,Audited
+Q9 2023,2023,Q9,618,Treasury Stock,,0,Audited
+Q9 2023,2023,Q9,619,Shares Of The Company Held By Subsidiaries,,0,Audited
+Q9 2023,2023,Q9,620,Other Components Of Equity,-1033190.727,0,Audited
+Q9 2023,2023,Q9,621,- Surplus (Deficits),288832.931,1,Audited
+Q9 2023,2023,Q9,622,Shareholders' Equity,110995450.61,-1,Audited
+Q9 2023,2023,Q9,623,Minority Interest,190599661.825,0,Audited
+Q9 2022,2022,Q9,601,Cash And Cash Equivalents,71424271.699,0,Audited
+Q9 2022,2022,Q9,602,A/R Net,18632748.394,0,Audited
+Q9 2022,2022,Q9,603,Inventories,58183063.377,0,Audited
+Q9 2022,2022,Q9,604,Current Assets,148955489.069,0,Audited
+Q9 2022,2022,Q9,605,PP&E Net,213409809.274,0,Audited
+Q9 2022,2022,Q9,606,Non-Current Assets,775106001.385,0,Audited
+Q9 2022,2022,Q9,607,Total Assets,924061490.454,-1,Audited
+Q9 2022,2022,Q9,608,OD,16810210.256,0,Audited
+Q9 2022,2022,Q9,609,A/P Net,147681887.764,0,Audited
+Q9 2022,2022,Q9,610,Current portion of LT,25902396.434,0,Audited
+Q9 2022,2022,Q9,611,Current Liabilities,207443069.625,0,Audited
+Q9 2022,2022,Q9,612,Non-Current Liabilities,426317124.32,0,Audited
+Q9 2022,2022,Q9,613,Total Liabilities,633760193.945,-1,Audited
+Q9 2022,2022,Q9,614,Authorized Capital,8986296.048,0,Audited
+Q9 2022,2022,Q9,615,Paid-Up Capital,8983101.348,0,Audited
+Q9 2022,2022,Q9,616,Premium (Discount) on Share Capital,1684316.879,0,Audited
+Q9 2022,2022,Q9,617,Retained Earnings (Deficit),80317515.0,0,Audited
+Q9 2022,2022,Q9,618,Treasury Stock,,0,Audited
+Q9 2022,2022,Q9,619,Shares Of The Company Held By Subsidiaries,,0,Audited
+Q9 2022,2022,Q9,620,Other Components Of Equity,-215737.884,0,Audited
+Q9 2022,2022,Q9,621,- Surplus (Deficits),288832.931,1,Audited
+Q9 2022,2022,Q9,622,Shareholders' Equity,100724195.343,-1,Audited
+Q9 2022,2022,Q9,623,Minority Interest,189577101.166,0,Audited

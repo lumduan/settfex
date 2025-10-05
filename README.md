@@ -13,6 +13,49 @@
 ```bash
 pip install settfex
 ```
+
+## 📓 Interactive Examples
+
+**New to settfex? Start here!** We have comprehensive Jupyter notebook examples that teach you everything step-by-step:
+
+### 🎓 Learning Path
+
+**Beginners (30 min):** Start with these three notebooks to get comfortable:
+- [Stock List](examples/set/01_stock_list.ipynb) - Discover all Thai stocks
+- [Highlight Data](examples/set/02_highlight_data.ipynb) - Get key metrics like P/E, market cap, dividends
+- [Corporate Actions](examples/set/05_corporate_action.ipynb) - Track dividends and shareholder meetings
+
+**Fundamental Analysis (2 hrs):** Build a complete stock analysis workflow:
+- [Stock List](examples/set/01_stock_list.ipynb) → [Highlight Data](examples/set/02_highlight_data.ipynb) → [Price Performance](examples/set/10_price_performance.ipynb) → [Financial Statements](examples/set/11_financial.ipynb)
+
+**Professional Trading (3 hrs):** Master all features for institutional use:
+- All 11 SET notebooks + 2 TFEX notebooks (see below)
+
+### 📊 SET Examples (Stock Exchange of Thailand)
+
+All examples include beginner explanations, professional trading use cases, and data export examples:
+
+1. **[Stock List](examples/set/01_stock_list.ipynb)** - Fetch and filter all stocks, build portfolio universes
+2. **[Highlight Data](examples/set/02_highlight_data.ipynb)** - Value screeners, dividend portfolios, risk-adjusted returns
+3. **[Stock Profile](examples/set/03_stock_profile.ipynb)** - Listing details, IPO data, foreign ownership
+4. **[Company Profile](examples/set/04_company_profile.ipynb)** - ESG ratings, governance scores, management
+5. **[Corporate Actions](examples/set/05_corporate_action.ipynb)** - Dividend calendars, shareholder meetings
+6. **[Shareholder Data](examples/set/06_shareholder.ipynb)** - Ownership analysis, free float monitoring
+7. **[NVDR Holders](examples/set/07_nvdr_holder.ipynb)** - NVDR ownership tracking and analysis
+8. **[Board of Directors](examples/set/08_board_of_director.ipynb)** - Board composition and management structure
+9. **[Trading Statistics](examples/set/09_trading_statistics.ipynb)** - Multi-period performance and volatility
+10. **[Price Performance](examples/set/10_price_performance.ipynb)** - Sector comparison and alpha calculation
+11. **[Financial Statements](examples/set/11_financial.ipynb)** - Balance sheet, income, cash flow analysis
+
+### 📈 TFEX Examples (Thailand Futures Exchange)
+
+Professional derivatives trading workflows with margin calculations and risk management:
+
+1. **[Series List](examples/tfex/01_series_list.ipynb)** - Discover futures/options, rollover monitoring, options chains
+2. **[Trading Statistics](examples/tfex/02_trading_statistics.ipynb)** - Margin requirements, position sizing, P/L tracking
+
+**[📂 View All Examples](examples/)** - Complete index with learning guides
+
 ## 📚 Full Documentation
 
 Want to dig deeper? Check out our detailed guides:
