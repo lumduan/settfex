@@ -227,6 +227,36 @@ print(f"Market ({data.market.symbol}): {data.market.ytd_percent_change:+.2f}%")
 
 ---
 
+### 💰 Get Financial Statements
+
+Fetch comprehensive financial data including balance sheet, income statement, and cash flow:
+
+```python
+from settfex.services.set import (
+    get_balance_sheet,
+    get_income_statement,
+    get_cash_flow
+)
+
+# Balance sheet
+balance_sheets = await get_balance_sheet("CPALL")
+latest = balance_sheets[0]
+print(f"Period: {latest.quarter} {latest.year}")
+print(f"Total Assets: {latest.accounts[0].amount:,.0f}K")
+
+# Income statement
+income_statements = await get_income_statement("CPALL")
+for stmt in income_statements[:3]:
+    print(f"{stmt.quarter} {stmt.year}: {stmt.status}")
+
+# Cash flow
+cash_flows = await get_cash_flow("CPALL")
+```
+
+**👉 [Learn more about Financial Service](docs/settfex/services/set/financial.md)**
+
+---
+
 ## 🚀 Why settfex?
 
 ### ⚡ Blazing Fast
@@ -263,6 +293,7 @@ Want to dig deeper? Check out our detailed guides:
 - **[Board of Director Service](docs/settfex/services/set/board_of_director.md)** - Board of directors and management structure
 - **[Trading Statistics Service](docs/settfex/services/set/trading_stat.md)** - Historical trading performance and metrics
 - **[Price Performance Service](docs/settfex/services/set/price_performance.md)** - Stock, sector, and market price performance comparison
+- **[Financial Service](docs/settfex/services/set/financial.md)** - Balance sheet, income statement, and cash flow data
 
 ### Utilities
 

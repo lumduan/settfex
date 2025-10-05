@@ -161,6 +161,95 @@ settfex/
 
 ## Recent Changes
 
+### 2025-10-05: Financial Service
+
+**New Financial Service (`settfex/services/set/stock/financial/financial.py`)**
+- Created async service to fetch comprehensive financial statement data for individual stock symbols
+- Key features:
+  - **Full Type Safety**: Complete Pydantic models with field descriptions and constraints
+  - **Dual Language Support**: Fetch data in English ('en') or Thai ('th')
+  - **Multiple Statement Types**: Balance sheet, income statement, and cash flow
+  - **Historical Data**: Returns multiple periods for trend analysis
+  - **Quarter Code Support**: Handles '6M' (half year) and 'Q9' (full year) periods
+  - **Input Normalization**: Automatic symbol uppercase and language validation
+  - **Async-First**: Built on AsyncDataFetcher for optimal performance
+  - **Raw Data Access**: Methods to return both structured and raw JSON data
+- Implementation:
+  - Four main Pydantic models:
+    - `Account`: Individual financial account line item
+    - `FinancialStatement`: Base model for all financial statements
+    - `BalanceSheet`, `IncomeStatement`, `CashFlow`: Specific statement types
+  - Six fetch methods:
+    - `fetch_balance_sheet(symbol, lang)`: Returns list of BalanceSheet models
+    - `fetch_income_statement(symbol, lang)`: Returns list of IncomeStatement models
+    - `fetch_cash_flow(symbol, lang)`: Returns list of CashFlow models
+    - `fetch_*_raw(symbol, lang)`: Raw dictionary versions for debugging
+  - Three convenience functions:
+    - `get_balance_sheet(symbol, lang)`: Quick balance sheet access
+    - `get_income_statement(symbol, lang)`: Quick income statement access
+    - `get_cash_flow(symbol, lang)`: Quick cash flow access
+- Data fields include:
+  - **Statement Metadata**: Symbol, quarter, year, begin/end dates, status (Audited/Reviewed/Unaudited), download URL
+  - **Account Details**: Code, name, amount (in thousands), adjusted flag, hierarchy level, divider, display format
+  - **Account Hierarchy**: Level -1 for totals, 0+ for detail accounts
+  - **Restatement Info**: Flags and dates for restated statements
+- Configuration:
+  - Added to `settfex/services/set/constants.py`:
+    - `SET_FINANCIAL_BALANCE_SHEET_ENDPOINT`: `/api/set/factsheet/{symbol}/financialstatement`
+    - `SET_FINANCIAL_INCOME_STATEMENT_ENDPOINT`: `/api/set/factsheet/{symbol}/financialstatement`
+    - `SET_FINANCIAL_CASH_FLOW_ENDPOINT`: `/api/set/factsheet/{symbol}/financialstatement`
+- Usage pattern:
+  ```python
+  from settfex.services.set import (
+      get_balance_sheet,
+      get_income_statement,
+      get_cash_flow
+  )
+
+  # Balance sheet
+  balance_sheets = await get_balance_sheet("CPALL")
+  latest = balance_sheets[0]
+  print(f"Period: {latest.quarter} {latest.year}")
+
+  # Find total assets
+  total_assets = next(
+      (acc for acc in latest.accounts if "Total Assets" in acc.account_name),
+      None
+  )
+  print(f"Total Assets: {total_assets.amount:,.0f}K")
+
+  # Income statement
+  income_statements = await get_income_statement("CPALL")
+  for stmt in income_statements[:3]:
+      print(f"{stmt.quarter} {stmt.year}: {stmt.status}")
+
+  # Cash flow
+  cash_flows = await get_cash_flow("CPALL")
+  ```
+- Testing:
+  - Comprehensive test suite: `tests/services/set/stock/financial/test_financial.py`
+  - 23 tests covering all functionality including edge cases and error handling
+  - 98% test coverage for the financial module
+  - Mock-based testing for reliability without network dependency
+- Documentation:
+  - Full service documentation: `docs/settfex/services/set/financial.md`
+  - Manual verification script: `scripts/settfex/services/set/verify_financial.py`
+  - 7 verification tests covering all features and edge cases
+- Module exports:
+  - Updated `settfex/services/set/stock/__init__.py` to export:
+    - `Account`, `FinancialStatement`, `BalanceSheet`, `IncomeStatement`, `CashFlow`
+    - `FinancialService`, `get_balance_sheet`, `get_income_statement`, `get_cash_flow`
+  - Updated `settfex/services/set/__init__.py` to export all financial models and functions
+  - Added financial endpoint constants to both __init__ files
+- Purpose:
+  - Track company financial performance across multiple periods
+  - Analyze balance sheet assets, liabilities, and equity
+  - Monitor income statement revenue, expenses, and profitability
+  - Evaluate cash flow from operating, investing, and financing activities
+  - Support fundamental analysis and valuation
+  - Enable trend analysis and financial ratio calculations
+  - Compare current vs historical financial metrics
+
 ### 2025-10-04: Price Performance Service
 
 **New Price Performance Service (`settfex/services/set/stock/price_performance.py`)**

@@ -45,6 +45,17 @@ from settfex.services.set.stock.price_performance import (
     PricePerformanceService,
     get_price_performance,
 )
+from settfex.services.set.stock.financial import (
+    Account,
+    BalanceSheet,
+    CashFlow,
+    FinancialService,
+    FinancialStatement,
+    IncomeStatement,
+    get_balance_sheet,
+    get_cash_flow,
+    get_income_statement,
+)
 from settfex.services.set.stock.stock import Stock
 from settfex.services.set.stock.utils import normalize_language, normalize_symbol
 
@@ -90,4 +101,14 @@ __all__ = [
     "PricePerformanceService",
     "PricePerformanceData",
     "get_price_performance",
+    # Financial Service
+    "FinancialService",
+    "FinancialStatement",
+    "Account",
+    "BalanceSheet",
+    "IncomeStatement",
+    "CashFlow",
+    "get_balance_sheet",
+    "get_income_statement",
+    "get_cash_flow",
 ]
