@@ -284,6 +284,30 @@ print(f"SET50 contracts: {len(set50_series)}")
 
 ---
 
+#### 📊 Get TFEX Trading Statistics
+
+Get comprehensive trading statistics including settlement prices, margin requirements, and days to maturity!
+
+```python
+from settfex.services.tfex import get_trading_statistics
+
+stats = await get_trading_statistics("S50Z25")
+
+print(f"Settlement Price: {stats.settlement_price:.5f}")
+print(f"Days to Maturity: {stats.day_to_maturity}")
+print(f"Initial Margin: {stats.im:,.2f} THB")
+print(f"Maintenance Margin: {stats.mm:,.2f} THB")
+
+# Calculate margin coverage
+capital = 500000
+max_contracts = int(capital / stats.im)
+print(f"Can trade {max_contracts} contracts with {capital:,.0f} THB")
+```
+
+**👉 [Learn more about TFEX Trading Statistics](docs/settfex/services/tfex/trading_statistics.md)**
+
+---
+
 ## 🚀 Why settfex?
 
 ### ⚡ Blazing Fast
@@ -327,6 +351,7 @@ Want to dig deeper? Check out our detailed guides:
 ### TFEX Services
 
 - **[TFEX Series List Service](docs/settfex/services/tfex/list.md)** - Get all futures and options series on TFEX
+- **[TFEX Trading Statistics Service](docs/settfex/services/tfex/trading_statistics.md)** - Trading statistics, settlement prices, and margin requirements
 
 ### Utilities
 
