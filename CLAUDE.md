@@ -161,6 +161,66 @@ settfex/
 
 ## Recent Changes
 
+### 2025-10-05: TFEX Trading Statistics Service
+
+**New TFEX Trading Statistics Service (`settfex/services/tfex/trading_statistics.py`)**
+- Created async service to fetch trading statistics for individual TFEX series from TFEX API
+- Key features:
+  - **Full Type Safety**: Complete Pydantic models for all trading statistics fields
+  - **Async-First**: Built on AsyncDataFetcher with SessionManager integration
+  - **Symbol Normalization**: Automatic uppercase conversion for symbols
+  - **Comprehensive Data**: Settlement prices, margin requirements, theoretical pricing, days to maturity
+  - **DateTime Support**: Automatic parsing of market time and trading dates with timezone support
+- Implementation:
+  - Main Pydantic model:
+    - `TradingStatistics`: Trading statistics with 12 fields (symbol, market_time, last_trading_date, day_to_maturity, settlement_pattern, is_options, theoretical_price, prior_settlement_price, settlement_price, im, mm, has_theoretical_price)
+  - Two fetch methods:
+    - `fetch_trading_statistics(symbol)`: Returns validated Pydantic model
+    - `fetch_trading_statistics_raw(symbol)`: Returns raw dictionary for debugging
+  - Convenience function:
+    - `get_trading_statistics(symbol, config)`: Quick one-line access
+- Data fields include:
+  - **Basic Information**: Symbol, market time, last trading date, days to maturity
+  - **Pricing**: Settlement price, prior settlement, theoretical price, has_theoretical_price flag
+  - **Margin Requirements**: Initial margin (IM), maintenance margin (MM)
+  - **Contract Details**: Settlement pattern, is_options flag
+- Configuration:
+  - Added to `settfex/services/tfex/constants.py`:
+    - `TFEX_TRADING_STATISTICS_ENDPOINT`: `/api/set/tfex/series/{symbol}/trading-statistics`
+- Usage pattern:
+  ```python
+  from settfex.services.tfex import get_trading_statistics
+
+  # Basic fetch
+  stats = await get_trading_statistics("S50Z25")
+  print(f"Settlement Price: {stats.settlement_price:.5f}")
+  print(f"Days to Maturity: {stats.day_to_maturity}")
+  print(f"Initial Margin: {stats.im:,.2f} THB")
+  print(f"Maintenance Margin: {stats.mm:,.2f} THB")
+
+  # Calculate margin coverage
+  capital = 500000
+  max_contracts = int(capital / stats.im)
+  print(f"Can trade {max_contracts} contracts")
+  ```
+- Documentation:
+  - Full service documentation: `docs/settfex/services/tfex/trading_statistics.md`
+  - Manual verification script: `scripts/settfex/services/tfex/verify_trading_statistics.py`
+  - 10 verification tests covering all features and use cases
+- Module exports:
+  - Updated `settfex/services/tfex/__init__.py` to export:
+    - `TradingStatistics`, `TradingStatisticsService`, `get_trading_statistics`
+    - `TFEX_TRADING_STATISTICS_ENDPOINT`
+- Documentation updates:
+  - Updated `README.md` to add TFEX Trading Statistics section
+  - Added to Full Documentation section under TFEX Services
+- Purpose:
+  - Get settlement prices and margin requirements for TFEX series
+  - Monitor days to maturity for contract rollover planning
+  - Calculate margin coverage and position sizing
+  - Track theoretical vs settlement price deviations
+  - Support risk management and trading decisions
+
 ### 2025-10-05: TFEX Series List Service
 
 **New TFEX Series List Service (`settfex/services/tfex/list.py`)**
