@@ -91,4 +91,5 @@ def get_logger() -> "Logger":
 
 # Initialize with default configuration
 # Users can override by calling setup_logger() in their code
-setup_logger(level="INFO", colorize=True)
+# Default to ERROR level for production use - users can change to DEBUG/INFO if needed
+setup_logger(level="ERROR", colorize=True)

@@ -1,5 +1,9 @@
 """Unified Stock class for accessing multiple stock-related services."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from loguru import logger
 
 from settfex.services.set.stock.highlight_data import (
@@ -8,6 +12,10 @@ from settfex.services.set.stock.highlight_data import (
 )
 from settfex.services.set.stock.utils import normalize_symbol
 from settfex.utils.data_fetcher import FetcherConfig
+
+if TYPE_CHECKING:
+    from settfex.services.set.stock.profile_stock import StockProfile, StockProfileService
+    from settfex.services.set.stock.shareholder import ShareholderData, ShareholderService
 
 
 class Stock:
@@ -97,7 +105,7 @@ class Stock:
         )
 
     @property
-    def profile_service(self) -> "StockProfileService":
+    def profile_service(self) -> StockProfileService:
         """
         Get or create profile service instance.
 
@@ -110,7 +118,7 @@ class Stock:
             self._profile_service = StockProfileService(config=self.config)
         return self._profile_service
 
-    async def get_profile(self, lang: str = "en") -> "StockProfile":
+    async def get_profile(self, lang: str = "en") -> StockProfile:
         """
         Fetch profile data for this stock.
 
@@ -134,7 +142,7 @@ class Stock:
         return await self.profile_service.fetch_profile(symbol=self.symbol, lang=lang)
 
     @property
-    def shareholder_service(self) -> "ShareholderService":
+    def shareholder_service(self) -> ShareholderService:
         """
         Get or create shareholder service instance.
 
@@ -147,7 +155,7 @@ class Stock:
             self._shareholder_service = ShareholderService(config=self.config)
         return self._shareholder_service
 
-    async def get_shareholder_data(self, lang: str = "en") -> "ShareholderData":
+    async def get_shareholder_data(self, lang: str = "en") -> ShareholderData:
         """
         Fetch shareholder data for this stock.
 

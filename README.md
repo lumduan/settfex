@@ -14,6 +14,14 @@
 pip install settfex
 ```
 
+**Optional**: To run the Jupyter notebook examples, install with:
+
+```bash
+pip install settfex[examples]
+```
+
+This includes pandas, matplotlib, and jupyter notebook support.
+
 ## 📓 Interactive Examples
 
 **New to settfex? Start here!** We have comprehensive Jupyter notebook examples that teach you everything step-by-step:
@@ -503,19 +511,22 @@ data = await service.fetch_highlight_data("CPALL")
 
 ## 🧪 Optional: Configure Logging
 
-Want to see what's happening under the hood?
+By default, settfex only shows ERROR-level logs to keep your terminal clean. Want to see more?
 
 ```python
 from settfex.utils.logging import setup_logger
 
-# Turn on detailed logs
+# Turn on detailed logs for debugging
 setup_logger(level="DEBUG", log_file="logs/settfex.log")
 
-# Now run your code - you'll see everything!
+# Or just INFO level for general monitoring
+setup_logger(level="INFO")
+
+# Now run your code - you'll see what's happening!
 stock_list = await get_stock_list()
 ```
 
-Great for debugging or monitoring in production.
+Great for debugging or monitoring in production. Default is ERROR level for clean output.
 
 ## 🤝 Contributing
 

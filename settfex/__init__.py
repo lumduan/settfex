@@ -20,7 +20,7 @@ Usage:
 """
 
 __version__ = "0.1.0"
-__author__ = "Your Name"
+__author__ = "batt"
 __license__ = "MIT"
 
 # Public API exports - import commonly used classes/functions

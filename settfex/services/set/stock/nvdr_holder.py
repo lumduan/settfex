@@ -51,7 +51,9 @@ class NVDRHolderData(BaseModel):
         alias="majorShareholders", description="List of major NVDR holders"
     )
     free_float: Any | None = Field(
-        alias="freeFloat", description="Free float information (typically null for NVDR)", default=None
+        alias="freeFloat",
+        description="Free float information (typically null for NVDR)",
+        default=None,
     )
 
     model_config = ConfigDict(
