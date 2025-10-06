@@ -28,15 +28,15 @@ This includes pandas, matplotlib, and jupyter notebook support.
 
 ### 🎓 Learning Path
 
-**Beginners (30 min):** Start with these three notebooks to get comfortable:
+**Beginners :** Start with these three notebooks to get comfortable:
 - [Stock List](examples/set/01_stock_list.ipynb) - Discover all Thai stocks
 - [Highlight Data](examples/set/02_highlight_data.ipynb) - Get key metrics like P/E, market cap, dividends
 - [Corporate Actions](examples/set/05_corporate_action.ipynb) - Track dividends and shareholder meetings
 
-**Fundamental Analysis (2 hrs):** Build a complete stock analysis workflow:
+**Fundamental Analysis :** Build a complete stock analysis workflow:
 - [Stock List](examples/set/01_stock_list.ipynb) → [Highlight Data](examples/set/02_highlight_data.ipynb) → [Price Performance](examples/set/10_price_performance.ipynb) → [Financial Statements](examples/set/11_financial.ipynb)
 
-**Professional Trading (3 hrs):** Master all features for institutional use:
+**Professional Trading :** Master all features for institutional use:
 - All 11 SET notebooks + 2 TFEX notebooks (see below)
 
 ### 📊 SET Examples (Stock Exchange of Thailand)
