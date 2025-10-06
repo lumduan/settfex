@@ -1,0 +1,31 @@
+# Include essential metadata files only
+include README.md
+include LICENSE
+include CHANGELOG.md
+
+# Include type marker for IDE support
+include settfex/py.typed
+
+# Exclude everything else by default, only include what's necessary
+prune tests
+prune scripts
+prune debug
+prune docs
+prune examples
+prune .github
+prune .claude
+
+# Exclude development files
+exclude .gitignore
+exclude .python-version
+exclude CLAUDE.md
+exclude MANIFEST.in
+exclude uv.lock
+
+# Exclude build and cache artifacts
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude *.so
+global-exclude *.dylib
+global-exclude .DS_Store
+global-exclude .git*

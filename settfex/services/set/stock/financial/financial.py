@@ -161,7 +161,10 @@ class FinancialService:
 
             # Check for errors
             if response.status_code != 200:
-                error_msg = f"Failed to fetch {account_type} for {symbol}: HTTP {response.status_code}"
+                error_msg = (
+                    f"Failed to fetch {account_type} for {symbol}: "
+                    f"HTTP {response.status_code}"
+                )
                 logger.error(error_msg)
                 raise Exception(error_msg)
 

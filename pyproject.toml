@@ -1,7 +1,7 @@
 [project]
 name = "settfex"
 version = "0.1.0"
-description = "Fetch real-time and historical data from the Stock Exchange of Thailand (SET) and Thailand Futures Exchange (TFEX)"
+description = "Async Python library for fetching real-time and historical data from the Stock Exchange of Thailand (SET) and Thailand Futures Exchange (TFEX)"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -9,25 +9,43 @@ dependencies = [
     "pydantic>=2.0.0",
     "loguru>=0.7.0",
     "diskcache>=5.6.0",
-    "pandas>=2.3.3",
-    "matplotlib>=3.10.6",
 ]
 authors = [
     { name = "batt", email = "b@candythink.com" }
 ]
+maintainers = [
+    { name = "batt", email = "b@candythink.com" }
+]
 license = { text = "MIT" }
-keywords = ["set", "tfex", "thailand", "stock", "exchange", "futures", "finance", "trading"]
+keywords = [
+    "set",
+    "tfex",
+    "thailand",
+    "stock",
+    "exchange",
+    "futures",
+    "finance",
+    "trading",
+    "async",
+    "api",
+    "market-data",
+    "thai-stocks",
+]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Financial and Insurance Industry",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
     "Topic :: Office/Business :: Financial",
+    "Topic :: Office/Business :: Financial :: Investment",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 
 [project.urls]
@@ -81,6 +99,14 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[project.optional-dependencies]
+examples = [
+    "pandas>=2.0.0",
+    "matplotlib>=3.7.0",
+    "jupyter>=1.0.0",
+    "notebook>=7.0.0",
+]
 
 [dependency-groups]
 dev = [

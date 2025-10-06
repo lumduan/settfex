@@ -1,4 +1,7 @@
-"""SET Stock Price Performance Service - Fetch price performance data for individual stock symbols."""
+"""SET Stock Price Performance Service.
+
+Fetch price performance data for individual stock symbols.
+"""
 
 from typing import Any
 

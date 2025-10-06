@@ -78,7 +78,8 @@ class ShareStructure(BaseModel):
         alias="votingRights", description="Voting rights information"
     )
     treasury_shares: int | list[VotingShare] | None = Field(
-        alias="treasuryShares", description="Number of treasury shares or list of treasury shares by date"
+        alias="treasuryShares",
+        description="Number of treasury shares or list of treasury shares by date",
     )
     voting_shares: list[VotingShare] | None = Field(
         alias="votingShares", description="Voting shares by date"
@@ -216,7 +217,10 @@ class CompanyProfileService:
 
             # Check for errors
             if response.status_code != 200:
-                error_msg = f"Failed to fetch company profile for {symbol}: HTTP {response.status_code}"
+                error_msg = (
+                    f"Failed to fetch company profile for {symbol}: "
+                    f"HTTP {response.status_code}"
+                )
                 logger.error(error_msg)
                 raise Exception(error_msg)
 
