@@ -1,5 +1,17 @@
 """Stock-specific utilities and services for SET stock operations."""
 
+from settfex.services.set.stock.latest_historical_trading import (
+    LatestHistoricalTrading,
+    LatestHistoricalTradingService,
+    get_latest_historical_trading,
+)
+from settfex.services.set.stock.chart_quotation import (
+    ChartQuotation,
+    ChartQuotationService,
+    Intermission,
+    Quotation,
+    get_chart_quotation,
+)
 from settfex.services.set.stock.board_of_director import (
     BoardOfDirectorService,
     Director,
@@ -62,6 +74,16 @@ from settfex.services.set.stock.utils import normalize_language, normalize_symbo
 __all__ = [
     # Main Stock Class
     "Stock",
+    # Latest Historical Trading Service
+    "LatestHistoricalTradingService",
+    "LatestHistoricalTrading",
+    "get_latest_historical_trading",
+    # Chart Quotation Service
+    "ChartQuotationService",
+    "ChartQuotation",
+    "Intermission",
+    "Quotation",
+    "get_chart_quotation",
     # Utilities
     "normalize_symbol",
     "normalize_language",
