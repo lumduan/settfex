@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from loguru import logger
 
+from settfex.services.set.stock.chart_quotation import (
+    ChartQuotation,
+    ChartQuotationService,
+)
+from settfex.services.set.stock.latest_historical_trading import (
+    LatestHistoricalTrading,
+    LatestHistoricalTradingService,
+)
 from settfex.services.set.stock.highlight_data import (
     StockHighlightData,
     StockHighlightDataService,
@@ -16,6 +24,8 @@ from settfex.utils.data_fetcher import FetcherConfig
 if TYPE_CHECKING:
     from settfex.services.set.stock.profile_stock import StockProfile, StockProfileService
     from settfex.services.set.stock.shareholder import ShareholderData, ShareholderService
+
+PeriodType = Literal["1D", "5D", "1M", "3M", "6M", "1Y", "3Y", "5Y", "MAX"]
 
 
 class Stock:
@@ -60,6 +70,8 @@ class Stock:
 
         # Initialize service instances (lazy initialization for future services)
         self._highlight_data_service: StockHighlightDataService | None = None
+        self._chart_quotation_service: ChartQuotationService | None = None
+        self._latest_historical_trading_service: LatestHistoricalTradingService | None = None
         self._profile_service: StockProfileService | None = None
         self._shareholder_service: ShareholderService | None = None
 
@@ -102,6 +114,63 @@ class Stock:
         logger.debug(f"Fetching highlight data for {self.symbol} (lang={lang})")
         return await self.highlight_data_service.fetch_highlight_data(
             symbol=self.symbol, lang=lang
+        )
+
+    @property
+    def chart_quotation_service(self) -> ChartQuotationService:
+        if self._chart_quotation_service is None:
+            self._chart_quotation_service = ChartQuotationService(config=self.config)
+        return self._chart_quotation_service
+
+    async def get_chart_quotation(
+        self,
+        period: PeriodType = "1D",
+        accumulated: bool = False,
+    ) -> ChartQuotation:
+        """
+        Fetch chart quotation data for this stock.
+
+        Args:
+            period: Time period — one of '1D','5D','1M','3M','6M','1Y','3Y','5Y','MAX'
+            accumulated: Whether to return accumulated volume/value (default: False)
+
+        Returns:
+            ChartQuotation with prior price, intermissions, and quotation list
+
+        Example:
+            >>> stock = Stock("CPALL")
+            >>> data = await stock.get_chart_quotation(period="1D")
+            >>> print(f"Prior: {data.prior}, Points: {len(data.quotations)}")
+            >>> for q in data.quotations[:5]:
+            ...     print(f"{q.local_datetime}: {q.price}")
+        """
+        logger.debug(f"Fetching chart quotation for {self.symbol} period={period}")
+        return await self.chart_quotation_service.fetch_chart_quotation(
+            symbol=self.symbol, period=period, accumulated=accumulated
+        )
+
+    @property
+    def latest_historical_trading_service(self) -> LatestHistoricalTradingService:
+        if self._latest_historical_trading_service is None:
+            self._latest_historical_trading_service = LatestHistoricalTradingService(config=self.config)
+        return self._latest_historical_trading_service
+
+    async def get_latest_historical_trading(self) -> LatestHistoricalTrading:
+        """
+        Fetch latest historical trading data for this stock.
+
+        Returns:
+            LatestHistoricalTrading with OHLCV and valuation data
+
+        Example:
+            >>> stock = Stock("CPALL")
+            >>> data = await stock.get_latest_historical_trading()
+            >>> print(f"Close: {data.close}, Change: {data.percent_change}%")
+            >>> print(f"Volume: {data.total_volume:,.0f}")
+        """
+        logger.debug(f"Fetching latest historical trading for {self.symbol}")
+        return await self.latest_historical_trading_service.fetch_latest_historical_trading(
+            symbol=self.symbol
         )
 
     @property
