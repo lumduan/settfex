@@ -81,6 +81,8 @@ Want to dig deeper? Check out our detailed guides:
 - **[Trading Statistics Service](docs/settfex/services/set/trading_stat.md)** - Historical trading performance and metrics
 - **[Price Performance Service](docs/settfex/services/set/price_performance.md)** - Stock, sector, and market price performance comparison
 - **[Financial Service](docs/settfex/services/set/financial.md)** - Balance sheet, income statement, and cash flow data
+- **[Chart Quotation Service](docs/settfex/services/set/chart_quotation.md)** - Intraday and historical price chart data
+- **[Latest Historical Trading Service](docs/settfex/services/set/latest_historical_trading.md)** - Latest trading day summary with OHLCV and valuation metrics
 
 ### TFEX Services
 
@@ -334,6 +336,46 @@ cash_flows = await get_cash_flow("CPALL")
 ```
 
 **👉 [Learn more about Financial Service](docs/settfex/services/set/financial.md)**
+
+---
+
+#### 📉 Get Chart Quotation
+
+Fetch intraday and historical price chart data for any stock across multiple time periods:
+
+```python
+from settfex.services.set import get_chart_quotation
+
+# Get 1-day intraday chart (1-minute intervals)
+chart = await get_chart_quotation("CPALL", period="1D")
+print(f"Data points: {len(chart.quotations)}")
+print(f"Latest: {chart.quotations[-1].close:.2f} THB")
+
+# Get 1-year historical chart (daily intervals)
+chart_1y = await get_chart_quotation("CPALL", period="1Y")
+print(f"1Y data points: {len(chart_1y.quotations)}")
+```
+
+**👉 [Learn more about Chart Quotation](docs/settfex/services/set/chart_quotation.md)**
+
+---
+
+#### 📊 Get Latest Historical Trading
+
+Get the latest trading day summary with OHLCV, P/E, P/BV, dividend yield, and market cap:
+
+```python
+from settfex.services.set import get_latest_historical_trading
+
+trading = await get_latest_historical_trading("CPALL")
+
+print(f"Date: {trading.date}")
+print(f"Close: {trading.close:.2f} THB ({trading.percent_change:+.2f}%)")
+print(f"P/E: {trading.pe_ratio}, P/BV: {trading.pb_ratio}")
+print(f"Market Cap: {trading.market_cap:,.0f} THB")
+```
+
+**👉 [Learn more about Latest Historical Trading](docs/settfex/services/set/latest_historical_trading.md)**
 
 ---
 
