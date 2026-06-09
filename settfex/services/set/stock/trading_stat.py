@@ -235,7 +235,7 @@ class TradingStatService:
                 raise ValueError(error_msg)
 
             logger.debug(f"Raw response: {len(data)} records")
-            return data  # type: ignore[return-value]
+            return data
 
 
 # Convenience function for quick access

@@ -234,22 +234,12 @@ class StockProfileService:
             referer = f"https://www.set.or.th/en/market/product/stock/quote/{symbol}/price"
             headers = AsyncDataFetcher.get_set_api_headers(referer=referer)
 
-            # Cookie handling (priority: session_cookies > use_cookies > no cookies)
-            # HAR analysis shows real Chrome sends no cookies by default
-            cookies = None
-            if self.session_cookies:
-                cookies = self.session_cookies
-            elif self.use_cookies:
-                cookies = AsyncDataFetcher.generate_incapsula_cookies(landing_url=referer)
-
-            # Fetch JSON data
-            data = await fetcher.fetch_json(
-                url, headers=headers, cookies=cookies, use_random_cookies=False
-            )
+            # SessionManager handles cookies automatically — no manual cookie needed
+            data = await fetcher.fetch_json(url, headers=headers)
             logger.debug(
                 f"Raw response keys: {list(data.keys()) if isinstance(data, dict) else type(data)}"
             )
-            return data
+            return data  # type: ignore[no-any-return]
 
 
 # Convenience function for quick access

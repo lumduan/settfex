@@ -250,7 +250,7 @@ class PricePerformanceService:
                 raise ValueError(error_msg)
 
             logger.debug(f"Raw response keys: {data.keys()}")
-            return data  # type: ignore[return-value]
+            return data
 
 
 # Convenience function for quick access
