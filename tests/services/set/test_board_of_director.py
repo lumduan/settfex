@@ -471,6 +471,4 @@ class TestEdgeCases:
         result = await service.fetch_board_of_directors("TEST", lang="en")
 
         assert len(result) == 1
-        assert (
-            result[0].name == "Professor Dr. Somchai Pattanapongsakorn Chulalongkorn III"
-        )
+        assert result[0].name == "Professor Dr. Somchai Pattanapongsakorn Chulalongkorn III"

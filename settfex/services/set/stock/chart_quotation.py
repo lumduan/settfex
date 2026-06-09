@@ -192,7 +192,9 @@ class ChartQuotationService:
                 logger.debug(f"Response text: {response.text[:500]}")
                 raise
 
-            logger.debug(f"Raw response keys: {list(data.keys()) if isinstance(data, dict) else type(data)}")
+            logger.debug(
+                f"Raw response keys: {list(data.keys()) if isinstance(data, dict) else type(data)}"
+            )
             return data
 
 
@@ -220,4 +222,6 @@ async def get_chart_quotation(
         >>> print(f"Prior: {data.prior}, Points: {len(data.quotations)}")
     """
     service = ChartQuotationService(config=config)
-    return await service.fetch_chart_quotation(symbol=symbol, period=period, accumulated=accumulated)
+    return await service.fetch_chart_quotation(
+        symbol=symbol, period=period, accumulated=accumulated
+    )

@@ -1,9 +1,9 @@
 """Stock-specific utilities and services for SET stock operations."""
 
-from settfex.services.set.stock.latest_historical_trading import (
-    LatestHistoricalTrading,
-    LatestHistoricalTradingService,
-    get_latest_historical_trading,
+from settfex.services.set.stock.board_of_director import (
+    BoardOfDirectorService,
+    Director,
+    get_board_of_directors,
 )
 from settfex.services.set.stock.chart_quotation import (
     ChartQuotation,
@@ -11,11 +11,6 @@ from settfex.services.set.stock.chart_quotation import (
     Intermission,
     Quotation,
     get_chart_quotation,
-)
-from settfex.services.set.stock.board_of_director import (
-    BoardOfDirectorService,
-    Director,
-    get_board_of_directors,
 )
 from settfex.services.set.stock.corporate_action import (
     CorporateAction,
@@ -37,6 +32,11 @@ from settfex.services.set.stock.highlight_data import (
     StockHighlightData,
     StockHighlightDataService,
     get_highlight_data,
+)
+from settfex.services.set.stock.latest_historical_trading import (
+    LatestHistoricalTrading,
+    LatestHistoricalTradingService,
+    get_latest_historical_trading,
 )
 from settfex.services.set.stock.nvdr_holder import (
     NVDRHolderData,

@@ -17,15 +17,11 @@ class NVDRHolder(BaseModel):
     sequence: int = Field(description="Holder ranking sequence number")
     name: str = Field(description="Holder name (company or individual)")
     nationality: str | None = Field(description="Holder nationality")
-    number_of_share: int = Field(
-        alias="numberOfShare", description="Number of NVDR shares held"
-    )
+    number_of_share: int = Field(alias="numberOfShare", description="Number of NVDR shares held")
     percent_of_share: float = Field(
         alias="percentOfShare", description="Percentage of total NVDR shares held"
     )
-    is_thai_nvdr: bool = Field(
-        alias="isThaiNVDR", description="Whether holder is Thai NVDR"
-    )
+    is_thai_nvdr: bool = Field(alias="isThaiNVDR", description="Whether holder is Thai NVDR")
 
     model_config = ConfigDict(
         populate_by_name=True,  # Allow both field name and alias
@@ -89,9 +85,7 @@ class NVDRHolderService:
         self.base_url = SET_BASE_URL
         logger.info(f"NVDRHolderService initialized with base_url={self.base_url}")
 
-    async def fetch_nvdr_holder_data(
-        self, symbol: str, lang: str = "en"
-    ) -> NVDRHolderData:
+    async def fetch_nvdr_holder_data(self, symbol: str, lang: str = "en") -> NVDRHolderData:
         """
         Fetch NVDR holder data for a specific stock symbol.
 
@@ -148,6 +142,7 @@ class NVDRHolderService:
 
             # Parse JSON
             import json
+
             try:
                 data = json.loads(response.text)
             except json.JSONDecodeError as e:
@@ -166,9 +161,7 @@ class NVDRHolderService:
 
             return nvdr_holder_data
 
-    async def fetch_nvdr_holder_data_raw(
-        self, symbol: str, lang: str = "en"
-    ) -> dict[str, Any]:
+    async def fetch_nvdr_holder_data_raw(self, symbol: str, lang: str = "en") -> dict[str, Any]:
         """
         Fetch NVDR holder data as raw dictionary without Pydantic validation.
 
@@ -223,6 +216,7 @@ class NVDRHolderService:
 
             # Parse JSON
             import json
+
             try:
                 data = json.loads(response.text)
             except json.JSONDecodeError as e:

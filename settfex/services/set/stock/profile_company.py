@@ -16,9 +16,7 @@ class Auditor(BaseModel):
 
     name: str = Field(description="Auditor's name")
     company: str = Field(description="Audit company/firm name")
-    audit_end_date: datetime = Field(
-        alias="auditEndDate", description="Audit period end date"
-    )
+    audit_end_date: datetime = Field(alias="auditEndDate", description="Audit period end date")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -71,9 +69,7 @@ class VotingShare(BaseModel):
 class ShareStructure(BaseModel):
     """Model for share structure (common or preferred)."""
 
-    listed_share: int | None = Field(
-        alias="listedShare", description="Number of listed shares"
-    )
+    listed_share: int | None = Field(alias="listedShare", description="Number of listed shares")
     voting_rights: list[VotingRight] = Field(
         alias="votingRights", description="Voting rights information"
     )
@@ -96,9 +92,7 @@ class CompanyProfile(BaseModel):
     name_remark: str = Field(alias="nameRemark", description="Additional name remarks")
     market: str = Field(description="Market (SET, mai, etc.)")
     industry: str = Field(description="Industry code")
-    industry_name: str = Field(
-        alias="industryName", description="Industry name in readable format"
-    )
+    industry_name: str = Field(alias="industryName", description="Industry name in readable format")
     sector: str = Field(description="Sector code")
     sector_name: str = Field(alias="sectorName", description="Sector name in readable format")
     logo_url: str = Field(alias="logoUrl", description="Company logo URL")
@@ -165,9 +159,7 @@ class CompanyProfileService:
         self.base_url = SET_BASE_URL
         logger.info(f"CompanyProfileService initialized with base_url={self.base_url}")
 
-    async def fetch_company_profile(
-        self, symbol: str, lang: str = "en"
-    ) -> CompanyProfile:
+    async def fetch_company_profile(self, symbol: str, lang: str = "en") -> CompanyProfile:
         """
         Fetch company profile data for a specific stock symbol.
 
@@ -218,14 +210,14 @@ class CompanyProfileService:
             # Check for errors
             if response.status_code != 200:
                 error_msg = (
-                    f"Failed to fetch company profile for {symbol}: "
-                    f"HTTP {response.status_code}"
+                    f"Failed to fetch company profile for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
                 raise Exception(error_msg)
 
             # Parse JSON
             import json
+
             try:
                 data = json.loads(response.text)
             except json.JSONDecodeError as e:
@@ -244,9 +236,7 @@ class CompanyProfileService:
 
             return profile
 
-    async def fetch_company_profile_raw(
-        self, symbol: str, lang: str = "en"
-    ) -> dict[str, Any]:
+    async def fetch_company_profile_raw(self, symbol: str, lang: str = "en") -> dict[str, Any]:
         """
         Fetch company profile data as raw dictionary without Pydantic validation.
 

@@ -17,15 +17,11 @@ class MajorShareholder(BaseModel):
     sequence: int = Field(description="Shareholder ranking sequence number")
     name: str = Field(description="Shareholder name (company or individual)")
     nationality: str | None = Field(description="Shareholder nationality")
-    number_of_share: int = Field(
-        alias="numberOfShare", description="Number of shares held"
-    )
+    number_of_share: int = Field(alias="numberOfShare", description="Number of shares held")
     percent_of_share: float = Field(
         alias="percentOfShare", description="Percentage of total shares held"
     )
-    is_thai_nvdr: bool = Field(
-        alias="isThaiNVDR", description="Whether shareholder is Thai NVDR"
-    )
+    is_thai_nvdr: bool = Field(alias="isThaiNVDR", description="Whether shareholder is Thai NVDR")
 
     model_config = ConfigDict(
         populate_by_name=True,  # Allow both field name and alias
@@ -69,9 +65,7 @@ class ShareholderData(BaseModel):
     major_shareholders: list[MajorShareholder] = Field(
         alias="majorShareholders", description="List of major shareholders"
     )
-    free_float: FreeFloat = Field(
-        alias="freeFloat", description="Free float information"
-    )
+    free_float: FreeFloat = Field(alias="freeFloat", description="Free float information")
 
     model_config = ConfigDict(
         populate_by_name=True,  # Allow both field name and alias
@@ -103,9 +97,7 @@ class ShareholderService:
         self.base_url = SET_BASE_URL
         logger.info(f"ShareholderService initialized with base_url={self.base_url}")
 
-    async def fetch_shareholder_data(
-        self, symbol: str, lang: str = "en"
-    ) -> ShareholderData:
+    async def fetch_shareholder_data(self, symbol: str, lang: str = "en") -> ShareholderData:
         """
         Fetch shareholder data for a specific stock symbol.
 
@@ -162,6 +154,7 @@ class ShareholderService:
 
             # Parse JSON
             import json
+
             try:
                 data = json.loads(response.text)
             except json.JSONDecodeError as e:
@@ -180,9 +173,7 @@ class ShareholderService:
 
             return shareholder_data
 
-    async def fetch_shareholder_data_raw(
-        self, symbol: str, lang: str = "en"
-    ) -> dict[str, Any]:
+    async def fetch_shareholder_data_raw(self, symbol: str, lang: str = "en") -> dict[str, Any]:
         """
         Fetch shareholder data as raw dictionary without Pydantic validation.
 
@@ -237,6 +228,7 @@ class ShareholderService:
 
             # Parse JSON
             import json
+
             try:
                 data = json.loads(response.text)
             except json.JSONDecodeError as e:

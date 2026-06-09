@@ -74,9 +74,7 @@ class TradingStatisticsService:
         """
         self.config = config or FetcherConfig()
         self.base_url = TFEX_BASE_URL
-        logger.info(
-            f"TradingStatisticsService initialized with base_url={self.base_url}"
-        )
+        logger.info(f"TradingStatisticsService initialized with base_url={self.base_url}")
 
     def _normalize_symbol(self, symbol: str) -> str:
         """
@@ -180,9 +178,7 @@ class TradingStatisticsService:
         # Build URL with symbol
         url = f"{self.base_url}{TFEX_TRADING_STATISTICS_ENDPOINT.format(symbol=normalized_symbol)}"
 
-        logger.info(
-            f"Fetching raw TFEX trading statistics for {normalized_symbol} from {url}"
-        )
+        logger.info(f"Fetching raw TFEX trading statistics for {normalized_symbol} from {url}")
 
         async with AsyncDataFetcher(config=self.config) as fetcher:
             # Get optimized headers for TFEX API

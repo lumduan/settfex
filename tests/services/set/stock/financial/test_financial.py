@@ -2,7 +2,7 @@
 
 import json
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -16,7 +16,7 @@ from settfex.services.set.stock.financial import (
     get_cash_flow,
     get_income_statement,
 )
-from settfex.utils.data_fetcher import FetchResponse, FetcherConfig
+from settfex.utils.data_fetcher import FetcherConfig, FetchResponse
 
 
 @pytest.fixture
@@ -40,24 +40,24 @@ def mock_balance_sheet_response():
                 {
                     "accountCode": "601",
                     "accountName": "Cash And Cash Equivalents",
-                    "amount": 3.7680002E7,
+                    "amount": 3.7680002e7,
                     "adjusted": False,
                     "level": 0,
                     "divider": 1000,
-                    "format": ""
+                    "format": "",
                 },
                 {
                     "accountCode": "607",
                     "accountName": "Total Assets",
-                    "amount": 9.31772208E8,
+                    "amount": 9.31772208e8,
                     "adjusted": False,
                     "level": -1,
                     "divider": 1000,
-                    "format": "BU"
-                }
+                    "format": "BU",
+                },
             ],
             "isRestatement": False,
-            "restatementDate": None
+            "restatementDate": None,
         }
     ]
 
@@ -83,24 +83,24 @@ def mock_income_statement_response():
                 {
                     "accountCode": "624",
                     "accountName": "Revenue From Operations",
-                    "amount": 4.94663255E8,
+                    "amount": 4.94663255e8,
                     "adjusted": False,
                     "level": 0,
                     "divider": 1000,
-                    "format": ""
+                    "format": "",
                 },
                 {
                     "accountCode": "633",
                     "accountName": "Net Profit  : Owners Of The Parent",
-                    "amount": 1.4353693E7,
+                    "amount": 1.4353693e7,
                     "adjusted": False,
                     "level": -1,
                     "divider": 1000,
-                    "format": "BU"
-                }
+                    "format": "BU",
+                },
             ],
             "isRestatement": False,
-            "restatementDate": None
+            "restatementDate": None,
         }
     ]
 
@@ -130,11 +130,11 @@ def mock_cash_flow_response():
                     "adjusted": False,
                     "level": 0,
                     "divider": 1000,
-                    "format": ""
+                    "format": "",
                 }
             ],
             "isRestatement": False,
-            "restatementDate": None
+            "restatementDate": None,
         }
     ]
 
@@ -151,7 +151,7 @@ class TestAccount:
             adjusted=False,
             level=0,
             divider=1000,
-            format=""
+            format="",
         )
         assert account.account_code == "601"
         assert account.account_name == "Cash And Cash Equivalents"
@@ -170,7 +170,7 @@ class TestAccount:
             "adjusted": False,
             "level": -1,
             "divider": 1000,
-            "format": "BU"
+            "format": "BU",
         }
         account = Account(**data)
         assert account.account_code == "607"
@@ -187,7 +187,7 @@ class TestAccount:
             adjusted=False,
             level=0,
             divider=1000,
-            format=""
+            format="",
         )
         assert account.amount is None
 
@@ -250,7 +250,7 @@ class TestFinancialStatement:
             "hasAdjustedAccount": False,
             "accounts": [],
             "isRestatement": False,
-            "restatementDate": None
+            "restatementDate": None,
         }
         stmt = BalanceSheet(**data)
         assert stmt.quarter == "6M"
@@ -282,7 +282,9 @@ class TestFinancialService:
     @pytest.mark.asyncio
     async def test_fetch_balance_sheet_success(self, mock_balance_sheet_response):
         """Test fetching balance sheet successfully."""
-        with patch("settfex.services.set.stock.financial.financial.AsyncDataFetcher") as mock_fetcher:
+        with patch(
+            "settfex.services.set.stock.financial.financial.AsyncDataFetcher"
+        ) as mock_fetcher:
             # Setup mock
             mock_instance = AsyncMock()
             mock_fetcher.return_value.__aenter__.return_value = mock_instance
@@ -295,7 +297,7 @@ class TestFinancialService:
                 text=json.dumps(mock_balance_sheet_response),
                 headers={},
                 url="https://www.set.or.th/api/set/factsheet/CPALL/financialstatement",
-                elapsed=0.5
+                elapsed=0.5,
             )
             mock_instance.fetch = AsyncMock(return_value=mock_response)
 
@@ -313,7 +315,9 @@ class TestFinancialService:
     @pytest.mark.asyncio
     async def test_fetch_income_statement_success(self, mock_income_statement_response):
         """Test fetching income statement successfully."""
-        with patch("settfex.services.set.stock.financial.financial.AsyncDataFetcher") as mock_fetcher:
+        with patch(
+            "settfex.services.set.stock.financial.financial.AsyncDataFetcher"
+        ) as mock_fetcher:
             # Setup mock
             mock_instance = AsyncMock()
             mock_fetcher.return_value.__aenter__.return_value = mock_instance
@@ -326,7 +330,7 @@ class TestFinancialService:
                 text=json.dumps(mock_income_statement_response),
                 headers={},
                 url="https://www.set.or.th/api/set/factsheet/CPALL/financialstatement",
-                elapsed=0.5
+                elapsed=0.5,
             )
             mock_instance.fetch = AsyncMock(return_value=mock_response)
 
@@ -342,7 +346,9 @@ class TestFinancialService:
     @pytest.mark.asyncio
     async def test_fetch_cash_flow_success(self, mock_cash_flow_response):
         """Test fetching cash flow successfully."""
-        with patch("settfex.services.set.stock.financial.financial.AsyncDataFetcher") as mock_fetcher:
+        with patch(
+            "settfex.services.set.stock.financial.financial.AsyncDataFetcher"
+        ) as mock_fetcher:
             # Setup mock
             mock_instance = AsyncMock()
             mock_fetcher.return_value.__aenter__.return_value = mock_instance
@@ -355,7 +361,7 @@ class TestFinancialService:
                 text=json.dumps(mock_cash_flow_response),
                 headers={},
                 url="https://www.set.or.th/api/set/factsheet/CPALL/financialstatement",
-                elapsed=0.5
+                elapsed=0.5,
             )
             mock_instance.fetch = AsyncMock(return_value=mock_response)
 
@@ -371,7 +377,9 @@ class TestFinancialService:
     @pytest.mark.asyncio
     async def test_fetch_with_thai_language(self, mock_balance_sheet_response):
         """Test fetching with Thai language."""
-        with patch("settfex.services.set.stock.financial.financial.AsyncDataFetcher") as mock_fetcher:
+        with patch(
+            "settfex.services.set.stock.financial.financial.AsyncDataFetcher"
+        ) as mock_fetcher:
             # Setup mock
             mock_instance = AsyncMock()
             mock_fetcher.return_value.__aenter__.return_value = mock_instance
@@ -384,13 +392,13 @@ class TestFinancialService:
                 text=json.dumps(mock_balance_sheet_response),
                 headers={},
                 url="https://www.set.or.th/api/set/factsheet/CPALL/financialstatement",
-                elapsed=0.5
+                elapsed=0.5,
             )
             mock_instance.fetch = AsyncMock(return_value=mock_response)
 
             # Execute
             service = FinancialService()
-            result = await service.fetch_balance_sheet(symbol="CPALL", lang="th")
+            await service.fetch_balance_sheet(symbol="CPALL", lang="th")
 
             # Assert - URL should contain lang=th
             call_args = mock_instance.fetch.call_args
@@ -399,7 +407,9 @@ class TestFinancialService:
     @pytest.mark.asyncio
     async def test_fetch_balance_sheet_raw(self, mock_balance_sheet_response):
         """Test fetching raw balance sheet data."""
-        with patch("settfex.services.set.stock.financial.financial.AsyncDataFetcher") as mock_fetcher:
+        with patch(
+            "settfex.services.set.stock.financial.financial.AsyncDataFetcher"
+        ) as mock_fetcher:
             # Setup mock
             mock_instance = AsyncMock()
             mock_fetcher.return_value.__aenter__.return_value = mock_instance
@@ -412,7 +422,7 @@ class TestFinancialService:
                 text=json.dumps(mock_balance_sheet_response),
                 headers={},
                 url="https://www.set.or.th/api/set/factsheet/CPALL/financialstatement",
-                elapsed=0.5
+                elapsed=0.5,
             )
             mock_instance.fetch = AsyncMock(return_value=mock_response)
 
@@ -429,7 +439,9 @@ class TestFinancialService:
     @pytest.mark.asyncio
     async def test_symbol_normalization(self, mock_balance_sheet_response):
         """Test symbol is normalized to uppercase."""
-        with patch("settfex.services.set.stock.financial.financial.AsyncDataFetcher") as mock_fetcher:
+        with patch(
+            "settfex.services.set.stock.financial.financial.AsyncDataFetcher"
+        ) as mock_fetcher:
             # Setup mock
             mock_instance = AsyncMock()
             mock_fetcher.return_value.__aenter__.return_value = mock_instance
@@ -442,7 +454,7 @@ class TestFinancialService:
                 text=json.dumps(mock_balance_sheet_response),
                 headers={},
                 url="https://www.set.or.th/api/set/factsheet/CPALL/financialstatement",
-                elapsed=0.5
+                elapsed=0.5,
             )
             mock_instance.fetch = AsyncMock(return_value=mock_response)
 
@@ -465,7 +477,9 @@ class TestFinancialService:
     @pytest.mark.asyncio
     async def test_http_error_handling(self):
         """Test handling of HTTP errors."""
-        with patch("settfex.services.set.stock.financial.financial.AsyncDataFetcher") as mock_fetcher:
+        with patch(
+            "settfex.services.set.stock.financial.financial.AsyncDataFetcher"
+        ) as mock_fetcher:
             # Setup mock
             mock_instance = AsyncMock()
             mock_fetcher.return_value.__aenter__.return_value = mock_instance
@@ -478,7 +492,7 @@ class TestFinancialService:
                 text="Not Found",
                 headers={},
                 url="https://www.set.or.th/api/set/factsheet/INVALID/financialstatement",
-                elapsed=0.1
+                elapsed=0.1,
             )
             mock_instance.fetch = AsyncMock(return_value=mock_response)
 
@@ -491,7 +505,9 @@ class TestFinancialService:
     @pytest.mark.asyncio
     async def test_json_parse_error_handling(self):
         """Test handling of JSON parse errors."""
-        with patch("settfex.services.set.stock.financial.financial.AsyncDataFetcher") as mock_fetcher:
+        with patch(
+            "settfex.services.set.stock.financial.financial.AsyncDataFetcher"
+        ) as mock_fetcher:
             # Setup mock
             mock_instance = AsyncMock()
             mock_fetcher.return_value.__aenter__.return_value = mock_instance
@@ -504,7 +520,7 @@ class TestFinancialService:
                 text="Invalid JSON",
                 headers={},
                 url="https://www.set.or.th/api/set/factsheet/CPALL/financialstatement",
-                elapsed=0.1
+                elapsed=0.1,
             )
             mock_instance.fetch = AsyncMock(return_value=mock_response)
 
@@ -517,7 +533,9 @@ class TestFinancialService:
     @pytest.mark.asyncio
     async def test_invalid_response_type(self):
         """Test handling of non-list response."""
-        with patch("settfex.services.set.stock.financial.financial.AsyncDataFetcher") as mock_fetcher:
+        with patch(
+            "settfex.services.set.stock.financial.financial.AsyncDataFetcher"
+        ) as mock_fetcher:
             # Setup mock
             mock_instance = AsyncMock()
             mock_fetcher.return_value.__aenter__.return_value = mock_instance
@@ -530,7 +548,7 @@ class TestFinancialService:
                 text=json.dumps({"error": "Invalid"}),
                 headers={},
                 url="https://www.set.or.th/api/set/factsheet/CPALL/financialstatement",
-                elapsed=0.1
+                elapsed=0.1,
             )
             mock_instance.fetch = AsyncMock(return_value=mock_response)
 
@@ -547,7 +565,9 @@ class TestConvenienceFunctions:
     @pytest.mark.asyncio
     async def test_get_balance_sheet(self, mock_balance_sheet_response):
         """Test get_balance_sheet convenience function."""
-        with patch("settfex.services.set.stock.financial.financial.AsyncDataFetcher") as mock_fetcher:
+        with patch(
+            "settfex.services.set.stock.financial.financial.AsyncDataFetcher"
+        ) as mock_fetcher:
             # Setup mock
             mock_instance = AsyncMock()
             mock_fetcher.return_value.__aenter__.return_value = mock_instance
@@ -560,7 +580,7 @@ class TestConvenienceFunctions:
                 text=json.dumps(mock_balance_sheet_response),
                 headers={},
                 url="https://www.set.or.th/api/set/factsheet/CPALL/financialstatement",
-                elapsed=0.5
+                elapsed=0.5,
             )
             mock_instance.fetch = AsyncMock(return_value=mock_response)
 
@@ -575,7 +595,9 @@ class TestConvenienceFunctions:
     @pytest.mark.asyncio
     async def test_get_income_statement(self, mock_income_statement_response):
         """Test get_income_statement convenience function."""
-        with patch("settfex.services.set.stock.financial.financial.AsyncDataFetcher") as mock_fetcher:
+        with patch(
+            "settfex.services.set.stock.financial.financial.AsyncDataFetcher"
+        ) as mock_fetcher:
             # Setup mock
             mock_instance = AsyncMock()
             mock_fetcher.return_value.__aenter__.return_value = mock_instance
@@ -588,7 +610,7 @@ class TestConvenienceFunctions:
                 text=json.dumps(mock_income_statement_response),
                 headers={},
                 url="https://www.set.or.th/api/set/factsheet/CPALL/financialstatement",
-                elapsed=0.5
+                elapsed=0.5,
             )
             mock_instance.fetch = AsyncMock(return_value=mock_response)
 
@@ -602,7 +624,9 @@ class TestConvenienceFunctions:
     @pytest.mark.asyncio
     async def test_get_cash_flow(self, mock_cash_flow_response):
         """Test get_cash_flow convenience function."""
-        with patch("settfex.services.set.stock.financial.financial.AsyncDataFetcher") as mock_fetcher:
+        with patch(
+            "settfex.services.set.stock.financial.financial.AsyncDataFetcher"
+        ) as mock_fetcher:
             # Setup mock
             mock_instance = AsyncMock()
             mock_fetcher.return_value.__aenter__.return_value = mock_instance
@@ -615,7 +639,7 @@ class TestConvenienceFunctions:
                 text=json.dumps(mock_cash_flow_response),
                 headers={},
                 url="https://www.set.or.th/api/set/factsheet/CPALL/financialstatement",
-                elapsed=0.5
+                elapsed=0.5,
             )
             mock_instance.fetch = AsyncMock(return_value=mock_response)
 
@@ -629,7 +653,9 @@ class TestConvenienceFunctions:
     @pytest.mark.asyncio
     async def test_convenience_functions_with_custom_config(self, mock_balance_sheet_response):
         """Test convenience functions with custom config."""
-        with patch("settfex.services.set.stock.financial.financial.AsyncDataFetcher") as mock_fetcher:
+        with patch(
+            "settfex.services.set.stock.financial.financial.AsyncDataFetcher"
+        ) as mock_fetcher:
             # Setup mock
             mock_instance = AsyncMock()
             mock_fetcher.return_value.__aenter__.return_value = mock_instance
@@ -642,7 +668,7 @@ class TestConvenienceFunctions:
                 text=json.dumps(mock_balance_sheet_response),
                 headers={},
                 url="https://www.set.or.th/api/set/factsheet/CPALL/financialstatement",
-                elapsed=0.5
+                elapsed=0.5,
             )
             mock_instance.fetch = AsyncMock(return_value=mock_response)
 

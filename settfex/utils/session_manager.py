@@ -119,9 +119,7 @@ class SessionManager:
         instance_key = f"{warmup_site}_{browser}"
         async with cls._lock:
             if instance_key not in cls._instances:
-                cls._instances[instance_key] = cls(
-                    browser=browser, warmup_site=warmup_site
-                )
+                cls._instances[instance_key] = cls(browser=browser, warmup_site=warmup_site)
             return cls._instances[instance_key]
 
     @classmethod
@@ -224,14 +222,14 @@ class SessionManager:
             # curl_cffi cookies can be a dict-like object or Cookie objects
             cookies_dict = {}
 
-            if hasattr(self._session.cookies, 'items'):
+            if hasattr(self._session.cookies, "items"):
                 # If it's a dict-like object
                 for name, value in self._session.cookies.items():
                     cookies_dict[name] = value
             else:
                 # If it's an iterable of Cookie objects
                 for cookie in self._session.cookies:
-                    if hasattr(cookie, 'name') and hasattr(cookie, 'value'):
+                    if hasattr(cookie, "name") and hasattr(cookie, "value"):
                         cookies_dict[cookie.name] = cookie.value
                     else:
                         # If it's already a dict or something else, skip
@@ -339,18 +337,14 @@ class SessionManager:
             if response.status_code == 200:
                 # Check if we got cookies
                 cookie_count = len(response.cookies)
-                logger.success(
-                    f"✓ Session warmed up successfully (got {cookie_count} cookies)"
-                )
+                logger.success(f"✓ Session warmed up successfully (got {cookie_count} cookies)")
                 self._initialized = True
                 self._last_warmup_time = now
 
                 # Save to cache for next time
                 await self._save_to_cache()
             else:
-                logger.warning(
-                    f"Warmup request returned {response.status_code}, continuing anyway"
-                )
+                logger.warning(f"Warmup request returned {response.status_code}, continuing anyway")
                 self._initialized = True
                 self._last_warmup_time = now
 
