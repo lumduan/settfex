@@ -172,17 +172,12 @@ class StockListService:
             # Get optimized headers for SET API
             headers = AsyncDataFetcher.get_set_api_headers()
 
-            # Use provided session cookies or generate Incapsula-aware cookies
-            cookies = self.session_cookies or AsyncDataFetcher.generate_incapsula_cookies()
-
-            # Fetch JSON data
-            data = await fetcher.fetch_json(
-                url, headers=headers, cookies=cookies, use_random_cookies=False
-            )
+            # SessionManager handles cookies automatically — no manual cookie needed
+            data = await fetcher.fetch_json(url, headers=headers)
             logger.debug(
                 f"Raw response keys: {list(data.keys()) if isinstance(data, dict) else type(data)}"
             )  # noqa: E501
-            return data
+            return data  # type: ignore[no-any-return]
 
 
 # Convenience function for quick access

@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-import diskcache
+import diskcache  # type: ignore[import-untyped]
 from loguru import logger
 
 
@@ -98,7 +98,7 @@ class SessionCache:
             value = self.cache.get(key)
             if value is not None:
                 logger.debug(f"Cache HIT: {key}")
-                return value
+                return value  # type: ignore[no-any-return]
             else:
                 logger.debug(f"Cache MISS: {key}")
                 return None
@@ -158,7 +158,7 @@ class SessionCache:
             result = self.cache.delete(key)
             if result:
                 logger.debug(f"Deleted from cache: {key}")
-            return result
+            return bool(result)
         except Exception as e:
             logger.error(f"Failed to delete from cache: {e}")
             return False
@@ -188,7 +188,7 @@ class SessionCache:
         else:
             logger.debug(f"Cache valid: {key} (age={age:.0f}s < max={max_age}s)")
 
-        return is_expired
+        return bool(is_expired)
 
     def clear(self) -> None:
         """Clear all cached data."""
@@ -226,7 +226,7 @@ class SessionCache:
         """Context manager entry."""
         return self
 
-    def __exit__(self, *args) -> None:
+    def __exit__(self, *args: object) -> None:
         """Context manager exit."""
         self.close()
 

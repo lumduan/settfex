@@ -173,7 +173,7 @@ class LatestHistoricalTradingService:
                 raise
 
             logger.debug(f"Raw response keys: {list(data.keys())}")
-            return data
+            return data  # type: ignore[no-any-return]
 
 
 async def get_latest_historical_trading(

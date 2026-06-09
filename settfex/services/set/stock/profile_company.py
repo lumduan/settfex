@@ -284,7 +284,7 @@ class CompanyProfileService:
             logger.debug(
                 f"Raw response keys: {list(data.keys()) if isinstance(data, dict) else type(data)}"
             )
-            return data
+            return data  # type: ignore[no-any-return]
 
 
 # Convenience function for quick access
