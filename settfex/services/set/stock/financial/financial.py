@@ -147,9 +147,7 @@ class FinancialService:
         endpoint = endpoint_map[account_type].format(symbol=symbol)
         url = f"{self.base_url}{endpoint}?accountType={account_type}&lang={lang}"
 
-        logger.info(
-            f"Fetching {account_type} for symbol '{symbol}' (lang={lang}) from {url}"
-        )
+        logger.info(f"Fetching {account_type} for symbol '{symbol}' (lang={lang}) from {url}")
 
         async with AsyncDataFetcher(config=self.config) as fetcher:
             # Get optimized headers for SET API with symbol-specific referer
@@ -162,8 +160,7 @@ class FinancialService:
             # Check for errors
             if response.status_code != 200:
                 error_msg = (
-                    f"Failed to fetch {account_type} for {symbol}: "
-                    f"HTTP {response.status_code}"
+                    f"Failed to fetch {account_type} for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
                 raise Exception(error_msg)
@@ -184,15 +181,11 @@ class FinancialService:
                 logger.error(error_msg)
                 raise ValueError(error_msg)
 
-            logger.info(
-                f"Successfully fetched {len(data)} {account_type} statements for {symbol}"
-            )
+            logger.info(f"Successfully fetched {len(data)} {account_type} statements for {symbol}")
 
             return data
 
-    async def fetch_balance_sheet(
-        self, symbol: str, lang: str = "en"
-    ) -> list[BalanceSheet]:
+    async def fetch_balance_sheet(self, symbol: str, lang: str = "en") -> list[BalanceSheet]:
         """
         Fetch balance sheet data for a specific stock symbol.
 
@@ -220,9 +213,7 @@ class FinancialService:
         logger.info(f"Parsed {len(balance_sheets)} balance sheet statements for {symbol}")
         return balance_sheets
 
-    async def fetch_balance_sheet_raw(
-        self, symbol: str, lang: str = "en"
-    ) -> list[dict[str, Any]]:
+    async def fetch_balance_sheet_raw(self, symbol: str, lang: str = "en") -> list[dict[str, Any]]:
         """
         Fetch balance sheet data as raw dictionary without Pydantic validation.
 
@@ -248,9 +239,7 @@ class FinancialService:
             symbol=symbol, account_type="balance_sheet", lang=lang
         )
 
-    async def fetch_income_statement(
-        self, symbol: str, lang: str = "en"
-    ) -> list[IncomeStatement]:
+    async def fetch_income_statement(self, symbol: str, lang: str = "en") -> list[IncomeStatement]:
         """
         Fetch income statement data for a specific stock symbol.
 
@@ -327,16 +316,12 @@ class FinancialService:
             >>> for stmt in statements:
             ...     print(f"{stmt.quarter} {stmt.year}: {stmt.status}")
         """
-        data = await self._fetch_financial_data(
-            symbol=symbol, account_type="cash_flow", lang=lang
-        )
+        data = await self._fetch_financial_data(symbol=symbol, account_type="cash_flow", lang=lang)
         cash_flows = [CashFlow(**item) for item in data]
         logger.info(f"Parsed {len(cash_flows)} cash flow statements for {symbol}")
         return cash_flows
 
-    async def fetch_cash_flow_raw(
-        self, symbol: str, lang: str = "en"
-    ) -> list[dict[str, Any]]:
+    async def fetch_cash_flow_raw(self, symbol: str, lang: str = "en") -> list[dict[str, Any]]:
         """
         Fetch cash flow data as raw dictionary without Pydantic validation.
 
@@ -358,9 +343,7 @@ class FinancialService:
             >>> raw_data = await service.fetch_cash_flow_raw("CPALL")
             >>> print(f"Periods: {len(raw_data)}")
         """
-        return await self._fetch_financial_data(
-            symbol=symbol, account_type="cash_flow", lang=lang
-        )
+        return await self._fetch_financial_data(symbol=symbol, account_type="cash_flow", lang=lang)
 
 
 # Convenience functions for quick access

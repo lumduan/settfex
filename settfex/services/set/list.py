@@ -143,9 +143,7 @@ class StockListService:
             # Parse and validate response using Pydantic
             response = StockListResponse(**data)
 
-            logger.info(
-                f"Successfully fetched {response.count} stock symbols from SET API"
-            )
+            logger.info(f"Successfully fetched {response.count} stock symbols from SET API")
 
             return response
 
@@ -181,7 +179,9 @@ class StockListService:
             data = await fetcher.fetch_json(
                 url, headers=headers, cookies=cookies, use_random_cookies=False
             )
-            logger.debug(f"Raw response keys: {list(data.keys()) if isinstance(data, dict) else type(data)}")  # noqa: E501
+            logger.debug(
+                f"Raw response keys: {list(data.keys()) if isinstance(data, dict) else type(data)}"
+            )  # noqa: E501
             return data
 
 

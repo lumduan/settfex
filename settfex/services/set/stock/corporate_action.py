@@ -107,9 +107,7 @@ class CorporateActionService:
         self.base_url = SET_BASE_URL
         logger.info(f"CorporateActionService initialized with base_url={self.base_url}")
 
-    async def fetch_corporate_actions(
-        self, symbol: str, lang: str = "en"
-    ) -> list[CorporateAction]:
+    async def fetch_corporate_actions(self, symbol: str, lang: str = "en") -> list[CorporateAction]:
         """
         Fetch corporate actions for a specific stock symbol.
 
@@ -162,8 +160,7 @@ class CorporateActionService:
             # Check for errors
             if response.status_code != 200:
                 error_msg = (
-                    f"Failed to fetch corporate actions for {symbol}: "
-                    f"HTTP {response.status_code}"
+                    f"Failed to fetch corporate actions for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
                 raise Exception(error_msg)
@@ -241,9 +238,7 @@ class CorporateActionService:
         endpoint = SET_CORPORATE_ACTION_ENDPOINT.format(symbol=symbol)
         url = f"{self.base_url}{endpoint}?lang={lang}"
 
-        logger.info(
-            f"Fetching raw corporate actions for '{symbol}' (lang={lang}) from {url}"
-        )
+        logger.info(f"Fetching raw corporate actions for '{symbol}' (lang={lang}) from {url}")
 
         async with AsyncDataFetcher(config=self.config) as fetcher:
             # Get optimized headers for SET API with symbol-specific referer
@@ -256,8 +251,7 @@ class CorporateActionService:
             # Check for errors
             if response.status_code != 200:
                 error_msg = (
-                    f"Failed to fetch corporate actions for {symbol}: "
-                    f"HTTP {response.status_code}"
+                    f"Failed to fetch corporate actions for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
                 raise Exception(error_msg)

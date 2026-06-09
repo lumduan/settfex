@@ -33,30 +33,20 @@ class TradingStat(BaseModel):
     total_volume: float | None = Field(
         alias="totalVolume", description="Total trading volume (shares)"
     )
-    total_value: float | None = Field(
-        alias="totalValue", description="Total trading value (THB)"
-    )
+    total_value: float | None = Field(alias="totalValue", description="Total trading value (THB)")
     pe: float | None = Field(description="Price-to-Earnings ratio")
     pbv: float | None = Field(description="Price-to-Book Value ratio")
     book_value_per_share: float | None = Field(
         alias="bookValuePerShare", description="Book value per share (THB)"
     )
-    dividend_yield: float | None = Field(
-        alias="dividendYield", description="Dividend yield (%)"
-    )
-    market_cap: float | None = Field(
-        alias="marketCap", description="Market capitalization (THB)"
-    )
-    listed_share: float | None = Field(
-        alias="listedShare", description="Number of listed shares"
-    )
+    dividend_yield: float | None = Field(alias="dividendYield", description="Dividend yield (%)")
+    market_cap: float | None = Field(alias="marketCap", description="Market capitalization (THB)")
+    listed_share: float | None = Field(alias="listedShare", description="Number of listed shares")
     par: float | None = Field(description="Par value per share (THB)")
     financial_date: datetime | None = Field(
         alias="financialDate", description="Financial data reference date"
     )
-    turnover_ratio: float | None = Field(
-        alias="turnoverRatio", description="Turnover ratio (%)"
-    )
+    turnover_ratio: float | None = Field(alias="turnoverRatio", description="Turnover ratio (%)")
     beta: float | None = Field(description="Beta coefficient (volatility measure)")
     dividend_payout_ratio: float | None = Field(
         alias="dividendPayoutRatio", description="Dividend payout ratio"
@@ -95,9 +85,7 @@ class TradingStatService:
         self.base_url = SET_BASE_URL
         logger.info(f"TradingStatService initialized with base_url={self.base_url}")
 
-    async def fetch_trading_stats(
-        self, symbol: str, lang: str = "en"
-    ) -> list[TradingStat]:
+    async def fetch_trading_stats(self, symbol: str, lang: str = "en") -> list[TradingStat]:
         """
         Fetch trading statistics for a specific stock symbol.
 
@@ -153,6 +141,7 @@ class TradingStatService:
 
             # Parse JSON
             import json
+
             try:
                 data = json.loads(response.text)
             except json.JSONDecodeError as e:
@@ -175,9 +164,7 @@ class TradingStatService:
 
             return trading_stats
 
-    async def fetch_trading_stats_raw(
-        self, symbol: str, lang: str = "en"
-    ) -> list[dict[str, Any]]:
+    async def fetch_trading_stats_raw(self, symbol: str, lang: str = "en") -> list[dict[str, Any]]:
         """
         Fetch trading statistics as raw list of dictionaries without Pydantic validation.
 
@@ -233,6 +220,7 @@ class TradingStatService:
 
             # Parse JSON
             import json
+
             try:
                 data = json.loads(response.text)
             except json.JSONDecodeError as e:

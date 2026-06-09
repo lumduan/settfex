@@ -10,13 +10,13 @@ from settfex.services.set.stock.chart_quotation import (
     ChartQuotation,
     ChartQuotationService,
 )
-from settfex.services.set.stock.latest_historical_trading import (
-    LatestHistoricalTrading,
-    LatestHistoricalTradingService,
-)
 from settfex.services.set.stock.highlight_data import (
     StockHighlightData,
     StockHighlightDataService,
+)
+from settfex.services.set.stock.latest_historical_trading import (
+    LatestHistoricalTrading,
+    LatestHistoricalTradingService,
 )
 from settfex.services.set.stock.utils import normalize_symbol
 from settfex.utils.data_fetcher import FetcherConfig
@@ -112,9 +112,7 @@ class Stock:
             >>> data = await stock.get_highlight_data(lang="th")
         """
         logger.debug(f"Fetching highlight data for {self.symbol} (lang={lang})")
-        return await self.highlight_data_service.fetch_highlight_data(
-            symbol=self.symbol, lang=lang
-        )
+        return await self.highlight_data_service.fetch_highlight_data(symbol=self.symbol, lang=lang)
 
     @property
     def chart_quotation_service(self) -> ChartQuotationService:
@@ -152,7 +150,9 @@ class Stock:
     @property
     def latest_historical_trading_service(self) -> LatestHistoricalTradingService:
         if self._latest_historical_trading_service is None:
-            self._latest_historical_trading_service = LatestHistoricalTradingService(config=self.config)
+            self._latest_historical_trading_service = LatestHistoricalTradingService(
+                config=self.config
+            )
         return self._latest_historical_trading_service
 
     async def get_latest_historical_trading(self) -> LatestHistoricalTrading:
@@ -247,9 +247,7 @@ class Stock:
             ...     print(f"{sh.sequence}. {sh.name}: {sh.percent_of_share:.2f}%")
         """
         logger.debug(f"Fetching shareholder data for {self.symbol} (lang={lang})")
-        return await self.shareholder_service.fetch_shareholder_data(
-            symbol=self.symbol, lang=lang
-        )
+        return await self.shareholder_service.fetch_shareholder_data(symbol=self.symbol, lang=lang)
 
     # Future service methods (placeholders for documentation)
     # async def get_financials(self, lang: str = "en") -> FinancialsData:

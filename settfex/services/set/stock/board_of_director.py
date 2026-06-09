@@ -44,9 +44,7 @@ class BoardOfDirectorService:
         self.base_url = SET_BASE_URL
         logger.info(f"BoardOfDirectorService initialized with base_url={self.base_url}")
 
-    async def fetch_board_of_directors(
-        self, symbol: str, lang: str = "en"
-    ) -> list[Director]:
+    async def fetch_board_of_directors(self, symbol: str, lang: str = "en") -> list[Director]:
         """
         Fetch board of directors for a specific stock symbol.
 
@@ -80,9 +78,7 @@ class BoardOfDirectorService:
         endpoint = SET_BOARD_OF_DIRECTOR_ENDPOINT.format(symbol=symbol)
         url = f"{self.base_url}{endpoint}?lang={lang}"
 
-        logger.info(
-            f"Fetching board of directors for symbol '{symbol}' (lang={lang}) from {url}"
-        )
+        logger.info(f"Fetching board of directors for symbol '{symbol}' (lang={lang}) from {url}")
 
         async with AsyncDataFetcher(config=self.config) as fetcher:
             # Get optimized headers for SET API with symbol-specific referer
@@ -96,8 +92,7 @@ class BoardOfDirectorService:
             # Check for errors
             if response.status_code != 200:
                 error_msg = (
-                    f"Failed to fetch board of directors for {symbol}: "
-                    f"HTTP {response.status_code}"
+                    f"Failed to fetch board of directors for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
                 raise Exception(error_msg)
@@ -115,8 +110,7 @@ class BoardOfDirectorService:
             # Validate that data is a list
             if not isinstance(data, list):
                 error_msg = (
-                    f"Expected list response but got {type(data).__name__}: "
-                    f"{str(data)[:200]}"
+                    f"Expected list response but got {type(data).__name__}: {str(data)[:200]}"
                 )
                 logger.error(error_msg)
                 raise Exception(error_msg)
@@ -124,9 +118,7 @@ class BoardOfDirectorService:
             # Parse and validate response using Pydantic
             directors = [Director(**director_data) for director_data in data]
 
-            logger.info(
-                f"Successfully fetched {len(directors)} board members for {symbol}"
-            )
+            logger.info(f"Successfully fetched {len(directors)} board members for {symbol}")
 
             return directors
 
@@ -168,9 +160,7 @@ class BoardOfDirectorService:
         endpoint = SET_BOARD_OF_DIRECTOR_ENDPOINT.format(symbol=symbol)
         url = f"{self.base_url}{endpoint}?lang={lang}"
 
-        logger.info(
-            f"Fetching raw board of directors for '{symbol}' (lang={lang}) from {url}"
-        )
+        logger.info(f"Fetching raw board of directors for '{symbol}' (lang={lang}) from {url}")
 
         async with AsyncDataFetcher(config=self.config) as fetcher:
             # Get optimized headers for SET API with symbol-specific referer
@@ -183,8 +173,7 @@ class BoardOfDirectorService:
             # Check for errors
             if response.status_code != 200:
                 error_msg = (
-                    f"Failed to fetch board of directors for {symbol}: "
-                    f"HTTP {response.status_code}"
+                    f"Failed to fetch board of directors for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
                 raise Exception(error_msg)
@@ -202,8 +191,7 @@ class BoardOfDirectorService:
             # Validate that data is a list
             if not isinstance(data, list):
                 error_msg = (
-                    f"Expected list response but got {type(data).__name__}: "
-                    f"{str(data)[:200]}"
+                    f"Expected list response but got {type(data).__name__}: {str(data)[:200]}"
                 )
                 logger.error(error_msg)
                 raise Exception(error_msg)

@@ -36,19 +36,13 @@ class StockHighlightData(BaseModel):
     percent_free_float: float | None = Field(
         alias="percentFreeFloat", description="Percentage of free float"
     )
-    year_high_price: float | None = Field(
-        alias="yearHighPrice", description="52-week high price"
-    )
+    year_high_price: float | None = Field(alias="yearHighPrice", description="52-week high price")
     year_low_price: float | None = Field(alias="yearLowPrice", description="52-week low price")
     listed_share: int | None = Field(alias="listedShare", description="Number of listed shares")
     par: float | None = Field(description="Par value")
     currency: str | None = Field(description="Currency code")
-    nvdr_buy_volume: float | None = Field(
-        alias="nvdrBuyVolume", description="NVDR buy volume"
-    )
-    nvdr_sell_volume: float | None = Field(
-        alias="nvdrSellVolume", description="NVDR sell volume"
-    )
+    nvdr_buy_volume: float | None = Field(alias="nvdrBuyVolume", description="NVDR buy volume")
+    nvdr_sell_volume: float | None = Field(alias="nvdrSellVolume", description="NVDR sell volume")
     nvdr_buy_value: float | None = Field(alias="nvdrBuyValue", description="NVDR buy value")
     nvdr_sell_value: float | None = Field(alias="nvdrSellValue", description="NVDR sell value")
     outstanding_date: datetime | None = Field(
@@ -60,12 +54,8 @@ class StockHighlightData(BaseModel):
     dividend_yield_12m: float | None = Field(
         alias="dividendYield12M", description="12-month dividend yield"
     )
-    turnover_ratio: float | None = Field(
-        alias="turnoverRatio", description="Turnover ratio"
-    )
-    nvdr_net_volume: float | None = Field(
-        alias="nvdrNetVolume", description="NVDR net volume"
-    )
+    turnover_ratio: float | None = Field(alias="turnoverRatio", description="Turnover ratio")
+    nvdr_net_volume: float | None = Field(alias="nvdrNetVolume", description="NVDR net volume")
     nvdr_net_value: float | None = Field(alias="nvdrNetValue", description="NVDR net value")
 
     model_config = ConfigDict(
@@ -108,9 +98,7 @@ class StockHighlightDataService:
         self.base_url = SET_BASE_URL
         logger.info(f"StockHighlightDataService initialized with base_url={self.base_url}")
 
-    async def fetch_highlight_data(
-        self, symbol: str, lang: str = "en"
-    ) -> StockHighlightData:
+    async def fetch_highlight_data(self, symbol: str, lang: str = "en") -> StockHighlightData:
         """
         Fetch highlight data for a specific stock symbol.
 
@@ -166,6 +154,7 @@ class StockHighlightDataService:
 
             # Parse JSON
             import json
+
             try:
                 data = json.loads(response.text)
             except json.JSONDecodeError as e:
@@ -185,9 +174,7 @@ class StockHighlightDataService:
 
             return highlight_data
 
-    async def fetch_highlight_data_raw(
-        self, symbol: str, lang: str = "en"
-    ) -> dict[str, Any]:
+    async def fetch_highlight_data_raw(self, symbol: str, lang: str = "en") -> dict[str, Any]:
         """
         Fetch highlight data as raw dictionary without Pydantic validation.
 
@@ -242,6 +229,7 @@ class StockHighlightDataService:
 
             # Parse JSON
             import json
+
             try:
                 data = json.loads(response.text)
             except json.JSONDecodeError as e:

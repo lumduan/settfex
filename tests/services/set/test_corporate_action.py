@@ -11,8 +11,7 @@ from settfex.services.set.stock.corporate_action import (
     CorporateActionService,
     get_corporate_actions,
 )
-from settfex.utils.data_fetcher import FetchResponse, FetcherConfig
-
+from settfex.utils.data_fetcher import FetcherConfig, FetchResponse
 
 # Sample test data based on actual API response
 MOCK_CORPORATE_ACTION_DATA = [

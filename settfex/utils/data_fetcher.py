@@ -30,8 +30,7 @@ class FetcherConfig(BaseModel):
     use_session: bool = Field(
         default=True,
         description=(
-            "Use persistent session with automatic cookie handling "
-            "(recommended for ~100% success)"
+            "Use persistent session with automatic cookie handling (recommended for ~100% success)"
         ),
     )
     user_agent: str | None = Field(
@@ -154,7 +153,6 @@ class AsyncDataFetcher:
             ),
         }
 
-
     async def _make_request(self, url: str, headers: dict[str, str]) -> Any:
         """
         Make HTTP GET request using either persistent session or standalone request.
@@ -180,9 +178,7 @@ class AsyncDataFetcher:
 
             session = await get_session_for_url(url, browser=self.config.browser_impersonate)
             response = await session.get(url, headers=headers, timeout=self.config.timeout)
-            logger.debug(
-                f"Request via session: status={response.status_code}, url={url}"
-            )
+            logger.debug(f"Request via session: status={response.status_code}, url={url}")
             return response
         else:
             # Make standalone request (no cookie persistence)

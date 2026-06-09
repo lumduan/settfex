@@ -6,7 +6,10 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
-from settfex.services.set.constants import SET_BASE_URL, SET_STOCK_LATEST_HISTORICAL_TRADING_ENDPOINT
+from settfex.services.set.constants import (
+    SET_BASE_URL,
+    SET_STOCK_LATEST_HISTORICAL_TRADING_ENDPOINT,
+)
 from settfex.services.set.stock.utils import normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 
@@ -26,7 +29,9 @@ class LatestHistoricalTrading(BaseModel):
     percent_change: float | None = Field(
         alias="percentChange", description="Percentage price change"
     )
-    total_volume: float | None = Field(alias="totalVolume", description="Total trading volume (shares)")
+    total_volume: float | None = Field(
+        alias="totalVolume", description="Total trading volume (shares)"
+    )
     total_value: float | None = Field(alias="totalValue", description="Total trading value (THB)")
     pe: float | None = Field(description="Price-to-Earnings ratio")
     pbv: float | None = Field(description="Price-to-Book Value ratio")
@@ -97,7 +102,10 @@ class LatestHistoricalTradingService:
             response = await fetcher.fetch(url, headers=headers)
 
             if response.status_code != 200:
-                error_msg = f"Failed to fetch latest historical trading for {symbol}: HTTP {response.status_code}"
+                error_msg = (
+                    f"Failed to fetch latest historical trading for {symbol}: "
+                    f"HTTP {response.status_code}"
+                )
                 logger.error(error_msg)
                 raise Exception(error_msg)
 
@@ -148,7 +156,10 @@ class LatestHistoricalTradingService:
             response = await fetcher.fetch(url, headers=headers)
 
             if response.status_code != 200:
-                error_msg = f"Failed to fetch latest historical trading for {symbol}: HTTP {response.status_code}"
+                error_msg = (
+                    f"Failed to fetch latest historical trading for {symbol}: "
+                    f"HTTP {response.status_code}"
+                )
                 logger.error(error_msg)
                 raise Exception(error_msg)
 

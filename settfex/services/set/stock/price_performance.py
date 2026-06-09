@@ -47,9 +47,7 @@ class PricePerformanceMetrics(BaseModel):
 class PricePerformanceData(BaseModel):
     """Model for complete price performance data including stock, sector, and market comparisons."""
 
-    stock: PricePerformanceMetrics = Field(
-        description="Stock-specific price performance metrics"
-    )
+    stock: PricePerformanceMetrics = Field(description="Stock-specific price performance metrics")
     sector: PricePerformanceMetrics = Field(
         description="Sector price performance metrics for comparison"
     )
@@ -87,9 +85,7 @@ class PricePerformanceService:
         self.base_url = SET_BASE_URL
         logger.info(f"PricePerformanceService initialized with base_url={self.base_url}")
 
-    async def fetch_price_performance(
-        self, symbol: str, lang: str = "en"
-    ) -> PricePerformanceData:
+    async def fetch_price_performance(self, symbol: str, lang: str = "en") -> PricePerformanceData:
         """
         Fetch price performance data for a specific stock symbol.
 
@@ -149,6 +145,7 @@ class PricePerformanceService:
 
             # Parse JSON
             import json
+
             try:
                 data = json.loads(response.text)
             except json.JSONDecodeError as e:
@@ -182,9 +179,7 @@ class PricePerformanceService:
 
             return price_performance
 
-    async def fetch_price_performance_raw(
-        self, symbol: str, lang: str = "en"
-    ) -> dict[str, Any]:
+    async def fetch_price_performance_raw(self, symbol: str, lang: str = "en") -> dict[str, Any]:
         """
         Fetch price performance as raw dictionary without Pydantic validation.
 
@@ -240,6 +235,7 @@ class PricePerformanceService:
 
             # Parse JSON
             import json
+
             try:
                 data = json.loads(response.text)
             except json.JSONDecodeError as e:

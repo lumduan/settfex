@@ -32,9 +32,7 @@ class TFEXSeries(BaseModel):
     last_trading_date: datetime = Field(
         alias="lastTradingDate", description="Last trading date of the series"
     )
-    contract_month: str = Field(
-        alias="contractMonth", description="Contract month (e.g., 10/2025)"
-    )
+    contract_month: str = Field(alias="contractMonth", description="Contract month (e.g., 10/2025)")
     options_type: str = Field(
         alias="optionsType", description="Options type (empty for futures, C/P for options)"
     )
@@ -77,9 +75,7 @@ class TFEXSeriesListResponse(BaseModel):
         Returns:
             List of series for the specified instrument
         """
-        return [
-            s for s in self.series if s.instrument_id.upper() == instrument_id.upper()
-        ]
+        return [s for s in self.series if s.instrument_id.upper() == instrument_id.upper()]
 
     def filter_by_market(self, market_list_id: str) -> list[TFEXSeries]:
         """
@@ -91,9 +87,7 @@ class TFEXSeriesListResponse(BaseModel):
         Returns:
             List of series in the specified market
         """
-        return [
-            s for s in self.series if s.market_list_id.upper() == market_list_id.upper()
-        ]
+        return [s for s in self.series if s.market_list_id.upper() == market_list_id.upper()]
 
     def filter_by_underlying(self, underlying: str) -> list[TFEXSeries]:
         """
@@ -105,9 +99,7 @@ class TFEXSeriesListResponse(BaseModel):
         Returns:
             List of series with the specified underlying
         """
-        return [
-            s for s in self.series if s.underlying.upper() == underlying.upper()
-        ]
+        return [s for s in self.series if s.underlying.upper() == underlying.upper()]
 
     def filter_active_only(self) -> list[TFEXSeries]:
         """

@@ -18,9 +18,7 @@ class StockProfile(BaseModel):
     name: str = Field(description="Company name")
     market: str = Field(description="Market (SET, mai, etc.)")
     industry: str = Field(description="Industry code")
-    industry_name: str = Field(
-        alias="industryName", description="Industry name in readable format"
-    )
+    industry_name: str = Field(alias="industryName", description="Industry name in readable format")
     sector: str = Field(description="Sector code")
     sector_name: str = Field(alias="sectorName", description="Sector name in readable format")
     security_type: str = Field(alias="securityType", description="Security type code")
@@ -46,14 +44,10 @@ class StockProfile(BaseModel):
     fiscal_year_end_display: str | None = Field(
         alias="fiscalYearEndDisplay", description="Fiscal year end date in display format"
     )
-    account_form: str | None = Field(
-        alias="accountForm", description="Accounting form type"
-    )
+    account_form: str | None = Field(alias="accountForm", description="Accounting form type")
     par: float | None = Field(description="Par value per share")
     currency: str | None = Field(description="Currency code (THB, USD, etc.)")
-    listed_share: int | None = Field(
-        alias="listedShare", description="Number of listed shares"
-    )
+    listed_share: int | None = Field(alias="listedShare", description="Number of listed shares")
     ipo: float | None = Field(description="Initial Public Offering price")
     isin_local: str | None = Field(alias="isinLocal", description="ISIN code for local trading")
     isin_foreign: str | None = Field(
@@ -91,9 +85,7 @@ class StockProfile(BaseModel):
     last_exercise_date: datetime | None = Field(
         alias="lastExerciseDate", description="Last exercise date (for warrants)"
     )
-    issued_share: int | None = Field(
-        alias="issuedShare", description="Number of issued shares"
-    )
+    issued_share: int | None = Field(alias="issuedShare", description="Number of issued shares")
 
     model_config = ConfigDict(
         populate_by_name=True,  # Allow both field name and alias
@@ -125,9 +117,7 @@ class StockProfileService:
         self.base_url = SET_BASE_URL
         logger.info(f"StockProfileService initialized with base_url={self.base_url}")
 
-    async def fetch_profile(
-        self, symbol: str, lang: str = "en"
-    ) -> StockProfile:
+    async def fetch_profile(self, symbol: str, lang: str = "en") -> StockProfile:
         """
         Fetch profile data for a specific stock symbol.
 
@@ -182,6 +172,7 @@ class StockProfileService:
 
             # Parse JSON
             import json
+
             try:
                 data = json.loads(response.text)
             except json.JSONDecodeError as e:
@@ -200,9 +191,7 @@ class StockProfileService:
 
             return profile
 
-    async def fetch_profile_raw(
-        self, symbol: str, lang: str = "en"
-    ) -> dict[str, Any]:
+    async def fetch_profile_raw(self, symbol: str, lang: str = "en") -> dict[str, Any]:
         """
         Fetch profile data as raw dictionary without Pydantic validation.
 
