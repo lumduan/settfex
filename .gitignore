@@ -199,5 +199,4 @@ config/*.yml
 # AI Assistant and Meta Files
 CLAUDE.md
 .claude/
-.github/
 scripts/

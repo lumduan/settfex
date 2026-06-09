@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-06-09
+
+### Added
+
+#### New SET Services
+
+- **Chart Quotation Service** — Fetch intraday and historical price chart data with 9 period options (1D, 5D, 1M, 3M, 6M, 1Y, 3Y, 5Y, MAX). Returns OHLCV data points with timestamps, accumulated volume support, and trading intermission handling.
+  - `get_chart_quotation(symbol, period="1D", accumulated=False)` convenience function
+  - `ChartQuotationService` class for advanced usage
+  - Endpoint: `/api/set/stock/{symbol}/chart-quotation`
+
+- **Latest Historical Trading Service** — Fetch latest trading day summary with OHLCV, P/E ratio, P/BV ratio, dividend yield, market cap, and par value.
+  - `get_latest_historical_trading(symbol)` convenience function
+  - `LatestHistoricalTradingService` class for advanced usage
+  - Endpoint: `/api/set/stock/{symbol}/latest-historical-trading`
+
+#### Stock Class Integration
+- Added `get_chart_quotation()` method to `Stock` class
+- Added `get_latest_historical_trading()` method to `Stock` class
+
+### Changed
+
+#### CI/CD Infrastructure
+- Added GitHub Actions CI workflow (`ci.yml`) — Ruff lint, format check, mypy, pytest with coverage
+- Added GitHub Actions Release workflow (`release.yml`) — automated PyPI publishing via Trusted Publisher + GitHub Release creation with changelog extraction
+
 ## [0.1.0] - 2025-10-06
 
 ### 🎉 First Public Release
