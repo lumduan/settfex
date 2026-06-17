@@ -155,7 +155,7 @@ jobs:
           PYEOF
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: "settfex v${{ needs.validate.outputs.version }}"
           body_path: release_notes.txt
