@@ -8,6 +8,8 @@ from curl_cffi import requests
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from settfex.utils.parsing import decode_json
+
 
 class FetcherConfig(BaseModel):
     """Configuration for the data fetcher."""
@@ -341,7 +343,9 @@ class AsyncDataFetcher:
             Parsed JSON data (dict, list, or primitive)
 
         Raises:
-            Exception: If request fails or response is not valid JSON
+            ResponseParseError: If the response body is not valid JSON or contains a
+                NaN/Infinity literal (rejected to avoid silent financial-data corruption).
+            Exception: If the request itself fails after all retries.
         """
         # Add JSON accept header
         json_headers = {"Accept": "application/json"}
@@ -350,17 +354,11 @@ class AsyncDataFetcher:
 
         response = await self.fetch(url, headers=json_headers)
 
-        try:
-            # Use standard json parsing which handles Unicode correctly
-            import json
-
-            data = json.loads(response.text)
-            logger.debug(f"Parsed JSON response from {url}")
-            return data
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON from {url}: {e}")
-            logger.debug(f"Response text: {response.text[:500]}")
-            raise
+        # Decode via the shared helper: rejects NaN/Infinity (silent-corruption guard)
+        # and raises ResponseParseError (a ValueError) with URL context on bad JSON.
+        data = decode_json(response.text, context=url)
+        logger.debug(f"Parsed JSON response from {url}")
+        return data
 
     async def __aenter__(self) -> "AsyncDataFetcher":
         """Enter async context manager."""

@@ -12,6 +12,7 @@ from settfex.utils.data_fetcher import (
     FetcherConfig,
     FetchResponse,
 )
+from settfex.utils.parsing import ResponseParseError
 
 
 class TestFetcherConfig:
@@ -310,7 +311,7 @@ class TestAsyncDataFetcher:
 
     @pytest.mark.asyncio
     async def test_fetch_json_invalid(self) -> None:
-        """Test JSON fetch with invalid JSON."""
+        """Test JSON fetch with invalid JSON raises a context-rich error."""
         fetcher = AsyncDataFetcher()
 
         mock_response = Mock()
@@ -321,7 +322,24 @@ class TestAsyncDataFetcher:
 
         with (
             patch.object(fetcher, "_make_request", return_value=mock_response),
-            pytest.raises(json.JSONDecodeError),
+            pytest.raises(ResponseParseError, match="example.com"),
+        ):
+            await fetcher.fetch_json("https://example.com/api")
+
+    @pytest.mark.asyncio
+    async def test_fetch_json_rejects_nonfinite(self) -> None:
+        """NaN/Infinity in a numeric response must be rejected, not silently accepted."""
+        fetcher = AsyncDataFetcher()
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.content = b'{"pe": NaN}'
+        mock_response.headers = {}
+        mock_response.url = "https://example.com/api"
+
+        with (
+            patch.object(fetcher, "_make_request", return_value=mock_response),
+            pytest.raises(ResponseParseError),
         ):
             await fetcher.fetch_json("https://example.com/api")
 
