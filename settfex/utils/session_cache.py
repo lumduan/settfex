@@ -259,5 +259,9 @@ async def get_global_cache(
 
     async with _cache_lock:
         if _global_cache is None:
-            _global_cache = SessionCache(cache_dir=cache_dir, default_ttl=default_ttl)
+            # SessionCache.__init__ does blocking disk I/O (mkdir + opening the diskcache
+            # SQLite DB); run it off the event loop so cold cache init never blocks the loop.
+            _global_cache = await asyncio.to_thread(
+                SessionCache, cache_dir=cache_dir, default_ttl=default_ttl
+            )
         return _global_cache
