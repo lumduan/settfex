@@ -260,11 +260,13 @@ class TestAsyncDataFetcher:
         config = FetcherConfig(max_retries=2, retry_delay=0.1)
         fetcher = AsyncDataFetcher(config=config)
 
-        with patch.object(
-            fetcher, "_make_request", side_effect=ConnectionError("Connection failed")
+        with (
+            patch.object(
+                fetcher, "_make_request", side_effect=ConnectionError("Connection failed")
+            ),
+            pytest.raises(Exception, match="Failed to fetch"),
         ):
-            with pytest.raises(Exception, match="Failed to fetch"):
-                await fetcher.fetch("https://example.com")
+            await fetcher.fetch("https://example.com")
 
     @pytest.mark.asyncio
     async def test_fetch_unicode_decode_fallback(self) -> None:
@@ -317,9 +319,11 @@ class TestAsyncDataFetcher:
         mock_response.headers = {}
         mock_response.url = "https://example.com/api"
 
-        with patch.object(fetcher, "_make_request", return_value=mock_response):
-            with pytest.raises(json.JSONDecodeError):
-                await fetcher.fetch_json("https://example.com/api")
+        with (
+            patch.object(fetcher, "_make_request", return_value=mock_response),
+            pytest.raises(json.JSONDecodeError),
+        ):
+            await fetcher.fetch_json("https://example.com/api")
 
     @pytest.mark.asyncio
     async def test_context_manager(self) -> None:

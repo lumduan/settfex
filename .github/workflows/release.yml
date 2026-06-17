@@ -66,10 +66,10 @@ jobs:
         with:
           version: "latest"
           enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
+          cache-dependency-glob: "uv.lock"
 
       - run: uv python install 3.11
-      - run: uv sync --group dev
+      - run: uv sync --group dev --frozen
 
       - run: uv run ruff check .
       - run: uv run ruff format --check .
@@ -89,7 +89,7 @@ jobs:
         with:
           version: "latest"
           enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
+          cache-dependency-glob: "uv.lock"
 
       - run: uv python install 3.11
       - run: uv run python -m build
