@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-06-17
+
+Robustness and concurrency hardening release. No public API changes — function
+signatures, return types, Pydantic model fields, and `en`/`th` + symbol normalization
+are all preserved. See `COMPREHENSIVE_AUDIT.md` for full details and benchmarks.
+
+### Fixed
+
+- **Silent financial-data corruption:** `NaN`/`Infinity` values from the SET/TFEX APIs were
+  silently accepted into numeric model fields (prices, P/E, margins). They are now rejected at
+  decode time with a clear error that includes the originating symbol and endpoint.
+- Parse and validation failures now raise with **symbol + endpoint context** (and per-item
+  index for lists) instead of a bare, context-free `ValidationError`/`JSONDecodeError`.
+- Replaced unsafe `assert isinstance(data, dict)` in the TFEX trading-statistics and
+  series-list raw paths — `assert` is stripped under `python -O` — with explicit, contextful
+  errors.
+- **Session warm-up stampede:** concurrent cold-start callers each fired their own warm-up
+  round-trip (which can trip bot detection); warm-up is now serialized to run at most once.
+- Offloaded blocking cache initialization (directory creation + opening the on-disk cache) off
+  the asyncio event loop.
+
+### Changed
+
+- Centralized JSON decode + Pydantic validation across all SET/TFEX services into a shared
+  internal helper (`settfex/utils/parsing.py`), removing ~111 lines of duplicated boilerplate.
+- Hoisted static request headers in `AsyncDataFetcher.fetch()` to a module-level constant.
+- Added regression tests for malformed/NaN/partial responses and TFEX coverage
+  (test suite 116 → 149; coverage 49% → 61%).
+
 ## [0.2.0] - 2026-06-09
 
 ### Added
