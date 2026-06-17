@@ -61,6 +61,12 @@ Detailed engineering guidelines live in [`.github/instructions/`](.github/instru
 4. Ensure the quality gate passes.
 5. Open a PR using the template and link any related issue.
 
+## Releasing
+
+Releases go through a single path: bump the version, update `CHANGELOG.md`, merge to `main`,
+then push a `vX.Y.Z` git tag. The tag triggers CI to publish to PyPI (via OIDC) and create the
+GitHub Release. See [`RELEASING.md`](RELEASING.md) for the exact steps and the one-time setup.
+
 ## Reporting security issues
 
 Please do **not** open public issues for vulnerabilities — see
