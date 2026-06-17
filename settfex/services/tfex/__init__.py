@@ -4,6 +4,7 @@ from settfex.services.tfex.constants import (
     TFEX_BASE_URL,
     TFEX_SERIES_LIST_ENDPOINT,
     TFEX_TRADING_STATISTICS_ENDPOINT,
+    TFEX_UNDERLYING_PRICE_ENDPOINT,
 )
 from settfex.services.tfex.list import (
     TFEXSeries,
@@ -16,12 +17,18 @@ from settfex.services.tfex.trading_statistics import (
     TradingStatisticsService,
     get_trading_statistics,
 )
+from settfex.services.tfex.underlying_price import (
+    TFEXUnderlyingPriceService,
+    UnderlyingPrice,
+    get_underlying_price,
+)
 
 __all__ = [
     # Constants
     "TFEX_BASE_URL",
     "TFEX_SERIES_LIST_ENDPOINT",
     "TFEX_TRADING_STATISTICS_ENDPOINT",
+    "TFEX_UNDERLYING_PRICE_ENDPOINT",
     # Series List Service
     "TFEXSeries",
     "TFEXSeriesListResponse",
@@ -31,4 +38,8 @@ __all__ = [
     "TradingStatistics",
     "TradingStatisticsService",
     "get_trading_statistics",
+    # Underlying Price Service
+    "TFEXUnderlyingPriceService",
+    "UnderlyingPrice",
+    "get_underlying_price",
 ]
