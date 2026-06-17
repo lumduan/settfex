@@ -141,7 +141,6 @@ jobs:
           path: dist/
 
       - name: Extract changelog section
-        id: changelog
         run: |
           VERSION="${{ needs.validate.outputs.version }}"
           python3 - "$VERSION" <<'PYEOF'
@@ -152,19 +151,14 @@ jobs:
           match = re.search(pattern, content, re.DOTALL)
           notes = match.group(1).strip() if match else f"Release v{version}"
           with open("release_notes.txt", "w") as f:
-              f.write(notes)
+              f.write(notes + "\n")
           PYEOF
-          {
-            echo 'notes<<CHANGELOG_EOF'
-            cat release_notes.txt
-            echo 'CHANGELOG_EOF'
-          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: "settfex v${{ needs.validate.outputs.version }}"
-          body: ${{ steps.changelog.outputs.notes }}
+          body_path: release_notes.txt
           prerelease: ${{ needs.validate.outputs.is_prerelease }}
           files: dist/*
           make_latest: ${{ needs.validate.outputs.is_prerelease == 'false' }}
