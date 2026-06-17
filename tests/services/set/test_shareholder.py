@@ -219,6 +219,24 @@ class TestShareholderService:
         with pytest.raises(ResponseParseError, match="MINT"):
             await service.fetch_shareholder_data("MINT", lang="en")
 
+    @pytest.mark.asyncio
+    async def test_fetch_shareholder_data_rejects_nan(self, mock_fetcher):
+        """A NaN numeric field must be rejected, not silently accepted into the model."""
+        text = json.dumps({**MOCK_SHAREHOLDER_DATA, "percentScriptless": float("nan")})
+        mock_response = FetchResponse(
+            status_code=200,
+            content=text.encode("utf-8"),
+            text=text,
+            headers={},
+            url="https://www.set.or.th/api/set/stock/MINT/shareholder?lang=en",
+            elapsed=0.5,
+        )
+        mock_fetcher.fetch.return_value = mock_response
+
+        service = ShareholderService()
+        with pytest.raises(ResponseParseError, match="MINT"):
+            await service.fetch_shareholder_data("MINT", lang="en")
+
     async def test_fetch_shareholder_data_raw_success(self, mock_fetcher):
         """Test successful fetch of raw shareholder data."""
         mock_response = FetchResponse(

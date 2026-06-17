@@ -17,6 +17,7 @@ from settfex.services.set.stock.financial import (
     get_income_statement,
 )
 from settfex.utils.data_fetcher import FetcherConfig, FetchResponse
+from settfex.utils.parsing import ResponseParseError
 
 
 @pytest.fixture
@@ -557,6 +558,31 @@ class TestFinancialService:
 
             with pytest.raises(ValueError, match="Expected list response"):
                 await service.fetch_balance_sheet(symbol="CPALL", lang="en")
+
+    @pytest.mark.asyncio
+    async def test_rejects_nan_in_financial_amount(self):
+        """A NaN account amount must be rejected loudly, not flow into the model."""
+        with patch(
+            "settfex.services.set.stock.financial.financial.AsyncDataFetcher"
+        ) as mock_fetcher:
+            mock_instance = AsyncMock()
+            mock_fetcher.return_value.__aenter__.return_value = mock_instance
+            mock_fetcher.get_set_api_headers.return_value = {}
+
+            # json.dumps emits the bare `NaN` literal, which default json.loads would accept.
+            text = json.dumps([{"symbol": "CPALL", "amount": float("nan")}])
+            mock_response = FetchResponse(
+                status_code=200,
+                content=text.encode(),
+                text=text,
+                headers={},
+                url="https://www.set.or.th/api/set/factsheet/CPALL/financialstatement",
+                elapsed=0.1,
+            )
+            mock_instance.fetch = AsyncMock(return_value=mock_response)
+
+            with pytest.raises(ResponseParseError, match="CPALL"):
+                await FinancialService().fetch_balance_sheet(symbol="CPALL", lang="en")
 
 
 class TestConvenienceFunctions:
