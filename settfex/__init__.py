@@ -19,7 +19,7 @@ Usage:
     >>> asyncio.run(main())
 """
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 __author__ = "batt"
 __license__ = "MIT"
 
