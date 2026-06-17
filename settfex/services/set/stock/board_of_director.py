@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from settfex.services.set.constants import SET_BASE_URL, SET_BOARD_OF_DIRECTOR_ENDPOINT
 from settfex.services.set.stock.utils import normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
+from settfex.utils.parsing import decode_json, validate_list_or_raise
 
 
 class Director(BaseModel):
@@ -98,14 +99,7 @@ class BoardOfDirectorService:
                 raise Exception(error_msg)
 
             # Parse JSON
-            import json
-
-            try:
-                data = json.loads(response.text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                logger.debug(f"Response text: {response.text[:500]}")
-                raise
+            data = decode_json(response.text, context=f"{symbol} (board-of-director)")
 
             # Validate that data is a list
             if not isinstance(data, list):
@@ -115,8 +109,10 @@ class BoardOfDirectorService:
                 logger.error(error_msg)
                 raise Exception(error_msg)
 
-            # Parse and validate response using Pydantic
-            directors = [Director(**director_data) for director_data in data]
+            # Validate each director using Pydantic (context-rich on failure)
+            directors = validate_list_or_raise(
+                Director, data, context=f"{symbol} (board-of-director)"
+            )
 
             logger.info(f"Successfully fetched {len(directors)} board members for {symbol}")
 
@@ -179,14 +175,7 @@ class BoardOfDirectorService:
                 raise Exception(error_msg)
 
             # Parse JSON
-            import json
-
-            try:
-                data = json.loads(response.text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                logger.debug(f"Response text: {response.text[:500]}")
-                raise
+            data = decode_json(response.text, context=f"{symbol} (board-of-director)")
 
             # Validate that data is a list
             if not isinstance(data, list):

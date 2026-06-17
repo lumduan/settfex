@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from settfex.services.set.constants import SET_BASE_URL, SET_NVDR_HOLDER_ENDPOINT
 from settfex.services.set.stock.utils import normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
+from settfex.utils.parsing import decode_json, validate_or_raise
 
 
 class NVDRHolder(BaseModel):
@@ -141,17 +142,12 @@ class NVDRHolderService:
                 raise Exception(error_msg)
 
             # Parse JSON
-            import json
+            data = decode_json(response.text, context=f"{symbol} (nvdr-holder)")
 
-            try:
-                data = json.loads(response.text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                logger.debug(f"Response text: {response.text[:500]}")
-                raise
-
-            # Parse and validate response using Pydantic
-            nvdr_holder_data = NVDRHolderData(**data)
+            # Validate response using Pydantic (context-rich on failure)
+            nvdr_holder_data = validate_or_raise(
+                NVDRHolderData, data, context=f"{symbol} (nvdr-holder)"
+            )
 
             logger.info(
                 f"Successfully fetched NVDR holder data for {symbol}: "
@@ -215,14 +211,7 @@ class NVDRHolderService:
                 raise Exception(error_msg)
 
             # Parse JSON
-            import json
-
-            try:
-                data = json.loads(response.text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                logger.debug(f"Response text: {response.text[:500]}")
-                raise
+            data = decode_json(response.text, context=f"{symbol} (nvdr-holder)")
 
             logger.debug(
                 f"Raw response keys: {list(data.keys()) if isinstance(data, dict) else type(data)}"

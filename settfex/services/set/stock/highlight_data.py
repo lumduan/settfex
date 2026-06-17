@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from settfex.services.set.constants import SET_BASE_URL, SET_STOCK_HIGHLIGHT_DATA_ENDPOINT
 from settfex.services.set.stock.utils import normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
+from settfex.utils.parsing import decode_json, validate_or_raise
 
 
 class StockHighlightData(BaseModel):
@@ -153,17 +154,12 @@ class StockHighlightDataService:
                 raise Exception(error_msg)
 
             # Parse JSON
-            import json
+            data = decode_json(response.text, context=f"{symbol} (highlight-data)")
 
-            try:
-                data = json.loads(response.text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                logger.debug(f"Response text: {response.text[:500]}")
-                raise
-
-            # Parse and validate response using Pydantic
-            highlight_data = StockHighlightData(**data)
+            # Validate response using Pydantic (context-rich on failure)
+            highlight_data = validate_or_raise(
+                StockHighlightData, data, context=f"{symbol} (highlight-data)"
+            )
 
             logger.info(
                 f"Successfully fetched highlight data for {symbol}: "
@@ -228,14 +224,7 @@ class StockHighlightDataService:
                 raise Exception(error_msg)
 
             # Parse JSON
-            import json
-
-            try:
-                data = json.loads(response.text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                logger.debug(f"Response text: {response.text[:500]}")
-                raise
+            data = decode_json(response.text, context=f"{symbol} (highlight-data)")
 
             logger.debug(
                 f"Raw response keys: {list(data.keys()) if isinstance(data, dict) else type(data)}"

@@ -14,6 +14,7 @@ from settfex.services.set.stock.shareholder import (
     get_shareholder_data,
 )
 from settfex.utils.data_fetcher import FetcherConfig, FetchResponse
+from settfex.utils.parsing import ResponseParseError
 
 # Sample test data based on actual API response
 MOCK_SHAREHOLDER_DATA = {
@@ -215,7 +216,7 @@ class TestShareholderService:
 
         service = ShareholderService()
 
-        with pytest.raises(json.JSONDecodeError):
+        with pytest.raises(ResponseParseError, match="MINT"):
             await service.fetch_shareholder_data("MINT", lang="en")
 
     async def test_fetch_shareholder_data_raw_success(self, mock_fetcher):

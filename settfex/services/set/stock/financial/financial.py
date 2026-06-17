@@ -14,6 +14,7 @@ from settfex.services.set.constants import (
 )
 from settfex.services.set.stock.utils import normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
+from settfex.utils.parsing import decode_json, validate_list_or_raise
 
 
 class Account(BaseModel):
@@ -166,14 +167,7 @@ class FinancialService:
                 raise Exception(error_msg)
 
             # Parse JSON
-            import json
-
-            try:
-                data = json.loads(response.text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                logger.debug(f"Response text: {response.text[:500]}")
-                raise
+            data = decode_json(response.text, context=f"{symbol} ({account_type})")
 
             # Validate response is a list
             if not isinstance(data, list):
@@ -209,7 +203,9 @@ class FinancialService:
         data = await self._fetch_financial_data(
             symbol=symbol, account_type="balance_sheet", lang=lang
         )
-        balance_sheets = [BalanceSheet(**item) for item in data]
+        balance_sheets = validate_list_or_raise(
+            BalanceSheet, data, context=f"{symbol} (balance-sheet)"
+        )
         logger.info(f"Parsed {len(balance_sheets)} balance sheet statements for {symbol}")
         return balance_sheets
 
@@ -263,7 +259,9 @@ class FinancialService:
         data = await self._fetch_financial_data(
             symbol=symbol, account_type="income_statement", lang=lang
         )
-        income_statements = [IncomeStatement(**item) for item in data]
+        income_statements = validate_list_or_raise(
+            IncomeStatement, data, context=f"{symbol} (income-statement)"
+        )
         logger.info(f"Parsed {len(income_statements)} income statement statements for {symbol}")
         return income_statements
 
@@ -317,7 +315,7 @@ class FinancialService:
             ...     print(f"{stmt.quarter} {stmt.year}: {stmt.status}")
         """
         data = await self._fetch_financial_data(symbol=symbol, account_type="cash_flow", lang=lang)
-        cash_flows = [CashFlow(**item) for item in data]
+        cash_flows = validate_list_or_raise(CashFlow, data, context=f"{symbol} (cash-flow)")
         logger.info(f"Parsed {len(cash_flows)} cash flow statements for {symbol}")
         return cash_flows
 

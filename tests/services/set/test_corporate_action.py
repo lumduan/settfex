@@ -12,6 +12,7 @@ from settfex.services.set.stock.corporate_action import (
     get_corporate_actions,
 )
 from settfex.utils.data_fetcher import FetcherConfig, FetchResponse
+from settfex.utils.parsing import ResponseParseError
 
 # Sample test data based on actual API response
 MOCK_CORPORATE_ACTION_DATA = [
@@ -206,7 +207,7 @@ class TestCorporateActionService:
 
         service = CorporateActionService()
 
-        with pytest.raises(json.JSONDecodeError):
+        with pytest.raises(ResponseParseError, match="AOT"):
             await service.fetch_corporate_actions("AOT", lang="en")
 
     async def test_fetch_corporate_actions_non_list_response(self, mock_fetcher):
