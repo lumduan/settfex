@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from settfex.services.set.constants import SET_BASE_URL, SET_STOCK_CHART_QUOTATION_ENDPOINT
 from settfex.services.set.stock.utils import normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
+from settfex.utils.parsing import decode_json, validate_or_raise
 
 PeriodType = Literal["1D", "5D", "1M", "3M", "6M", "1Y", "3Y", "5Y", "MAX"]
 
@@ -121,16 +122,9 @@ class ChartQuotationService:
                 logger.error(error_msg)
                 raise Exception(error_msg)
 
-            import json
+            data = decode_json(response.text, context=f"{symbol} (chart-quotation)")
 
-            try:
-                data = json.loads(response.text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                logger.debug(f"Response text: {response.text[:500]}")
-                raise
-
-            result = ChartQuotation(**data)
+            result = validate_or_raise(ChartQuotation, data, context=f"{symbol} (chart-quotation)")
             logger.info(
                 f"Successfully fetched chart quotation for {symbol}: "
                 f"{len(result.quotations)} data points, prior={result.prior}"
@@ -183,14 +177,7 @@ class ChartQuotationService:
                 logger.error(error_msg)
                 raise Exception(error_msg)
 
-            import json
-
-            try:
-                data = json.loads(response.text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                logger.debug(f"Response text: {response.text[:500]}")
-                raise
+            data = decode_json(response.text, context=f"{symbol} (chart-quotation)")
 
             logger.debug(
                 f"Raw response keys: {list(data.keys()) if isinstance(data, dict) else type(data)}"

@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from settfex.services.set.constants import SET_BASE_URL, SET_TRADING_STAT_ENDPOINT
 from settfex.services.set.stock.utils import normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
+from settfex.utils.parsing import decode_json, validate_list_or_raise
 
 
 class TradingStat(BaseModel):
@@ -140,14 +141,7 @@ class TradingStatService:
                 raise Exception(error_msg)
 
             # Parse JSON
-            import json
-
-            try:
-                data = json.loads(response.text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                logger.debug(f"Response text: {response.text[:500]}")
-                raise
+            data = decode_json(response.text, context=f"{symbol} (trading-stat)")
 
             # Validate response is a list
             if not isinstance(data, list):
@@ -155,8 +149,10 @@ class TradingStatService:
                 logger.error(error_msg)
                 raise ValueError(error_msg)
 
-            # Parse and validate each record using Pydantic
-            trading_stats = [TradingStat(**record) for record in data]
+            # Validate each record using Pydantic (context-rich on failure)
+            trading_stats = validate_list_or_raise(
+                TradingStat, data, context=f"{symbol} (trading-stat)"
+            )
 
             logger.info(
                 f"Successfully fetched {len(trading_stats)} trading statistics records for {symbol}"
@@ -219,14 +215,7 @@ class TradingStatService:
                 raise Exception(error_msg)
 
             # Parse JSON
-            import json
-
-            try:
-                data = json.loads(response.text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                logger.debug(f"Response text: {response.text[:500]}")
-                raise
+            data = decode_json(response.text, context=f"{symbol} (trading-stat)")
 
             # Validate response is a list
             if not isinstance(data, list):

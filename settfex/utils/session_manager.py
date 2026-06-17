@@ -91,6 +91,8 @@ class SessionManager:
         self.warmup_site = warmup_site.lower()
         self._session: requests.Session[Any] | None = None
         self._initialized = False
+        # Serializes ensure_initialized() so a concurrent cold-start stampede warms once.
+        self._init_lock = asyncio.Lock()
         self._last_warmup_time = 0.0
         self._warmup_interval = cache_ttl
         self._cache: SessionCache | None = None
@@ -264,14 +266,22 @@ class SessionManager:
         1. **Fast Path**: Try to load from cache (if enabled)
         2. **Slow Path**: Warm up by visiting SET homepage, then cache
 
+        Initialization is serialized with a per-instance lock so a concurrent
+        cold-start stampede warms up at most once instead of firing N duplicate
+        warmup round-trips (which also risks tripping bot detection).
+
         Args:
             force_warmup: Force a new warm-up even if cache available
         """
+        async with self._init_lock:
+            await self._initialize_locked(force_warmup=force_warmup)
+
+    async def _initialize_locked(self, force_warmup: bool = False) -> None:
+        """Run the cache-load / warm-up sequence once. Caller must hold ``self._init_lock``."""
         # Fast path: Try cache first (unless forcing warmup)
-        if not force_warmup and not self._initialized:
-            if await self._try_load_from_cache():
-                logger.debug("Using cached session (fast path)")
-                return
+        if not force_warmup and not self._initialized and await self._try_load_from_cache():
+            logger.debug("Using cached session (fast path)")
+            return
 
         # Check if warmup needed
         now = time.time()
@@ -479,9 +489,6 @@ async def get_session_for_url(url: str, browser: str = "chrome120") -> SessionMa
         >>> # Automatically uses TFEX warmup
     """
     # Auto-detect warmup site based on URL
-    if "tfex.co.th" in url.lower():
-        warmup_site = "tfex"
-    else:
-        warmup_site = "set"
+    warmup_site = "tfex" if "tfex.co.th" in url.lower() else "set"
 
     return await get_shared_session(browser=browser, warmup_site=warmup_site)

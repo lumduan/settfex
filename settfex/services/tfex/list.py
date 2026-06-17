@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from settfex.services.tfex.constants import TFEX_BASE_URL, TFEX_SERIES_LIST_ENDPOINT
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
+from settfex.utils.parsing import ResponseParseError, validate_or_raise
 
 
 class TFEXSeries(BaseModel):
@@ -213,8 +214,8 @@ class TFEXSeriesListService:
             # Fetch JSON data from API - SessionManager handles cookies automatically
             data = await fetcher.fetch_json(url, headers=headers)
 
-            # Parse and validate response using Pydantic
-            response = TFEXSeriesListResponse(**data)
+            # Parse and validate response using Pydantic (context-rich on failure)
+            response = validate_or_raise(TFEXSeriesListResponse, data, context="tfex series-list")
 
             logger.info(
                 f"Successfully fetched {response.count} TFEX series from TFEX API "
@@ -269,11 +270,12 @@ class TFEXSeriesListService:
 
             # Fetch JSON data
             data: Any = await fetcher.fetch_json(url, headers=headers)
-            logger.debug(
-                f"Raw response keys: {list(data.keys()) if isinstance(data, dict) else type(data)}"
-            )
-            # Type assertion for return value
-            assert isinstance(data, dict)
+            # Guard the documented dict return type explicitly (asserts are stripped under -O).
+            if not isinstance(data, dict):
+                raise ResponseParseError(
+                    f"Expected a JSON object for tfex series-list, got {type(data).__name__}"
+                )
+            logger.debug(f"Raw response keys: {list(data.keys())}")
             return data
 
 

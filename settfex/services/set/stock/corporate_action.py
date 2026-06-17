@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from settfex.services.set.constants import SET_BASE_URL, SET_CORPORATE_ACTION_ENDPOINT
 from settfex.services.set.stock.utils import normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
+from settfex.utils.parsing import decode_json, validate_list_or_raise
 
 
 class CorporateAction(BaseModel):
@@ -166,14 +167,7 @@ class CorporateActionService:
                 raise Exception(error_msg)
 
             # Parse JSON
-            import json
-
-            try:
-                data = json.loads(response.text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                logger.debug(f"Response text: {response.text[:500]}")
-                raise
+            data = decode_json(response.text, context=f"{symbol} (corporate-action)")
 
             # Data should be a list
             if not isinstance(data, list):
@@ -181,8 +175,10 @@ class CorporateActionService:
                 logger.error(error_msg)
                 raise ValueError(error_msg)
 
-            # Parse and validate each corporate action using Pydantic
-            corporate_actions = [CorporateAction(**item) for item in data]
+            # Validate each corporate action using Pydantic (context-rich on failure)
+            corporate_actions = validate_list_or_raise(
+                CorporateAction, data, context=f"{symbol} (corporate-action)"
+            )
 
             logger.info(
                 f"Successfully fetched {len(corporate_actions)} corporate action(s) for {symbol}"
@@ -257,14 +253,7 @@ class CorporateActionService:
                 raise Exception(error_msg)
 
             # Parse JSON
-            import json
-
-            try:
-                data = json.loads(response.text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                logger.debug(f"Response text: {response.text[:500]}")
-                raise
+            data = decode_json(response.text, context=f"{symbol} (corporate-action)")
 
             # Data should be a list
             if not isinstance(data, list):

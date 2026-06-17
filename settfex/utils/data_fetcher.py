@@ -8,6 +8,25 @@ from curl_cffi import requests
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from settfex.utils.parsing import decode_json
+
+# Static default request headers, built once at import and copied per request. Copying a
+# module constant is cheaper than re-materializing the literal on every fetch() call and
+# keeps per-request mutations isolated (no shared-state race across concurrent fetches).
+_DEFAULT_FETCH_HEADERS: dict[str, str] = {
+    "Accept": "text/html,application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",  # noqa: E501
+    "Accept-Language": "th-TH,th;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br",
+    "DNT": "1",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Cache-Control": "max-age=0",
+}
+
 
 class FetcherConfig(BaseModel):
     """Configuration for the data fetcher."""
@@ -229,20 +248,8 @@ class AsyncDataFetcher:
             ...     response = await fetcher.fetch("https://api.set.or.th/data")
             ...     print(response.text)  # Properly decoded Thai text
         """
-        # Prepare headers
-        default_headers = {
-            "Accept": "text/html,application/json,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",  # noqa: E501
-            "Accept-Language": "th-TH,th;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Accept-Encoding": "gzip, deflate, br",
-            "DNT": "1",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1",
-            "Cache-Control": "max-age=0",
-        }
+        # Prepare headers (copy module defaults so per-request mutations stay isolated)
+        default_headers = dict(_DEFAULT_FETCH_HEADERS)
 
         # Add custom user agent if provided
         if self.config.user_agent:
@@ -341,7 +348,9 @@ class AsyncDataFetcher:
             Parsed JSON data (dict, list, or primitive)
 
         Raises:
-            Exception: If request fails or response is not valid JSON
+            ResponseParseError: If the response body is not valid JSON or contains a
+                NaN/Infinity literal (rejected to avoid silent financial-data corruption).
+            Exception: If the request itself fails after all retries.
         """
         # Add JSON accept header
         json_headers = {"Accept": "application/json"}
@@ -350,17 +359,11 @@ class AsyncDataFetcher:
 
         response = await self.fetch(url, headers=json_headers)
 
-        try:
-            # Use standard json parsing which handles Unicode correctly
-            import json
-
-            data = json.loads(response.text)
-            logger.debug(f"Parsed JSON response from {url}")
-            return data
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON from {url}: {e}")
-            logger.debug(f"Response text: {response.text[:500]}")
-            raise
+        # Decode via the shared helper: rejects NaN/Infinity (silent-corruption guard)
+        # and raises ResponseParseError (a ValueError) with URL context on bad JSON.
+        data = decode_json(response.text, context=url)
+        logger.debug(f"Parsed JSON response from {url}")
+        return data
 
     async def __aenter__(self) -> "AsyncDataFetcher":
         """Enter async context manager."""

@@ -1,0 +1,62 @@
+name: Security
+
+on:
+  schedule:
+    - cron: "23 3 * * 3" # Wednesdays at 03:23 UTC
+  push:
+    branches: [main]
+    paths:
+      - "**/*.py"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/security.yml"
+  workflow_dispatch:
+
+jobs:
+  bandit:
+    name: Bandit (static analysis)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - run: uv python install 3.12
+      - run: uv sync --group dev --frozen
+
+      # `|| true` so a finding uploads the report instead of failing the job;
+      # review findings in the artifact.
+      - run: uv run bandit -c pyproject.toml -r settfex -f json -o bandit-results.json || true
+
+      - name: Upload Bandit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-results
+          path: bandit-results.json
+          retention-days: 7
+
+  pip-audit:
+    name: pip-audit (dependency CVEs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - run: uv python install 3.12
+      - run: uv sync --group dev --frozen
+
+      # Non-blocking: surfaces dependency CVEs for triage without blocking PRs.
+      # Some advisories are transitive or not-yet-fixed upstream (e.g. no fix
+      # released), so review results and bump deps in a dedicated PR.
+      - run: uv run pip-audit --desc
+        continue-on-error: true

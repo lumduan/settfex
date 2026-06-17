@@ -61,10 +61,7 @@ class SessionCache:
             default_ttl: Default time-to-live for cached items in seconds (default: 1 hour)
             size_limit: Maximum cache size in bytes (default: 100MB)
         """
-        if cache_dir is None:
-            cache_dir = Path.home() / ".settfex" / "cache"
-        else:
-            cache_dir = Path(cache_dir)
+        cache_dir = Path.home() / ".settfex" / "cache" if cache_dir is None else Path(cache_dir)
 
         # Create cache directory if needed
         cache_dir.mkdir(parents=True, exist_ok=True)
@@ -160,7 +157,8 @@ class SessionCache:
                 logger.debug(f"Deleted from cache: {key}")
             return bool(result)
         except Exception as e:
-            logger.error(f"Failed to delete from cache: {e}")
+            # "delete from" below is log text, not SQL (bandit B608 false positive).
+            logger.error(f"Failed to delete from cache: {e}")  # nosec B608
             return False
 
     def is_expired(self, key: str, max_age: int | None = None) -> bool:
@@ -261,5 +259,9 @@ async def get_global_cache(
 
     async with _cache_lock:
         if _global_cache is None:
-            _global_cache = SessionCache(cache_dir=cache_dir, default_ttl=default_ttl)
+            # SessionCache.__init__ does blocking disk I/O (mkdir + opening the diskcache
+            # SQLite DB); run it off the event loop so cold cache init never blocks the loop.
+            _global_cache = await asyncio.to_thread(
+                SessionCache, cache_dir=cache_dir, default_ttl=default_ttl
+            )
         return _global_cache

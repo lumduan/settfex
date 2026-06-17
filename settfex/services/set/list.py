@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from settfex.services.set.constants import SET_BASE_URL, SET_STOCK_LIST_ENDPOINT
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
+from settfex.utils.parsing import validate_or_raise
 
 
 class StockSymbol(BaseModel):
@@ -140,8 +141,8 @@ class StockListService:
             # Fetch JSON data from API - SessionManager handles cookies automatically
             data = await fetcher.fetch_json(url, headers=headers)
 
-            # Parse and validate response using Pydantic
-            response = StockListResponse(**data)
+            # Validate response using Pydantic (context-rich on failure)
+            response = validate_or_raise(StockListResponse, data, context="set stock-list")
 
             logger.info(f"Successfully fetched {response.count} stock symbols from SET API")
 

@@ -12,6 +12,7 @@ from settfex.services.set.constants import (
 )
 from settfex.services.set.stock.utils import normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
+from settfex.utils.parsing import decode_json, validate_or_raise
 
 
 class LatestHistoricalTrading(BaseModel):
@@ -109,16 +110,11 @@ class LatestHistoricalTradingService:
                 logger.error(error_msg)
                 raise Exception(error_msg)
 
-            import json
+            data = decode_json(response.text, context=f"{symbol} (latest-historical-trading)")
 
-            try:
-                data = json.loads(response.text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                logger.debug(f"Response text: {response.text[:500]}")
-                raise
-
-            result = LatestHistoricalTrading(**data)
+            result = validate_or_raise(
+                LatestHistoricalTrading, data, context=f"{symbol} (latest-historical-trading)"
+            )
             logger.info(
                 f"Successfully fetched latest historical trading for {symbol}: "
                 f"close={result.close}, change={result.percent_change}%, "
@@ -163,14 +159,7 @@ class LatestHistoricalTradingService:
                 logger.error(error_msg)
                 raise Exception(error_msg)
 
-            import json
-
-            try:
-                data = json.loads(response.text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                logger.debug(f"Response text: {response.text[:500]}")
-                raise
+            data = decode_json(response.text, context=f"{symbol} (latest-historical-trading)")
 
             logger.debug(f"Raw response keys: {list(data.keys())}")
             return data  # type: ignore[no-any-return]

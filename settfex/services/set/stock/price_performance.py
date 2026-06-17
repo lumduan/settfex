@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from settfex.services.set.constants import SET_BASE_URL, SET_PRICE_PERFORMANCE_ENDPOINT
 from settfex.services.set.stock.utils import normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
+from settfex.utils.parsing import decode_json, validate_or_raise
 
 
 class PricePerformanceMetrics(BaseModel):
@@ -144,14 +145,7 @@ class PricePerformanceService:
                 raise Exception(error_msg)
 
             # Parse JSON
-            import json
-
-            try:
-                data = json.loads(response.text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                logger.debug(f"Response text: {response.text[:500]}")
-                raise
+            data = decode_json(response.text, context=f"{symbol} (price-performance)")
 
             # Validate response is a dict
             if not isinstance(data, dict):
@@ -167,8 +161,10 @@ class PricePerformanceService:
                 logger.error(error_msg)
                 raise ValueError(error_msg)
 
-            # Parse and validate using Pydantic
-            price_performance = PricePerformanceData(**data)
+            # Validate using Pydantic (context-rich on failure)
+            price_performance = validate_or_raise(
+                PricePerformanceData, data, context=f"{symbol} (price-performance)"
+            )
 
             logger.info(
                 f"Successfully fetched price performance for {symbol}: "
@@ -234,14 +230,7 @@ class PricePerformanceService:
                 raise Exception(error_msg)
 
             # Parse JSON
-            import json
-
-            try:
-                data = json.loads(response.text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {e}")
-                logger.debug(f"Response text: {response.text[:500]}")
-                raise
+            data = decode_json(response.text, context=f"{symbol} (price-performance)")
 
             # Validate response is a dict
             if not isinstance(data, dict):

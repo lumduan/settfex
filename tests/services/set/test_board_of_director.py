@@ -11,6 +11,7 @@ from settfex.services.set.stock.board_of_director import (
     get_board_of_directors,
 )
 from settfex.utils.data_fetcher import FetcherConfig, FetchResponse
+from settfex.utils.parsing import ResponseParseError
 
 # Sample test data based on actual API response
 MOCK_BOARD_DATA = [
@@ -211,7 +212,7 @@ class TestBoardOfDirectorService:
 
         service = BoardOfDirectorService()
 
-        with pytest.raises(json.JSONDecodeError):
+        with pytest.raises(ResponseParseError, match="MINT"):
             await service.fetch_board_of_directors("MINT", lang="en")
 
     async def test_fetch_board_of_directors_non_list_response(self, mock_fetcher):
