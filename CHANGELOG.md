@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-06-17
+
+### Added
+
+- **TFEX underlying-price service** (`get_underlying_price`, `TFEXUnderlyingPriceService`,
+  `UnderlyingPrice`): fetches the underlying instrument price for a TFEX series via
+  `GET /api/set/tfex/series/{symbol}/underlying-price`. For SET50 index options/futures the underlying
+  is the **SET50 index spot** — exposes last/prior/high/low, change, total volume/value, and P/E + P/BV.
+  Mirrors the existing TFEX service pattern (SessionManager/Incapsula bypass, NaN-rejecting hardened
+  parsing, `get_*` convenience function + `*_raw` variant); 100% module test coverage. Adds the
+  `verify_underlying_price.py` script and the `examples/tfex/03_underlying_price.ipynb` notebook.
+
 ## [0.2.1] - 2026-06-17
 
 Robustness and concurrency hardening release. No public API changes — function
