@@ -26,6 +26,7 @@ from settfex.services.set.earnings_call import (
     EarningsCallResponse,
     EarningsCallService,
     FilterOption,
+    get_earnings_call_detail,
     get_earnings_calls,
     get_earnings_calls_dataframe,
 )
@@ -110,6 +111,7 @@ __all__ = [
     "FilterOption",
     "get_earnings_calls",
     "get_earnings_calls_dataframe",
+    "get_earnings_call_detail",
     # Stock Class and Services
     "Stock",
     "StockHighlightDataService",

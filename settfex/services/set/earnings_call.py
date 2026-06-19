@@ -138,9 +138,34 @@ class EarningsCallDetail(BaseModel):
     snapshot_link: str | None = Field(default=None, description="Listed-company snapshot URL")
     company_link: str | None = Field(default=None, description="SET company profile URL")
     logo_path: str | None = Field(default=None, description="Company logo URL")
+    image_path: str | None = Field(default=None, description="YouTube thumbnail URL")
     has_qa: bool | None = Field(default=None, description="Whether a Q&A is available")
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore", str_strip_whitespace=True)
+
+    @field_validator("video_link")
+    @classmethod
+    def _clean_video_link(cls, value: str | None) -> str | None:
+        """Remove stray internal whitespace (some old records embed a newline mid-URL)."""
+        if value is None:
+            return None
+        return "".join(value.split())
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def youtube_video_id(self) -> str | None:
+        """YouTube video id derived from the (clean) thumbnail ``image_path``.
+
+        Preferred over ``video_link``, which a few legacy records return malformed.
+        """
+        return _extract_youtube_id(self.image_path)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def youtube_url(self) -> str | None:
+        """Canonical ``https://www.youtube.com/watch?v=<id>`` URL, or ``None``."""
+        video_id = self.youtube_video_id
+        return f"https://www.youtube.com/watch?v={video_id}" if video_id else None
 
 
 class EarningsCallItem(BaseModel):
@@ -562,6 +587,35 @@ class EarningsCallService:
             EarningsCallDetail, data, context=f"set earnings-call detail id={item_id}"
         )
 
+    async def fetch_earnings_call_detail(
+        self, item_id: int, language: str = "en"
+    ) -> EarningsCallDetail:
+        """Fetch a single OPPDAY presentation's detail by its id.
+
+        This is the typed detail behind an
+        ``https://opportunity-day.setgroup.or.th/<lang>/vdo/{id}`` page
+        (``GET /investor/vdo/{id}``).
+
+        Args:
+            item_id: The presentation/event id (e.g. ``6319``).
+            language: ``"en"`` or ``"th"``.
+
+        Returns:
+            The :class:`EarningsCallDetail` for ``item_id``.
+
+        Raises:
+            ValueError: If ``language`` is invalid.
+            ResponseParseError: If the response cannot be decoded.
+
+        Example:
+            >>> service = EarningsCallService()
+            >>> detail = await service.fetch_earnings_call_detail(6319)
+            >>> detail.symbol, detail.round_name, detail.youtube_url
+        """
+        language = normalize_language(language)
+        async with AsyncDataFetcher(config=self.config) as fetcher:
+            return await self._fetch_detail(fetcher, item_id, language)
+
     async def _enrich_items(
         self,
         fetcher: AsyncDataFetcher,
@@ -707,3 +761,21 @@ async def get_earnings_calls_dataframe(
         config=config,
     )
     return response.to_dataframe(columns=columns)
+
+
+async def get_earnings_call_detail(
+    item_id: int,
+    language: str = "en",
+    config: FetcherConfig | None = None,
+) -> EarningsCallDetail:
+    """Convenience: fetch a single OPPDAY presentation's detail by id.
+
+    The ``id`` is the number in an opportunity-day ``/vdo/{id}`` URL.
+
+    Example:
+        >>> from settfex.services.set import get_earnings_call_detail
+        >>> detail = await get_earnings_call_detail(6319)
+        >>> print(detail.symbol, detail.round_name, detail.youtube_url)
+    """
+    service = EarningsCallService(config=config)
+    return await service.fetch_earnings_call_detail(item_id, language=language)

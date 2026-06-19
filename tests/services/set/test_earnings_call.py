@@ -17,6 +17,7 @@ from settfex.services.set.earnings_call import (
     EarningsCallResponse,
     EarningsCallService,
     FilterOption,
+    get_earnings_call_detail,
     get_earnings_calls,
     get_earnings_calls_dataframe,
 )
@@ -74,6 +75,7 @@ MOCK_DETAIL = {
     "period": "16:15 - 17:00",
     "symbol": "HANN",
     "video_link": "https://www.youtube.com/embed/qCw7HH77f0U?",
+    "image_path": "https://img.youtube.com/vi/qCw7HH77f0U/maxresdefault.jpg",
     "document_link": "/file/presentation/10647",
     "snapshot_link": "https://example.com/snapshot.html",
     "has_qa": True,
@@ -156,6 +158,26 @@ class TestModels:
         assert detail.meeting_time == "16:15 - 17:00"
         assert detail.company_name_th.startswith("HANN:")
         assert detail.video_link == "https://www.youtube.com/embed/qCw7HH77f0U?"
+
+    def test_detail_derives_youtube_from_image_path(self) -> None:
+        detail = EarningsCallDetail.model_validate(MOCK_DETAIL)
+        assert detail.youtube_video_id == "qCw7HH77f0U"
+        assert detail.youtube_url == "https://www.youtube.com/watch?v=qCw7HH77f0U"
+        # no image_path -> None
+        assert EarningsCallDetail.model_validate({"id": 1}).youtube_url is None
+
+    def test_detail_cleans_malformed_video_link(self) -> None:
+        # Some legacy records (e.g. vdo/6319) embed a stray newline mid-URL.
+        detail = EarningsCallDetail.model_validate(
+            {
+                "id": 6319,
+                "video_link": "https://www.youtube.com/embed/eOC0S8A4QEE\n?",
+                "image_path": "https://img.youtube.com/vi/eOC0S8A4QEE/maxresdefault.jpg",
+            }
+        )
+        assert detail.video_link == "https://www.youtube.com/embed/eOC0S8A4QEE?"
+        # youtube_url comes from the clean image_path, never the malformed video_link
+        assert detail.youtube_url == "https://www.youtube.com/watch?v=eOC0S8A4QEE"
 
     def test_filter_option_id_types(self) -> None:
         assert FilterOption.model_validate({"id": 1, "name": "x"}).id == 1
@@ -508,6 +530,32 @@ class TestCoverageExtras:
         options = await getattr(EarningsCallService(), method_name)()
         assert len(options) == 3
         assert isinstance(options[0], FilterOption)
+
+
+class TestDetailById:
+    @pytest.mark.asyncio
+    async def test_fetch_earnings_call_detail(self, mock_fetcher: Any) -> None:
+        mock_fetcher.fetch_json.return_value = MOCK_DETAIL
+        detail = await EarningsCallService().fetch_earnings_call_detail(10647)
+        assert isinstance(detail, EarningsCallDetail)
+        assert detail.id == 10647
+        assert detail.symbol == "HANN"
+        assert detail.meeting_time == "16:15 - 17:00"
+        assert detail.youtube_url == "https://www.youtube.com/watch?v=qCw7HH77f0U"
+        # GET hits the /investor/vdo/{id} endpoint
+        assert mock_fetcher.fetch_json.call_args.args[0].endswith("/investor/vdo/10647")
+
+    @pytest.mark.asyncio
+    async def test_get_earnings_call_detail(self, mock_fetcher: Any) -> None:
+        mock_fetcher.fetch_json.return_value = MOCK_DETAIL
+        detail = await get_earnings_call_detail(10647)
+        assert isinstance(detail, EarningsCallDetail)
+        assert detail.id == 10647
+
+    @pytest.mark.asyncio
+    async def test_fetch_detail_invalid_language(self, mock_fetcher: Any) -> None:
+        with pytest.raises(ValueError, match="language"):
+            await EarningsCallService().fetch_earnings_call_detail(10647, language="xx")
 
 
 class TestConvenience:
