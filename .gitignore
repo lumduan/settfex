@@ -197,6 +197,6 @@ config/*.yml
 !config/*.default.yml
 
 # AI Assistant and Meta Files
-CLAUDE.md
+# CLAUDE.md is tracked (project instructions for AI assistants); .claude/ and scripts/ stay local.
 .claude/
 scripts/
