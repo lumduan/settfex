@@ -60,6 +60,8 @@ asyncio.run(main())
 - **Derived** (computed): `company_name_clean: str`, `youtube_video_id: str | None`,
   `youtube_url: str | None`
 - `detail: EarningsCallDetail | None` — populated only when `enrich=True`
+- `transcript: str | None` — YouTube transcript text (Thai by default), as raw text for AI/LLM
+  use; populated only by `fetch_transcripts()` / `get_earnings_call_transcript()`
 
 ### `EarningsCallResponse`
 
@@ -158,6 +160,11 @@ print(detail.symbol, detail.round_name, detail.youtube_url)
 - `get_earnings_call_detail(id, language="en") -> EarningsCallDetail`
 - `get_all_earnings_calls(..., progress=False, max_concurrency=5) -> EarningsCallResponse` — the
   whole calendar in one concurrent call
+- `fetch_transcripts(items, ..., languages=("th",)) -> list[EarningsCallItem]` — fill
+  `item.transcript` for every item that has a YouTube video
+- `get_earnings_call_transcript(id, languages=("th",)) -> str | None` — one presentation's
+  transcript by id
+- `fetch_youtube_transcript(video_id, languages=("th",)) -> str | None` — the generic core
 
 `get_earnings_calls(...)` fetches a **single page** by default (mirroring `get_stock_list`); use
 `get_all_earnings_calls(progress=True)` (or `fetch_all_earnings_calls`) for the full calendar,
@@ -191,13 +198,40 @@ for item in response.items:
         print(item.symbol, item.detail.meeting_time, item.detail.video_link)
 ```
 
-## Optional dependency: pandas
+### Get Thai transcripts (for AI)
 
-`to_dataframe()` / `get_earnings_calls_dataframe()` need pandas, which is an **optional**
-extra (the rest of the service works without it):
+For any earnings call with a YouTube video, fetch its **Thai subtitle text as a plain string** —
+ready to feed to an LLM. Needs the `transcript` extra (`pip install "settfex[transcript]"`).
+
+```python
+from settfex.services.set import (
+    get_earnings_calls, fetch_transcripts, get_earnings_call_transcript,
+)
+
+# Batch: fill `item.transcript` for a filtered set (items without a video are skipped)
+resp = await get_earnings_calls(keyword="SCB")
+await fetch_transcripts(resp.items, progress=True)
+for item in resp.items:
+    if item.transcript:
+        feed_to_llm(item.transcript)              # raw Thai text
+
+# …or one presentation by id:
+text = await get_earnings_call_transcript(6319)   # SCB, YE/2021
+```
+
+> **YouTube rate-limits / IP-blocks** aggressively (especially from cloud servers), so this is
+> meant for a **filtered** set — never the full 9520-archive — and uses low concurrency (3) by
+> default. A missing/blocked/disabled transcript simply yields `None`; pass
+> `proxies={"http": ..., "https": ...}` if your host IP is blocked.
+
+## Optional dependencies
+
+The core service needs none of these; install the extra for the feature you use:
 
 ```bash
-pip install "settfex[dataframe]"   # or: uv add pandas
+pip install "settfex[dataframe]"    # to_dataframe() / get_earnings_calls_dataframe()  (pandas)
+pip install "settfex[progress]"     # progress=True bars                               (tqdm)
+pip install "settfex[transcript]"   # transcripts                       (youtube-transcript-api)
 ```
 
 ## API Endpoints

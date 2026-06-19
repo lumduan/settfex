@@ -404,6 +404,11 @@ hann = await get_earnings_calls(keyword="HANN")
 # (pip install "settfex[progress]"):
 from settfex.services.set import get_all_earnings_calls
 everything = await get_all_earnings_calls(progress=True)   # ~9520 records in ~15s (~10x faster)
+
+# Thai subtitles as raw text for AI/LLM use (pip install "settfex[transcript]"):
+from settfex.services.set import fetch_transcripts, get_earnings_call_transcript
+await fetch_transcripts(hann.items)               # fills item.transcript (Thai) per video
+text = await get_earnings_call_transcript(6319)   # …or one presentation's transcript by id
 ```
 
 **👉 [Learn more about the Earnings Call Service](docs/settfex/services/set/earnings_call.md)**

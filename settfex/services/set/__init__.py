@@ -26,8 +26,10 @@ from settfex.services.set.earnings_call import (
     EarningsCallResponse,
     EarningsCallService,
     FilterOption,
+    fetch_transcripts,
     get_all_earnings_calls,
     get_earnings_call_detail,
+    get_earnings_call_transcript,
     get_earnings_calls,
     get_earnings_calls_dataframe,
 )
@@ -78,6 +80,7 @@ from settfex.services.set.stock import (
     normalize_language,
     normalize_symbol,
 )
+from settfex.utils.youtube_transcript import fetch_youtube_transcript
 
 __all__ = [
     # Constants
@@ -114,6 +117,9 @@ __all__ = [
     "get_earnings_calls_dataframe",
     "get_earnings_call_detail",
     "get_all_earnings_calls",
+    "fetch_transcripts",
+    "get_earnings_call_transcript",
+    "fetch_youtube_transcript",
     # Stock Class and Services
     "Stock",
     "StockHighlightDataService",
