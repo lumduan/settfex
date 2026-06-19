@@ -110,6 +110,12 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 
+# pandas is an optional, untyped runtime extra (used only in to_dataframe()); don't require
+# its stubs to keep the strict gate green.
+[[tool.mypy.overrides]]
+module = ["pandas", "pandas.*"]
+ignore_missing_imports = true
+
 [tool.bandit]
 exclude_dirs = ["tests", ".venv", "scripts"]
 
@@ -117,6 +123,10 @@ exclude_dirs = ["tests", ".venv", "scripts"]
 default-groups = ["dev"]
 
 [project.optional-dependencies]
+# Lightweight extra for the DataFrame convenience (EarningsCallResponse.to_dataframe()).
+dataframe = [
+    "pandas>=2.0.0",
+]
 examples = [
     "pandas>=2.0.0",
     "matplotlib>=3.7.0",
@@ -129,6 +139,9 @@ dev = [
     "bandit>=1.7",
     "build>=1.0.0",
     "mypy>=1.18.2",
+    # pandas is an optional runtime extra (see [project.optional-dependencies].dataframe);
+    # it lives in the dev group too so the to_dataframe() tests run in CI.
+    "pandas>=2.0.0",
     "pip-audit>=2.7",
     "pre-commit>=3.7",
     "pytest>=8.4.2",

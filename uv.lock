@@ -2955,6 +2955,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+dataframe = [
+    { name = "pandas" },
+]
 examples = [
     { name = "jupyter" },
     { name = "matplotlib" },
@@ -2967,6 +2970,7 @@ dev = [
     { name = "bandit" },
     { name = "build" },
     { name = "mypy" },
+    { name = "pandas" },
     { name = "pip-audit" },
     { name = "pre-commit" },
     { name = "pytest" },
@@ -2984,16 +2988,18 @@ requires-dist = [
     { name = "loguru", specifier = ">=0.7.0" },
     { name = "matplotlib", marker = "extra == 'examples'", specifier = ">=3.7.0" },
     { name = "notebook", marker = "extra == 'examples'", specifier = ">=7.0.0" },
+    { name = "pandas", marker = "extra == 'dataframe'", specifier = ">=2.0.0" },
     { name = "pandas", marker = "extra == 'examples'", specifier = ">=2.0.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
 ]
-provides-extras = ["examples"]
+provides-extras = ["dataframe", "examples"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "bandit", specifier = ">=1.7" },
     { name = "build", specifier = ">=1.0.0" },
     { name = "mypy", specifier = ">=1.18.2" },
+    { name = "pandas", specifier = ">=2.0.0" },
     { name = "pip-audit", specifier = ">=2.7" },
     { name = "pre-commit", specifier = ">=3.7" },
     { name = "pytest", specifier = ">=8.4.2" },
