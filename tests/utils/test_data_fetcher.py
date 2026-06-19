@@ -424,3 +424,99 @@ class TestAsyncDataFetcher:
             response = await fetcher.fetch("https://example.com")
 
         assert response.elapsed >= 0.1
+
+
+class TestAsyncDataFetcherPost:
+    """Tests for the POST support added to AsyncDataFetcher (backward-compatible)."""
+
+    @pytest.mark.asyncio
+    async def test_fetch_defaults_to_get(self) -> None:
+        """fetch() defaults to GET and forwards method/json_body to _make_request."""
+        fetcher = AsyncDataFetcher()
+        mock_response = Mock(status_code=200, content=b"ok", headers={}, url="https://example.com")
+
+        with patch.object(fetcher, "_make_request", return_value=mock_response) as mock:
+            await fetcher.fetch("https://example.com")
+
+        assert mock.call_args.kwargs["method"] == "GET"
+        assert mock.call_args.kwargs["json_body"] is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_post_forwards_method_and_body(self) -> None:
+        """fetch(method='POST', json_body=...) forwards both onward."""
+        fetcher = AsyncDataFetcher()
+        body = {"start": 1, "page_size": 12, "type_id": 1}
+        mock_response = Mock(status_code=200, content=b"{}", headers={}, url="https://api.x/search")
+
+        with patch.object(fetcher, "_make_request", return_value=mock_response) as mock:
+            await fetcher.fetch("https://api.x/search", method="POST", json_body=body)
+
+        assert mock.call_args.kwargs["method"] == "POST"
+        assert mock.call_args.kwargs["json_body"] == body
+
+    @pytest.mark.asyncio
+    async def test_fetch_json_post_returns_parsed_body(self) -> None:
+        """fetch_json supports POST and still routes through the hardened decoder."""
+        fetcher = AsyncDataFetcher()
+        payload = {"no_records": 2, "items": []}
+        mock_response = Mock(
+            status_code=200,
+            content=json.dumps(payload).encode("utf-8"),
+            headers={},
+            url="https://api.x/search",
+        )
+
+        with patch.object(fetcher, "_make_request", return_value=mock_response) as mock:
+            data = await fetcher.fetch_json(
+                "https://api.x/search", method="POST", json_body={"start": 1}
+            )
+
+        assert data == payload
+        assert mock.call_args.kwargs["method"] == "POST"
+        assert mock.call_args.kwargs["json_body"] == {"start": 1}
+
+    @pytest.mark.asyncio
+    async def test_post_via_session_raises(self) -> None:
+        """POST via a persistent session is unsupported and must fail loudly."""
+        fetcher = AsyncDataFetcher()  # default use_session=True
+        with pytest.raises(NotImplementedError, match="POST"):
+            await fetcher._make_request(
+                "https://api.x/search", {}, method="POST", json_body={"a": 1}
+            )
+
+    @pytest.mark.asyncio
+    async def test_standalone_post_calls_requests_post(self) -> None:
+        """Standalone POST issues a curl_cffi POST carrying the JSON body."""
+        fetcher = AsyncDataFetcher(config=FetcherConfig(use_session=False))
+        body = {"start": 1, "type_id": 1}
+        mock_resp = Mock(status_code=200)
+
+        with patch("settfex.utils.data_fetcher.requests") as mock_requests:
+            mock_requests.post.return_value = mock_resp
+            result = await fetcher._make_request(
+                "https://api.x/search",
+                {"Origin": "https://opportunity-day.setgroup.or.th"},
+                method="POST",
+                json_body=body,
+            )
+
+        assert result is mock_resp
+        assert mock_requests.post.called
+        assert mock_requests.get.called is False
+        kwargs = mock_requests.post.call_args.kwargs
+        assert kwargs["json"] == body
+        assert kwargs["headers"]["Origin"] == "https://opportunity-day.setgroup.or.th"
+
+    @pytest.mark.asyncio
+    async def test_standalone_get_unchanged(self) -> None:
+        """Standalone GET still uses requests.get (no regression)."""
+        fetcher = AsyncDataFetcher(config=FetcherConfig(use_session=False))
+        mock_resp = Mock(status_code=200)
+
+        with patch("settfex.utils.data_fetcher.requests") as mock_requests:
+            mock_requests.get.return_value = mock_resp
+            result = await fetcher._make_request("https://example.com", {})
+
+        assert result is mock_resp
+        assert mock_requests.get.called
+        assert mock_requests.post.called is False
