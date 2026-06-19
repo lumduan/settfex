@@ -17,8 +17,10 @@ from settfex.services.set.earnings_call import (
     EarningsCallResponse,
     EarningsCallService,
     FilterOption,
+    fetch_transcripts,
     get_all_earnings_calls,
     get_earnings_call_detail,
+    get_earnings_call_transcript,
     get_earnings_calls,
     get_earnings_calls_dataframe,
 )
@@ -653,6 +655,74 @@ class TestFetchAllConcurrency:
         )
         assert resp.items[0].detail is not None
         assert (1, 1) in seen  # both phases reported
+
+
+class TestTranscripts:
+    _PATCH = "settfex.services.set.earnings_call.fetch_youtube_transcript"
+
+    @pytest.mark.asyncio
+    async def test_fetch_transcripts_attaches_and_skips(self) -> None:
+        with_video = EarningsCallItem.model_validate(MOCK_ITEM)  # has youtube_video_id
+        no_video = EarningsCallItem.model_validate(MOCK_UPCOMING)  # image_path None
+
+        async def fake(video_id: str, **k: Any) -> str:
+            return f"TXT[{video_id}]"
+
+        with patch(self._PATCH, side_effect=fake):
+            out = await fetch_transcripts([with_video, no_video])
+        assert out[0].transcript == "TXT[qCw7HH77f0U]"
+        assert out[1].transcript is None  # no video -> skipped
+
+    @pytest.mark.asyncio
+    async def test_fetch_transcripts_tolerates_failure(self) -> None:
+        a = EarningsCallItem.model_validate(MOCK_ITEM)
+        b = EarningsCallItem.model_validate(MOCK_ITEM_2)
+
+        async def fake(video_id: str, **k: Any) -> str:
+            if video_id == a.youtube_video_id:
+                raise RuntimeError("blocked")
+            return "OK"
+
+        with patch(self._PATCH, side_effect=fake):
+            out = await fetch_transcripts([a, b])
+        assert out[0].transcript is None  # failed but tolerated
+        assert out[1].transcript == "OK"
+
+    @pytest.mark.asyncio
+    async def test_fetch_transcripts_progress(self) -> None:
+        items = [
+            EarningsCallItem.model_validate(MOCK_ITEM),
+            EarningsCallItem.model_validate(MOCK_ITEM_2),
+        ]
+        seen: list[tuple[int, int]] = []
+
+        async def fake(video_id: str, **k: Any) -> str:
+            return "x"
+
+        with patch(self._PATCH, side_effect=fake):
+            await fetch_transcripts(items, progress_callback=lambda d, t: seen.append((d, t)))
+        assert seen[-1] == (2, 2)
+
+    @pytest.mark.asyncio
+    async def test_fetch_transcripts_no_videos_is_noop(self) -> None:
+        out = await fetch_transcripts([EarningsCallItem.model_validate(MOCK_UPCOMING)])
+        assert out[0].transcript is None
+
+    @pytest.mark.asyncio
+    async def test_get_earnings_call_transcript(self, mock_fetcher: Any) -> None:
+        mock_fetcher.fetch_json.return_value = MOCK_DETAIL  # has image_path -> youtube_video_id
+
+        async def fake(video_id: str, **k: Any) -> str:
+            return "THAI TEXT"
+
+        with patch(self._PATCH, side_effect=fake):
+            text = await get_earnings_call_transcript(10647)
+        assert text == "THAI TEXT"
+
+    @pytest.mark.asyncio
+    async def test_get_earnings_call_transcript_no_video(self, mock_fetcher: Any) -> None:
+        mock_fetcher.fetch_json.return_value = {"id": 1}  # no image_path -> no youtube video
+        assert await get_earnings_call_transcript(1) is None
 
 
 class TestGetAllConvenience:

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-19
+
+### Added
+
+- **Thai YouTube transcripts for earnings calls** (raw text for AI/LLM use), behind a new optional
+  `transcript` extra (`pip install "settfex[transcript]"`, backed by `youtube-transcript-api`):
+  - `fetch_youtube_transcript(video_id, *, languages=("th",), proxies=None) -> str | None` — a
+    generic async wrapper that returns the caption text as one string, or `None` when the video has
+    no matching captions / they're disabled / the request is blocked (never raises for those).
+  - `fetch_transcripts(items, ...) -> list[EarningsCallItem]` — fills `EarningsCallItem.transcript`
+    for every item that has a YouTube video (bounded concurrency, default 3; optional progress bar;
+    per-item tolerant; items without a video are skipped).
+  - `get_earnings_call_transcript(id, ...) -> str | None` — one presentation's transcript by id.
+  - New `EarningsCallItem.transcript: str | None` field (populated only by the above).
+
 ## [0.5.0] - 2026-06-19
 
 ### Added

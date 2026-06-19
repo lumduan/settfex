@@ -21,7 +21,7 @@ enrichment.
 
 import asyncio
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -43,6 +43,7 @@ from settfex.utils.parsing import (
     validate_list_or_raise,
     validate_or_raise,
 )
+from settfex.utils.youtube_transcript import fetch_youtube_transcript
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -251,6 +252,13 @@ class EarningsCallItem(BaseModel):
     detail: EarningsCallDetail | None = Field(
         default=None,
         description="Enrichment from the detail endpoint, populated only when enrich=True",
+    )
+    transcript: str | None = Field(
+        default=None,
+        description=(
+            "YouTube transcript text (Thai by default), populated only by fetch_transcripts() "
+            "or get_earnings_call_transcript() — handy as raw text for AI/LLM use"
+        ),
     )
 
     model_config = ConfigDict(populate_by_name=True, str_strip_whitespace=True)
@@ -934,4 +942,97 @@ async def get_all_earnings_calls(
         max_concurrency=max_concurrency,
         progress=progress,
         progress_callback=progress_callback,
+    )
+
+
+async def fetch_transcripts(
+    items: list[EarningsCallItem],
+    *,
+    languages: Sequence[str] = ("th",),
+    max_concurrency: int = 3,
+    progress: bool = False,
+    progress_callback: Callable[[int, int], None] | None = None,
+    proxies: dict[str, str] | None = None,
+) -> list[EarningsCallItem]:
+    """Fetch the YouTube transcript for each item that has a video, in place.
+
+    For every item with a ``youtube_video_id``, fetches the transcript (Thai by default) and
+    stores it on ``item.transcript`` as a plain string (raw text, ready for AI/LLM use); items
+    without a video are left ``transcript=None``. Fetches run with bounded concurrency and are
+    individually tolerant — a blocked/missing transcript logs a warning and leaves that item
+    ``None`` rather than failing the batch.
+
+    YouTube rate-limits / IP-blocks aggressively, so the default concurrency is low (3) and this
+    is meant for a **filtered** set of items, not the full archive. Pass ``proxies`` if the host
+    IP is blocked. Requires the ``transcript`` extra (``pip install "settfex[transcript]"``).
+
+    Args:
+        items: The items to annotate (e.g. ``response.items``).
+        languages: Transcript language priority (default Thai).
+        max_concurrency: Max simultaneous YouTube requests.
+        progress: Show a tqdm bar (needs ``settfex[progress]``).
+        progress_callback: Optional ``(done, total)`` hook.
+        proxies: Optional ``{"http": url, "https": url}`` proxy mapping.
+
+    Returns:
+        The same ``items`` list (for chaining), with ``transcript`` populated where available.
+
+    Example:
+        >>> from settfex.services.set import get_earnings_calls, fetch_transcripts
+        >>> resp = await get_earnings_calls(keyword="SCB")
+        >>> await fetch_transcripts(resp.items)
+        >>> [it.transcript[:40] for it in resp.items if it.transcript]
+    """
+    targets = [item for item in items if item.youtube_video_id]
+    if not targets:
+        return items
+
+    semaphore = asyncio.Semaphore(max_concurrency)
+    reporter = _ProgressReporter(
+        total=len(targets), show_bar=progress, callback=progress_callback, desc="Transcripts"
+    )
+
+    async def _attach(item: EarningsCallItem) -> None:
+        async with semaphore:
+            try:
+                video_id = item.youtube_video_id
+                if video_id is not None:
+                    item.transcript = await fetch_youtube_transcript(
+                        video_id, languages=languages, proxies=proxies
+                    )
+            except Exception as exc:  # noqa: BLE001 - tolerate one bad transcript, keep the batch
+                logger.warning(
+                    f"Failed to fetch transcript for item id={item.id} ({item.symbol}): {exc}"
+                )
+            finally:
+                reporter.update(1)
+
+    await asyncio.gather(*(_attach(item) for item in targets))
+    reporter.close()
+    return items
+
+
+async def get_earnings_call_transcript(
+    item_id: int,
+    *,
+    languages: Sequence[str] = ("th",),
+    proxies: dict[str, str] | None = None,
+    config: FetcherConfig | None = None,
+) -> str | None:
+    """Convenience: fetch one OPPDAY presentation's YouTube transcript by id.
+
+    Resolves the presentation's video via the detail endpoint, then fetches its transcript (Thai
+    by default). Returns ``None`` if the presentation has no YouTube video or no matching
+    captions. Requires the ``transcript`` extra (``pip install "settfex[transcript]"``).
+
+    Example:
+        >>> from settfex.services.set import get_earnings_call_transcript
+        >>> text = await get_earnings_call_transcript(6319)   # SCB, YE/2021
+        >>> print((text or "")[:200])
+    """
+    detail = await get_earnings_call_detail(item_id, config=config)
+    if not detail.youtube_video_id:
+        return None
+    return await fetch_youtube_transcript(
+        detail.youtube_video_id, languages=languages, proxies=proxies
     )

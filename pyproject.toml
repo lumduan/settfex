@@ -1,6 +1,6 @@
 [project]
 name = "settfex"
-version = "0.5.0"
+version = "0.6.0"
 description = "Async Python library for fetching real-time and historical data from the Stock Exchange of Thailand (SET) and Thailand Futures Exchange (TFEX)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -110,10 +110,17 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 
-# pandas/tqdm are optional, untyped runtime extras (DataFrame / progress bar); don't require
-# their stubs to keep the strict gate green.
+# pandas/tqdm/youtube-transcript-api are optional, untyped runtime extras; don't require their
+# stubs to keep the strict gate green.
 [[tool.mypy.overrides]]
-module = ["pandas", "pandas.*", "tqdm", "tqdm.*"]
+module = [
+    "pandas",
+    "pandas.*",
+    "tqdm",
+    "tqdm.*",
+    "youtube_transcript_api",
+    "youtube_transcript_api.*",
+]
 ignore_missing_imports = true
 
 [tool.bandit]
@@ -131,12 +138,17 @@ dataframe = [
 progress = [
     "tqdm>=4.66.0",
 ]
+# YouTube transcript fetching for earnings calls (fetch_transcripts / get_earnings_call_transcript).
+transcript = [
+    "youtube-transcript-api>=1.0.0",
+]
 examples = [
     "pandas>=2.0.0",
     "matplotlib>=3.7.0",
     "jupyter>=1.0.0",
     "notebook>=7.0.0",
     "tqdm>=4.66.0",
+    "youtube-transcript-api>=1.0.0",
 ]
 
 [dependency-groups]
@@ -156,4 +168,6 @@ dev = [
     # tqdm is the optional `progress` extra; in dev so the progress-bar tests run in CI.
     "tqdm>=4.66.0",
     "twine>=5.0.0",
+    # youtube-transcript-api is the optional `transcript` extra; in dev so its tests run in CI.
+    "youtube-transcript-api>=1.0.0",
 ]
