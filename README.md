@@ -411,6 +411,12 @@ await fetch_transcripts(hann.items)               # fills item.transcript (Thai)
 text = await get_earnings_call_transcript(6319)   # …or one presentation's transcript by id
 ```
 
+> ⚠️ **Transcripts & YouTube limits.** YouTube rate-limits / IP-blocks aggressively (especially
+> from cloud servers), so transcript fetching is built for a **filtered** set (a company /
+> quarter) — not the full ~9,520-video archive — and defaults to low concurrency (3). A
+> blocked/missing/disabled transcript simply comes back as `None`; if your host IP is blocked,
+> pass `proxies={"http": ..., "https": ...}`. Results can vary by IP.
+
 **👉 [Learn more about the Earnings Call Service](docs/settfex/services/set/earnings_call.md)**
 
 ---
