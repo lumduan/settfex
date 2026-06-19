@@ -21,8 +21,9 @@ Complete tutorial series covering all 11 SET services:
 9. **Trading Statistics** - Historical performance (multi-period)
 10. **Price Performance** - Stock vs sector vs market comparison
 11. **Financial Statements** - Balance sheet, income, cash flow
+12. **Earnings Call (Opportunity Day)** - OPPDAY calendar with YouTube links → DataFrame → CSV
 
-**Total**: 11 notebooks + comprehensive guide
+**Total**: 12 notebooks + comprehensive guide
 
 ## Quick Start
 
