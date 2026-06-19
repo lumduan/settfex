@@ -172,25 +172,44 @@ class AsyncDataFetcher:
             ),
         }
 
-    async def _make_request(self, url: str, headers: dict[str, str]) -> Any:
+    async def _make_request(
+        self,
+        url: str,
+        headers: dict[str, str],
+        *,
+        method: str = "GET",
+        json_body: Any | None = None,
+    ) -> Any:
         """
-        Make HTTP GET request using either persistent session or standalone request.
+        Make an HTTP request using either a persistent session or a standalone request.
 
         Uses SessionManager for automatic cookie handling if use_session=True,
-        otherwise makes standalone request. Automatically detects SET vs TFEX URLs
+        otherwise makes a standalone request. Automatically detects SET vs TFEX URLs
         and uses the appropriate warmup strategy.
 
         Args:
             url: URL to fetch
             headers: HTTP headers to include
+            method: HTTP method, "GET" (default) or "POST"
+            json_body: JSON-serializable body for POST requests (ignored for GET)
 
         Returns:
             Response object from curl_cffi
 
         Raises:
+            NotImplementedError: If a non-GET method is requested with use_session=True
+                (persistent sessions are GET-only; use FetcherConfig(use_session=False)).
             Exception: If request fails
         """
         if self.config.use_session:
+            # Persistent (cookie-warmed) sessions support GET only. Non-GET targets — e.g.
+            # the cookieless opportunity-day API — must use a standalone fetcher
+            # (FetcherConfig(use_session=False)). Fail loudly rather than silently GET.
+            if method != "GET":
+                raise NotImplementedError(
+                    f"{method} via persistent session is not supported; "
+                    "use FetcherConfig(use_session=False) for non-GET requests"
+                )
             # Use persistent session with automatic cookie handling
             # Auto-detects SET vs TFEX based on URL
             from settfex.utils.session_manager import get_session_for_url
@@ -201,9 +220,17 @@ class AsyncDataFetcher:
             return response
         else:
             # Make standalone request (no cookie persistence)
-            logger.debug(f"Making standalone request to {url}")
+            logger.debug(f"Making standalone {method} request to {url}")
 
             def do_request() -> Any:
+                if method == "POST":
+                    return requests.post(
+                        url,
+                        json=json_body,
+                        headers=headers,
+                        timeout=self.config.timeout,
+                        impersonate=self.config.browser_impersonate,  # type: ignore
+                    )
                 return requests.get(
                     url,
                     headers=headers,
@@ -223,6 +250,9 @@ class AsyncDataFetcher:
         self,
         url: str,
         headers: dict[str, str] | None = None,
+        *,
+        method: str = "GET",
+        json_body: Any | None = None,
     ) -> FetchResponse:
         """
         Fetch data from a URL asynchronously with proper Unicode handling.
@@ -236,6 +266,9 @@ class AsyncDataFetcher:
         Args:
             url: URL to fetch
             headers: Optional custom headers (merged with defaults)
+            method: HTTP method, "GET" (default) or "POST". POST requires
+                FetcherConfig(use_session=False).
+            json_body: JSON-serializable body for POST requests (ignored for GET)
 
         Returns:
             FetchResponse with status, content, and metadata
@@ -277,7 +310,9 @@ class AsyncDataFetcher:
                 self._last_request_time = start_time
 
                 # Make request (either via persistent session or standalone)
-                response = await self._make_request(url, default_headers)
+                response = await self._make_request(
+                    url, default_headers, method=method, json_body=json_body
+                )
 
                 elapsed = time.time() - start_time
 
@@ -333,6 +368,9 @@ class AsyncDataFetcher:
         self,
         url: str,
         headers: dict[str, str] | None = None,
+        *,
+        method: str = "GET",
+        json_body: Any | None = None,
     ) -> Any:
         """
         Fetch JSON data from a URL.
@@ -343,6 +381,9 @@ class AsyncDataFetcher:
         Args:
             url: URL to fetch
             headers: Optional custom headers
+            method: HTTP method, "GET" (default) or "POST". POST requires
+                FetcherConfig(use_session=False).
+            json_body: JSON-serializable body for POST requests (ignored for GET)
 
         Returns:
             Parsed JSON data (dict, list, or primitive)
@@ -357,7 +398,7 @@ class AsyncDataFetcher:
         if headers:
             json_headers.update(headers)
 
-        response = await self.fetch(url, headers=json_headers)
+        response = await self.fetch(url, headers=json_headers, method=method, json_body=json_body)
 
         # Decode via the shared helper: rejects NaN/Infinity (silent-corruption guard)
         # and raises ResponseParseError (a ValueError) with URL context on bad JSON.

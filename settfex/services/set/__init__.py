@@ -5,9 +5,13 @@ from settfex.services.set.constants import (
     SET_BOARD_OF_DIRECTOR_ENDPOINT,
     SET_COMPANY_PROFILE_ENDPOINT,
     SET_CORPORATE_ACTION_ENDPOINT,
+    SET_EARNINGS_CALL_DETAIL_ENDPOINT,
+    SET_EARNINGS_CALL_FILTER_ENDPOINT,
+    SET_EARNINGS_CALL_SEARCH_ENDPOINT,
     SET_FINANCIAL_BALANCE_SHEET_ENDPOINT,
     SET_FINANCIAL_CASH_FLOW_ENDPOINT,
     SET_FINANCIAL_INCOME_STATEMENT_ENDPOINT,
+    SET_LCP_BASE_URL,
     SET_NVDR_HOLDER_ENDPOINT,
     SET_PRICE_PERFORMANCE_ENDPOINT,
     SET_STOCK_HIGHLIGHT_DATA_ENDPOINT,
@@ -15,6 +19,15 @@ from settfex.services.set.constants import (
     SET_STOCK_PROFILE_ENDPOINT,
     SET_STOCK_SHAREHOLDER_ENDPOINT,
     SET_TRADING_STAT_ENDPOINT,
+)
+from settfex.services.set.earnings_call import (
+    EarningsCallDetail,
+    EarningsCallItem,
+    EarningsCallResponse,
+    EarningsCallService,
+    FilterOption,
+    get_earnings_calls,
+    get_earnings_calls_dataframe,
 )
 from settfex.services.set.list import (
     StockListResponse,
@@ -80,11 +93,23 @@ __all__ = [
     "SET_FINANCIAL_BALANCE_SHEET_ENDPOINT",
     "SET_FINANCIAL_INCOME_STATEMENT_ENDPOINT",
     "SET_FINANCIAL_CASH_FLOW_ENDPOINT",
+    "SET_LCP_BASE_URL",
+    "SET_EARNINGS_CALL_SEARCH_ENDPOINT",
+    "SET_EARNINGS_CALL_DETAIL_ENDPOINT",
+    "SET_EARNINGS_CALL_FILTER_ENDPOINT",
     # Stock List Service
     "StockListService",
     "StockListResponse",
     "StockSymbol",
     "get_stock_list",
+    # Earnings Call (Opportunity Day) Service
+    "EarningsCallService",
+    "EarningsCallItem",
+    "EarningsCallDetail",
+    "EarningsCallResponse",
+    "FilterOption",
+    "get_earnings_calls",
+    "get_earnings_calls_dataframe",
     # Stock Class and Services
     "Stock",
     "StockHighlightDataService",

@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.4.0] - 2026-06-19
+
+### Added
+
+- **SET Earnings Call (Opportunity Day) service** (`get_earnings_calls`,
+  `get_earnings_calls_dataframe`, `EarningsCallService`, `EarningsCallItem`,
+  `EarningsCallResponse`, `EarningsCallDetail`, `FilterOption`): fetches the SET
+  "Earnings Call (OPPDAY)" calendar from the stateless opportunity-day backend
+  (`POST https://api.lcp.setgroup.or.th/api/v1/investor/search/archive`). Returns typed
+  Pydantic models with derived `company_name_clean` / `youtube_video_id` / `youtube_url`
+  fields, plus an optional pandas DataFrame (`to_dataframe()`) whose default columns are
+  `stock_name, company_name, earnings_call_date, video_clip_time, youtube_url`. Includes
+  bounded auto-pagination (`fetch_all_earnings_calls`), opt-in concurrent detail enrichment
+  (`enrich=True`), seven filter helpers, and a `*_raw` variant. This host needs no
+  cookies/Incapsula bypass, so it uses a plain sessionless fetcher. Not stock-scoped (not on
+  the `Stock` class). Adds the `docs/settfex/services/set/earnings_call.md` doc and the
+  `examples/set/12_earnings_call.ipynb` notebook.
+- **`AsyncDataFetcher` POST support**: `fetch()` / `fetch_json()` now accept keyword-only
+  `method="GET"` (default — fully backward compatible) and `json_body`. POST runs through the
+  standalone (sessionless) path and the same NaN-rejecting JSON decoder; POST via a persistent
+  session is intentionally unsupported (raises `NotImplementedError`).
+
+### Changed
+
+- pandas is now available as an optional `dataframe` extra
+  (`pip install "settfex[dataframe]"`); it is required only for the DataFrame convenience and
+  is imported lazily, so importing the library never requires pandas.
+
 ## [0.3.0] - 2026-06-17
 
 ### Added

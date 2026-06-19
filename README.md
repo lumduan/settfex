@@ -83,6 +83,7 @@ Want to dig deeper? Check out our detailed guides:
 - **[Financial Service](docs/settfex/services/set/financial.md)** - Balance sheet, income statement, and cash flow data
 - **[Chart Quotation Service](docs/settfex/services/set/chart_quotation.md)** - Intraday and historical price chart data
 - **[Latest Historical Trading Service](docs/settfex/services/set/latest_historical_trading.md)** - Latest trading day summary with OHLCV and valuation metrics
+- **[Earnings Call (Opportunity Day) Service](docs/settfex/services/set/earnings_call.md)** - OPPDAY earnings-call calendar with YouTube links, as models or a DataFrame
 
 ### TFEX Services
 
@@ -379,6 +380,31 @@ print(f"Market Cap: {trading.market_cap:,.0f} THB")
 
 ---
 
+#### 🎤 Get Earnings Call (Opportunity Day) Calendar
+
+Fetch the SET Opportunity Day earnings-call calendar — symbol, company, date, clip duration,
+and a ready-to-use YouTube link — as typed models or a pandas DataFrame:
+
+```python
+from settfex.services.set import get_earnings_calls, get_earnings_calls_dataframe
+
+# Typed models
+response = await get_earnings_calls()
+for item in response.items[:5]:
+    print(item.symbol, item.company_name_clean, item.youtube_url)
+
+# …or straight to a DataFrame (requires: pip install "settfex[dataframe]")
+df = await get_earnings_calls_dataframe()
+# columns: stock_name, company_name, earnings_call_date, video_clip_time, youtube_url
+
+# Search one company, or filter by quarter/type
+hann = await get_earnings_calls(keyword="HANN")
+```
+
+**👉 [Learn more about the Earnings Call Service](docs/settfex/services/set/earnings_call.md)**
+
+---
+
 ### TFEX (Thailand Futures Exchange)
 
 #### 📋 Get TFEX Series List
@@ -569,6 +595,12 @@ stock_list = await get_stock_list()
 ```
 
 Great for debugging or monitoring in production. Default is ERROR level for clean output.
+
+## 📋 Changelog
+
+See **[CHANGELOG.md](CHANGELOG.md)** for the full, versioned release history (this project
+follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and
+[Semantic Versioning](https://semver.org/)).
 
 ## 🤝 Contributing
 
