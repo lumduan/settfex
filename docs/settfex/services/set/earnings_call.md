@@ -70,10 +70,13 @@ asyncio.run(main())
   `youtube_video_id`, `id`, `name`, `industry`, `view_mode`. Unknown column → `ValueError`;
   pandas missing → `ImportError`.
 
-### `EarningsCallDetail` (enrichment)
+### `EarningsCallDetail` (enrichment / detail-by-id)
 
 `video_link`, `company_name_th`, `meeting_time` (the clock-time range), `document_link`,
-`snapshot_link`, `round_name`, `type`, `type_id`, `year`, `round`, `has_qa`, …
+`snapshot_link`, `round_name`, `type`, `type_id`, `year`, `round`, `has_qa`, `image_path`, …
+plus **derived** `youtube_video_id` / `youtube_url` (built from the clean `image_path`, so a
+malformed `video_link` can't break the link — `video_link` itself is also whitespace-cleaned,
+since a few legacy records embed a stray newline mid-URL).
 
 ### `FilterOption`
 
@@ -107,10 +110,9 @@ response = await EarningsCallService().fetch_earnings_calls(
 Auto-paginates, **bounded and polite** — reuses one fetcher, sleeps `throttle` seconds between
 pages, and stops at the first short page, once `no_records` is reached, or when a cap is hit.
 
-> The API honors `page_size` up to ~100 but **rejects very large values** (e.g. 500), which
-> surfaces as a clear `ResponseParseError`/`ValidationError`. The defaults (12 for a single
-> page, 50 for `fetch_all`) stay safely under the cap — prefer iterating pages over an
-> oversized `page_size`.
+> `page_size` is **not** capped by the API — a single request can return the entire archive
+> (verified at `page_size=9520`). `fetch_all` still paginates politely by default; prefer it,
+> or a modest `page_size`, over one huge request to keep memory and server load reasonable.
 
 ```python
 service = EarningsCallService()
@@ -122,6 +124,17 @@ df = response.to_dataframe()
 
 Raw JSON dict (no validation), for debugging.
 
+#### `fetch_earnings_call_detail(id, language="en") -> EarningsCallDetail`
+
+Fetch one OPPDAY presentation directly by its id — the number in a
+`https://opportunity-day.setgroup.or.th/en/vdo/{id}` URL:
+
+```python
+detail = await EarningsCallService().fetch_earnings_call_detail(6319)
+print(detail.symbol, detail.round_name, detail.youtube_url)
+# SCB  YE/2021  https://www.youtube.com/watch?v=eOC0S8A4QEE
+```
+
 #### Filter helpers
 
 `fetch_filter_types()`, `fetch_filter_years()`, `fetch_filter_industries()`,
@@ -132,9 +145,10 @@ Raw JSON dict (no validation), for debugging.
 
 - `get_earnings_calls(...) -> EarningsCallResponse`
 - `get_earnings_calls_dataframe(..., columns=None) -> pandas.DataFrame`
+- `get_earnings_call_detail(id, language="en") -> EarningsCallDetail`
 
-Both fetch a **single page** by default (mirroring `get_stock_list`). For the full calendar,
-use `fetch_all_earnings_calls()` then `to_dataframe()`.
+The list functions fetch a **single page** by default (mirroring `get_stock_list`). For the
+full calendar, use `fetch_all_earnings_calls()` then `to_dataframe()`.
 
 ## Usage Examples
 
