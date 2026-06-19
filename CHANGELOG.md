@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Earnings Call: tolerate `industry: null`.** The OPPDAY list returns `industry: null` for a
+  handful of newly-listed companies (e.g. `ISTORE22`), so fetching deeper pages or a large
+  `page_size` raised a `ValidationError` (`EarningsCallItem.industry` was a required string). It
+  is now `str | None`. Note: `page_size` is **not** capped by the API — a single request can
+  return the entire archive; an earlier doc note claiming a ~100 cap was incorrect and has been
+  removed.
+
 ## [0.4.0] - 2026-06-19
 
 ### Added

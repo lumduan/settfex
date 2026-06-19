@@ -107,10 +107,9 @@ response = await EarningsCallService().fetch_earnings_calls(
 Auto-paginates, **bounded and polite** — reuses one fetcher, sleeps `throttle` seconds between
 pages, and stops at the first short page, once `no_records` is reached, or when a cap is hit.
 
-> The API honors `page_size` up to ~100 but **rejects very large values** (e.g. 500), which
-> surfaces as a clear `ResponseParseError`/`ValidationError`. The defaults (12 for a single
-> page, 50 for `fetch_all`) stay safely under the cap — prefer iterating pages over an
-> oversized `page_size`.
+> `page_size` is **not** capped by the API — a single request can return the entire archive
+> (verified at `page_size=9520`). `fetch_all` still paginates politely by default; prefer it,
+> or a modest `page_size`, over one huge request to keep memory and server load reasonable.
 
 ```python
 service = EarningsCallService()

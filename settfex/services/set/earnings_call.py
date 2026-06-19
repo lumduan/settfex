@@ -149,7 +149,10 @@ class EarningsCallItem(BaseModel):
     id: int = Field(description="Unique presentation/event id")
     name: str = Field(description="Presentation title (Thai, as shown on the card)")
     company_name: str = Field(description='Raw company name, prefixed "<SYMBOL>: ..."')
-    industry: str = Field(default="", description="Industry classification")
+    industry: str | None = Field(
+        default=None,
+        description="Industry classification (None for newly-listed companies not yet classified)",
+    )
     symbol: str = Field(description="Stock symbol/ticker")
     image_path: str | None = Field(
         default=None, description="YouTube thumbnail URL (present only when recorded)"

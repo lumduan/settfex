@@ -166,6 +166,19 @@ class TestModels:
         assert resp.count == 2
         assert resp.no_records == 9520
 
+    def test_industry_can_be_null(self) -> None:
+        # Newly-listed companies (e.g. ISTORE22) come back with industry=null in the OPPDAY
+        # list; this must not fail validation (regression: large page_size / deep pages).
+        item = EarningsCallItem.model_validate({**MOCK_ITEM, "industry": None})
+        assert item.industry is None
+        # derived fields and the DataFrame still work with a null industry
+        assert item.youtube_url == "https://www.youtube.com/watch?v=qCw7HH77f0U"
+        resp = EarningsCallResponse.model_validate(
+            {"no_records": 1, "items": [{**MOCK_ITEM, "industry": None}]}
+        )
+        df = resp.to_dataframe(columns=["stock_name", "industry"])
+        assert df.iloc[0]["industry"] is None
+
 
 # --- to_dataframe --------------------------------------------------------------------------
 
