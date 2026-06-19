@@ -596,6 +596,12 @@ stock_list = await get_stock_list()
 
 Great for debugging or monitoring in production. Default is ERROR level for clean output.
 
+## 📋 Changelog
+
+See **[CHANGELOG.md](CHANGELOG.md)** for the full, versioned release history (this project
+follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and
+[Semantic Versioning](https://semver.org/)).
+
 ## 🤝 Contributing
 
 We'd love your help making settfex better! Here's how:
