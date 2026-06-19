@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-19
+
+### Added
+
+- **Concurrent `fetch_all_earnings_calls` + an optional progress bar.** Fetching the whole OPPDAY
+  archive now fetches pages **concurrently** (bounded by `max_concurrency`, default 5) after
+  learning the total from page 1, so the full ~9520-record crawl drops from **~150 s to ~15 s
+  (~10× faster)** at the default concurrency. Opt into a `tqdm` progress bar with `progress=True`
+  (new optional `progress` extra:
+  `pip install "settfex[progress]"`), or pass a dependency-free `progress_callback(done, total)`;
+  both also cover the `enrich=True` phase.
+- **`get_all_earnings_calls(...)`** convenience — fetch the entire calendar in one concurrent call.
+
+### Changed
+
+- `fetch_all_earnings_calls` defaults: `page_size` 50 → 200 (fewer requests; the API does not cap
+  `page_size`) and `throttle` 0.3 → 0.0 (the concurrency bound now governs load). Results and item
+  ordering are unchanged.
+
 ## [0.4.1] - 2026-06-19
 
 ### Added
