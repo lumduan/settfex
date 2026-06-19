@@ -99,6 +99,64 @@ def _build_earnings_call_headers(language: str) -> dict[str, str]:
     }
 
 
+class _ProgressReporter:
+    """Optional progress reporting for long fetches: a tqdm bar and/or a callback.
+
+    ``show_bar`` renders a ``tqdm.auto`` bar (lazily imported from the optional ``progress``
+    extra; auto-detects Jupyter vs terminal). If tqdm is missing, it logs a one-time hint and
+    emits periodic loguru progress lines instead. ``callback`` (dependency-free) is invoked
+    with ``(done, total)`` after every update. Used only from the asyncio event loop (single
+    thread), so no locking is needed.
+    """
+
+    def __init__(
+        self,
+        total: int,
+        *,
+        show_bar: bool,
+        callback: Callable[[int, int], None] | None,
+        desc: str,
+    ) -> None:
+        self._total = total
+        self._done = 0
+        self._callback = callback
+        self._desc = desc
+        self._bar: Any = None
+        self._log_fallback = False
+        self._last_logged_pct = 0
+        if show_bar:
+            try:
+                from tqdm.auto import tqdm
+
+                self._bar = tqdm(total=total, desc=desc, unit="rec")
+            except ImportError:
+                logger.warning(
+                    "progress=True but tqdm is not installed; install it with "
+                    "'pip install settfex[progress]'. Falling back to log lines."
+                )
+                self._log_fallback = True
+
+    def update(self, n: int) -> None:
+        """Advance progress by ``n`` and fan out to the bar / callback / log fallback."""
+        if n <= 0:
+            return
+        self._done = min(self._done + n, self._total) if self._total else self._done + n
+        if self._bar is not None:
+            self._bar.update(n)
+        if self._callback is not None:
+            self._callback(self._done, self._total)
+        if self._log_fallback and self._total:
+            pct = self._done * 100 // self._total
+            if pct >= self._last_logged_pct + 10:
+                self._last_logged_pct = pct - (pct % 10)
+                logger.info(f"{self._desc}: {self._done}/{self._total} ({pct}%)")
+
+    def close(self) -> None:
+        """Close the underlying bar, if any."""
+        if self._bar is not None:
+            self._bar.close()
+
+
 class FilterOption(BaseModel):
     """A single filter option from ``/investor/filter/{name}``.
 
@@ -497,81 +555,119 @@ class EarningsCallService:
         industries_id: str | None = None,
         composition_id: int | None = None,
         start: int = 1,
-        page_size: int = 50,
+        page_size: int = 200,
         language: str = "en",
         enrich: bool = False,
         max_records: int | None = None,
         max_pages: int | None = None,
-        throttle: float = 0.3,
+        max_concurrency: int = 5,
+        progress: bool = False,
+        progress_callback: Callable[[int, int], None] | None = None,
+        throttle: float = 0.0,
     ) -> EarningsCallResponse:
-        """Auto-paginate across pages, bounded and polite.
+        """Auto-paginate across all pages **concurrently**, bounded and polite.
 
-        Reuses a single fetcher across pages and sleeps ``throttle`` seconds between page
-        requests. Stops at the first short/empty page, once ``no_records`` is reached, or when
-        a cap is hit.
+        Fetches the first page to learn ``no_records``, then fetches the remaining pages
+        concurrently under ``max_concurrency`` and reassembles them in page order. This is far
+        faster than fetching pages one at a time. ``page_size`` is uncapped by the API, so a
+        larger value also means fewer requests.
 
         Args:
-            max_records: Stop once this many items have been accumulated (then truncate).
-            max_pages: Stop after this many pages.
-            throttle: Delay in seconds between page requests (0 disables).
+            page_size: Records per request (default 200).
+            max_records: Stop once this many items are collected (then truncate).
+            max_pages: Fetch at most this many pages.
+            max_concurrency: Max simultaneous page requests (politeness bound, default 5).
+            progress: Show a ``tqdm`` progress bar (needs ``pip install settfex[progress]``).
+            progress_callback: Optional ``(done, total)`` callback, fired as pages complete.
+            throttle: Optional per-request delay in seconds (default 0; concurrency bounds load).
             (Other args mirror :meth:`fetch_earnings_calls`.)
 
         Returns:
-            An :class:`EarningsCallResponse` with the accumulated items and the API's
+            An :class:`EarningsCallResponse` with all collected items (in order) and the API's
             ``no_records`` total.
 
         Raises:
-            ValueError: If ``max_records``/``max_pages`` are set but < 1, or other inputs are
-                invalid.
+            ValueError: If ``max_records``/``max_pages`` are set but < 1, ``max_concurrency`` < 1,
+                or other inputs are invalid.
         """
         language = normalize_language(language)
         if max_records is not None and max_records < 1:
             raise ValueError(f"max_records must be >= 1 when set, got {max_records}")
         if max_pages is not None and max_pages < 1:
             raise ValueError(f"max_pages must be >= 1 when set, got {max_pages}")
+        if max_concurrency < 1:
+            raise ValueError(f"max_concurrency must be >= 1, got {max_concurrency}")
 
-        items: list[EarningsCallItem] = []
-        no_records = 0
-        page = start
-        pages_fetched = 0
+        def build(page: int) -> dict[str, Any]:
+            return self._build_search_body(
+                type_id=type_id,
+                quarter_id=quarter_id,
+                keyword=keyword,
+                industries_id=industries_id,
+                composition_id=composition_id,
+                start=page,
+                page_size=page_size,
+            )
 
         async with AsyncDataFetcher(config=self.config) as fetcher:
-            while True:
-                body = self._build_search_body(
-                    type_id=type_id,
-                    quarter_id=quarter_id,
-                    keyword=keyword,
-                    industries_id=industries_id,
-                    composition_id=composition_id,
-                    start=page,
-                    page_size=page_size,
-                )
-                response = await self._search_page(fetcher, body, language)
-                no_records = response.no_records
-                items.extend(response.items)
-                pages_fetched += 1
+            # 1. The first page reveals the total, so the rest can fan out concurrently.
+            first = await self._search_page(fetcher, build(start), language)
+            no_records = first.no_records
+            target = no_records if max_records is None else min(no_records, max_records)
+            total_pages = (target + page_size - 1) // page_size if target > 0 else 1
+            if max_pages is not None:
+                total_pages = min(total_pages, max_pages)
 
-                if max_records is not None and len(items) >= max_records:
-                    break
-                if max_pages is not None and pages_fetched >= max_pages:
-                    break
-                if not response.items or len(response.items) < page_size:
-                    break
-                if len(items) >= no_records:
-                    break
+            reporter = _ProgressReporter(
+                total=target,
+                show_bar=progress,
+                callback=progress_callback,
+                desc="Fetching OPPDAY",
+            )
+            items: list[EarningsCallItem] = list(first.items)
+            reporter.update(len(first.items))
 
-                page += 1
-                if throttle > 0:
-                    await asyncio.sleep(throttle)
+            # 2. Fetch the remaining pages concurrently, bounded by a semaphore.
+            if total_pages > 1:
+                semaphore = asyncio.Semaphore(max_concurrency)
 
+                async def fetch_page(page: int) -> tuple[int, list[EarningsCallItem]]:
+                    async with semaphore:
+                        if throttle > 0:
+                            await asyncio.sleep(throttle)
+                        resp = await self._search_page(fetcher, build(page), language)
+                        return page, resp.items
+
+                tasks = [
+                    asyncio.create_task(fetch_page(p))
+                    for p in range(start + 1, start + total_pages)
+                ]
+                pages: dict[int, list[EarningsCallItem]] = {}
+                for coro in asyncio.as_completed(tasks):
+                    page_no, page_items = await coro
+                    pages[page_no] = page_items
+                    reporter.update(len(page_items))
+                for page_no in sorted(pages):
+                    items.extend(pages[page_no])
+
+            reporter.close()
+
+            # 3. Truncate to the record cap, then optionally enrich.
             if max_records is not None:
                 items = items[:max_records]
             if enrich:
-                await self._enrich_items(fetcher, items, language)
+                await self._enrich_items(
+                    fetcher,
+                    items,
+                    language,
+                    max_concurrency=max_concurrency,
+                    progress=progress,
+                    progress_callback=progress_callback,
+                )
 
         logger.info(
-            f"Fetched {len(items)} earnings-call item(s) across {pages_fetched} page(s) "
-            f"(no_records={no_records})"
+            f"Fetched {len(items)} earnings-call item(s) across {total_pages} page(s) "
+            f"(no_records={no_records}, concurrency={max_concurrency})"
         )
         return EarningsCallResponse(no_records=no_records, items=items)
 
@@ -622,17 +718,25 @@ class EarningsCallService:
         items: list[EarningsCallItem],
         language: str,
         *,
-        concurrency: int = 5,
+        max_concurrency: int = 5,
+        progress: bool = False,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> None:
         """Populate ``item.detail`` for each item via bounded-concurrent detail fetches.
 
         A failed detail fetch is logged and tolerated (that item keeps ``detail=None``); it
-        never fails the whole batch.
+        never fails the whole batch. Progress (bar/callback) advances once per item.
         """
         if not items:
             return
 
-        semaphore = asyncio.Semaphore(concurrency)
+        semaphore = asyncio.Semaphore(max_concurrency)
+        reporter = _ProgressReporter(
+            total=len(items),
+            show_bar=progress,
+            callback=progress_callback,
+            desc="Enriching OPPDAY",
+        )
 
         async def _attach(item: EarningsCallItem) -> None:
             async with semaphore:
@@ -642,8 +746,11 @@ class EarningsCallService:
                     logger.warning(
                         f"Failed to enrich earnings-call item id={item.id} ({item.symbol}): {exc}"
                     )
+                finally:
+                    reporter.update(1)
 
         await asyncio.gather(*(_attach(item) for item in items))
+        reporter.close()
 
     async def _fetch_filter(self, name: str, language: str = "en") -> list[FilterOption]:
         """Fetch a single filter endpoint and validate it into a list of options."""
@@ -779,3 +886,52 @@ async def get_earnings_call_detail(
     """
     service = EarningsCallService(config=config)
     return await service.fetch_earnings_call_detail(item_id, language=language)
+
+
+async def get_all_earnings_calls(
+    *,
+    type_id: int = 1,
+    quarter_id: int = 0,
+    keyword: str | None = None,
+    industries_id: str | None = None,
+    composition_id: int | None = None,
+    start: int = 1,
+    page_size: int = 200,
+    language: str = "en",
+    enrich: bool = False,
+    max_records: int | None = None,
+    max_pages: int | None = None,
+    max_concurrency: int = 5,
+    progress: bool = False,
+    progress_callback: Callable[[int, int], None] | None = None,
+    config: FetcherConfig | None = None,
+) -> EarningsCallResponse:
+    """Convenience: fetch the **entire** OPPDAY calendar, concurrently.
+
+    Mirrors :meth:`EarningsCallService.fetch_all_earnings_calls` as a one-liner. Pass
+    ``progress=True`` for a tqdm bar (``pip install "settfex[progress]"``), or a
+    ``progress_callback(done, total)`` for a dependency-free hook. Bound the crawl with
+    ``max_records`` / ``max_pages`` / ``max_concurrency``.
+
+    Example:
+        >>> from settfex.services.set import get_all_earnings_calls
+        >>> response = await get_all_earnings_calls(progress=True)
+        >>> df = response.to_dataframe()
+    """
+    service = EarningsCallService(config=config)
+    return await service.fetch_all_earnings_calls(
+        type_id=type_id,
+        quarter_id=quarter_id,
+        keyword=keyword,
+        industries_id=industries_id,
+        composition_id=composition_id,
+        start=start,
+        page_size=page_size,
+        language=language,
+        enrich=enrich,
+        max_records=max_records,
+        max_pages=max_pages,
+        max_concurrency=max_concurrency,
+        progress=progress,
+        progress_callback=progress_callback,
+    )

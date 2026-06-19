@@ -399,6 +399,11 @@ df = await get_earnings_calls_dataframe()
 
 # Search one company, or filter by quarter/type
 hann = await get_earnings_calls(keyword="HANN")
+
+# Grab the WHOLE archive fast — pages are fetched concurrently, with an optional progress bar
+# (pip install "settfex[progress]"):
+from settfex.services.set import get_all_earnings_calls
+everything = await get_all_earnings_calls(progress=True)   # ~9520 records in ~15s (~10x faster)
 ```
 
 **👉 [Learn more about the Earnings Call Service](docs/settfex/services/set/earnings_call.md)**

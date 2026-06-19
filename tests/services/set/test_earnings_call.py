@@ -7,7 +7,7 @@ captured in the opportunity-day HAR.
 import sys
 from datetime import date, datetime
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -17,6 +17,7 @@ from settfex.services.set.earnings_call import (
     EarningsCallResponse,
     EarningsCallService,
     FilterOption,
+    get_all_earnings_calls,
     get_earnings_call_detail,
     get_earnings_calls,
     get_earnings_calls_dataframe,
@@ -556,6 +557,111 @@ class TestDetailById:
     async def test_fetch_detail_invalid_language(self, mock_fetcher: Any) -> None:
         with pytest.raises(ValueError, match="language"):
             await EarningsCallService().fetch_earnings_call_detail(10647, language="xx")
+
+
+def _paged(no_records: int, per_page: int) -> Any:
+    """side_effect: return `per_page` items per page, ids encoded as start*100+i (order check)."""
+
+    def dispatch(url: str, *a: Any, **k: Any) -> Any:
+        start = k["json_body"]["start"]
+        return {
+            "no_records": no_records,
+            "items": [{**MOCK_ITEM, "id": start * 100 + i} for i in range(per_page)],
+        }
+
+    return dispatch
+
+
+class TestFetchAllConcurrency:
+    @pytest.mark.asyncio
+    async def test_concurrent_pagination_in_order(self, mock_fetcher: Any) -> None:
+        mock_fetcher.fetch_json.side_effect = _paged(no_records=6, per_page=2)
+        resp = await EarningsCallService().fetch_all_earnings_calls(page_size=2, max_concurrency=4)
+        assert resp.count == 6
+        # pages reassembled in order despite concurrent fetching
+        assert [it.id for it in resp.items] == [100, 101, 200, 201, 300, 301]
+        assert mock_fetcher.fetch_json.call_count == 3  # 1 first + 2 concurrent
+
+    @pytest.mark.asyncio
+    async def test_max_concurrency_respected(self, mock_fetcher: Any) -> None:
+        import asyncio
+
+        state = {"live": 0, "peak": 0}
+
+        async def dispatch(url: str, *a: Any, **k: Any) -> Any:
+            start = k["json_body"]["start"]
+            state["live"] += 1
+            state["peak"] = max(state["peak"], state["live"])
+            await asyncio.sleep(0.02)
+            state["live"] -= 1
+            return {
+                "no_records": 20,
+                "items": [{**MOCK_ITEM, "id": start * 100 + i} for i in range(2)],
+            }
+
+        mock_fetcher.fetch_json.side_effect = dispatch
+        await EarningsCallService().fetch_all_earnings_calls(page_size=2, max_concurrency=3)
+        assert state["peak"] <= 3
+
+    @pytest.mark.asyncio
+    async def test_invalid_max_concurrency(self, mock_fetcher: Any) -> None:
+        with pytest.raises(ValueError, match="max_concurrency"):
+            await EarningsCallService().fetch_all_earnings_calls(max_concurrency=0)
+
+    @pytest.mark.asyncio
+    async def test_progress_callback(self, mock_fetcher: Any) -> None:
+        mock_fetcher.fetch_json.side_effect = _paged(no_records=6, per_page=2)
+        seen: list[tuple[int, int]] = []
+        await EarningsCallService().fetch_all_earnings_calls(
+            page_size=2, progress_callback=lambda d, t: seen.append((d, t))
+        )
+        assert seen[-1] == (6, 6)
+        assert all(seen[i][0] <= seen[i + 1][0] for i in range(len(seen) - 1))
+
+    @pytest.mark.asyncio
+    async def test_progress_bar_uses_tqdm(self, mock_fetcher: Any) -> None:
+        mock_fetcher.fetch_json.side_effect = _paged(no_records=4, per_page=2)
+        bar = MagicMock()
+        with patch("tqdm.auto.tqdm", return_value=bar) as tqdm_ctor:
+            await EarningsCallService().fetch_all_earnings_calls(page_size=2, progress=True)
+        assert tqdm_ctor.called
+        assert bar.update.called
+        assert bar.close.called
+
+    @pytest.mark.asyncio
+    async def test_progress_without_tqdm_falls_back(
+        self, mock_fetcher: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock_fetcher.fetch_json.side_effect = _paged(no_records=4, per_page=2)
+        # Make `from tqdm.auto import tqdm` fail.
+        monkeypatch.setitem(sys.modules, "tqdm", None)
+        monkeypatch.setitem(sys.modules, "tqdm.auto", None)
+        resp = await EarningsCallService().fetch_all_earnings_calls(page_size=2, progress=True)
+        assert resp.count == 4  # still returns full data via the log fallback
+
+    @pytest.mark.asyncio
+    async def test_fetch_all_enrich_progress(self, mock_fetcher: Any) -> None:
+        def dispatch(url: str, *a: Any, **k: Any) -> Any:
+            if url.endswith("/search/archive"):
+                return {"no_records": 1, "items": [MOCK_ITEM]}
+            return MOCK_DETAIL
+
+        mock_fetcher.fetch_json.side_effect = dispatch
+        seen: list[tuple[int, int]] = []
+        resp = await EarningsCallService().fetch_all_earnings_calls(
+            page_size=2, enrich=True, progress_callback=lambda d, t: seen.append((d, t))
+        )
+        assert resp.items[0].detail is not None
+        assert (1, 1) in seen  # both phases reported
+
+
+class TestGetAllConvenience:
+    @pytest.mark.asyncio
+    async def test_get_all_earnings_calls(self, mock_fetcher: Any) -> None:
+        mock_fetcher.fetch_json.side_effect = _paged(no_records=4, per_page=2)
+        resp = await get_all_earnings_calls(page_size=2)
+        assert isinstance(resp, EarningsCallResponse)
+        assert resp.count == 4
 
 
 class TestConvenience:

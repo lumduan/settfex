@@ -105,19 +105,29 @@ response = await EarningsCallService().fetch_earnings_calls(
 )
 ```
 
-#### `fetch_all_earnings_calls(..., max_records=None, max_pages=None, throttle=0.3)`
+#### `fetch_all_earnings_calls(..., page_size=200, max_concurrency=5, progress=False, progress_callback=None, max_records=None, max_pages=None)`
 
-Auto-paginates, **bounded and polite** — reuses one fetcher, sleeps `throttle` seconds between
-pages, and stops at the first short page, once `no_records` is reached, or when a cap is hit.
+Auto-paginates the **whole** archive **concurrently**: fetches page 1 to learn the total, then
+fetches the remaining pages in parallel (bounded by `max_concurrency`, default 5) and reassembles
+items in order. Far faster than one page at a time — fetching all ~9520 records drops from
+**~150 s to ~15 s (~10× faster)** at the default concurrency, and more with a higher
+`max_concurrency`.
 
-> `page_size` is **not** capped by the API — a single request can return the entire archive
-> (verified at `page_size=9520`). `fetch_all` still paginates politely by default; prefer it,
-> or a modest `page_size`, over one huge request to keep memory and server load reasonable.
+- **Speed**: `page_size` is **not** capped by the API (a larger page = fewer requests); the
+  default is 200. `max_concurrency` bounds simultaneous load (politeness).
+- **Progress**: pass `progress=True` for a `tqdm` bar (`pip install "settfex[progress]"`), or a
+  `progress_callback(done, total)` for a dependency-free hook. Both cover the page phase and,
+  when `enrich=True`, the enrichment phase.
 
 ```python
 service = EarningsCallService()
-response = await service.fetch_all_earnings_calls(max_records=200)  # at most 200, polite
+response = await service.fetch_all_earnings_calls(progress=True)   # whole archive, with a bar
 df = response.to_dataframe()
+
+# bounded + a custom progress hook:
+response = await service.fetch_all_earnings_calls(
+    max_records=2000, max_concurrency=8, progress_callback=lambda done, total: None
+)
 ```
 
 #### `fetch_earnings_calls_raw(...) -> dict`
@@ -146,9 +156,12 @@ print(detail.symbol, detail.round_name, detail.youtube_url)
 - `get_earnings_calls(...) -> EarningsCallResponse`
 - `get_earnings_calls_dataframe(..., columns=None) -> pandas.DataFrame`
 - `get_earnings_call_detail(id, language="en") -> EarningsCallDetail`
+- `get_all_earnings_calls(..., progress=False, max_concurrency=5) -> EarningsCallResponse` — the
+  whole calendar in one concurrent call
 
-The list functions fetch a **single page** by default (mirroring `get_stock_list`). For the
-full calendar, use `fetch_all_earnings_calls()` then `to_dataframe()`.
+`get_earnings_calls(...)` fetches a **single page** by default (mirroring `get_stock_list`); use
+`get_all_earnings_calls(progress=True)` (or `fetch_all_earnings_calls`) for the full calendar,
+then `to_dataframe()`.
 
 ## Usage Examples
 
