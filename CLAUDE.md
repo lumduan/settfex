@@ -27,7 +27,7 @@ settfex/
 │                             #   session_cache.py, logging.py
 ├── tests/                     # Mirror of settfex/ with test_ prefix
 ├── docs/                      # Service docs, guides, solutions
-├── examples/                  # 13 Jupyter notebooks (11 SET + 2 TFEX)
+├── examples/                  # 15 Jupyter notebooks (13 SET + 2 TFEX)
 ├── scripts/                   # Verification scripts per service
 ├── .github/                   # CI and agent instructions
 ├── pyproject.toml             # uv-based config

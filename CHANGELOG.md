@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-06-21
+
+### Fixed
+
+- `get_latest_historical_trading`, `LatestHistoricalTrading`, and `LatestHistoricalTradingService`
+  are now importable from the top-level `settfex.services.set` (previously only from
+  `settfex.services.set.stock`) — the documented top-level import raised `ImportError` on 0.7.0.
+- The README "Latest Historical Trading" example used the non-existent fields `pe_ratio` / `pb_ratio`;
+  the model fields are `pe` / `pbv`.
+
+### Added
+
+- Documentation page and example notebook for the Latest Historical Trading service.
+
 ## [0.7.0] - 2026-06-21
 
 ### Added
