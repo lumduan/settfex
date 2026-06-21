@@ -17,9 +17,13 @@ manual rescue) never hard-fails on an already-published file.
 ## Cut a release
 
 1. Bump the version in **both** `pyproject.toml` and `settfex/__init__.py` (keep them in sync).
-2. Add a `## [X.Y.Z] - YYYY-MM-DD` section to `CHANGELOG.md`.
-3. Commit, open a PR, and merge to `main`.
-4. From an up-to-date `main`, tag and push:
+2. Run `uv lock` so `uv.lock` records the new version (it pins the workspace `settfex` entry),
+   and commit the updated lockfile. **Don't skip this** — the CI gate runs
+   `uv sync --group dev --frozen`, which fails if `uv.lock` is out of sync with the bumped
+   `pyproject.toml`.
+3. Add a `## [X.Y.Z] - YYYY-MM-DD` section to `CHANGELOG.md`.
+4. Commit, open a PR, and merge to `main`.
+5. From an up-to-date `main`, tag and push:
 
    ```bash
    git checkout main && git pull --ff-only
