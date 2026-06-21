@@ -55,6 +55,8 @@ from settfex.services.set.stock import (
     FinancialStatement,
     IncomeStatement,
     Intermission,
+    LatestHistoricalTrading,
+    LatestHistoricalTradingService,
     NVDRHolderData,
     NVDRHolderService,
     PricePerformanceData,
@@ -77,6 +79,7 @@ from settfex.services.set.stock import (
     get_corporate_actions,
     get_highlight_data,
     get_income_statement,
+    get_latest_historical_trading,
     get_latest_price,
     get_nvdr_holder_data,
     get_price_performance,
@@ -162,6 +165,10 @@ __all__ = [
     "Quotation",
     "get_chart_quotation",
     "get_latest_price",
+    # Latest Historical Trading Service
+    "LatestHistoricalTradingService",
+    "LatestHistoricalTrading",
+    "get_latest_historical_trading",
     # Financial Service
     "FinancialService",
     "FinancialStatement",
