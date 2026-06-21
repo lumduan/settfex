@@ -11,6 +11,7 @@ from settfex.services.set.stock.chart_quotation import (
     Intermission,
     Quotation,
     get_chart_quotation,
+    get_latest_price,
 )
 from settfex.services.set.stock.corporate_action import (
     CorporateAction,
@@ -84,6 +85,7 @@ __all__ = [
     "Intermission",
     "Quotation",
     "get_chart_quotation",
+    "get_latest_price",
     # Utilities
     "normalize_symbol",
     "normalize_language",

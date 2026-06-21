@@ -100,9 +100,9 @@ data = await get_highlight_data("CPALL")   # or convenience function
 all_stocks = await get_stock_list()        # no cookie params needed
 ```
 
-## Services Inventory (13 total)
+## Services Inventory (16 total)
 
-### SET Services (12)
+### SET Services (14)
 
 | # | Service | Module | Endpoint Pattern | Key Data |
 |---|---|---|---|---|
@@ -118,6 +118,8 @@ all_stocks = await get_stock_list()        # no cookie params needed
 | 10 | Price Performance | `stock/price_performance.py` | `/api/set/factsheet/{sym}/price-performance` | Stock vs sector vs market (5D/1M/3M/6M/YTD), P/E, P/B |
 | 11 | Financial Statements | `stock/financial/financial.py` | `/api/set/factsheet/{sym}/financialstatement` | Balance sheet, income, cash flow (multi-period, en/th) |
 | 12 | Earnings Call (Opportunity Day) | `earnings_call.py` | `POST api.lcp.setgroup.or.th/.../investor/search/archive` (+ `GET /investor/vdo/{id}`, `/investor/filter/*`) | OPPDAY calendar (symbol, company, date, clip duration, YouTube URL); concurrent `fetch_all`/`get_all_earnings_calls` (+ optional `tqdm` progress); detail-by-id (`get_earnings_call_detail`); 7 filter helpers; pandas `to_dataframe()`; **Thai YouTube transcripts** for AI (`fetch_transcripts` / `get_earnings_call_transcript` / `fetch_youtube_transcript`, `EarningsCallItem.transcript`); stateless host (no SessionManager); optional extras: `dataframe` (pandas) / `progress` (tqdm) / `transcript` (youtube-transcript-api) |
+| 13 | Chart Quotation / Latest Price | `stock/chart_quotation.py` | `/api/set/stock/{sym}/chart-quotation` | Intraday/historical per-minute series (price/volume/value/%chg, intermissions, prior close); **latest *traded* price relative to now** — `get_latest_price()` (→ `Quotation`), model `get_latest_quotation()`/`get_latest_price()` (→ float, `prior` fallback); skips null future/lunch/no-trade buckets; Asia/Bangkok tz-safe `as_of`; hyphen-safe symbols (`JAS-W4`) |
+| 14 | Latest Historical Trading | `stock/latest_historical_trading.py` | `/api/set/stock/{sym}/latest-historical-trading` | Latest trading-day summary: OHLCV, change/%change, and valuation metrics |
 
 ### TFEX Services (2)
 
@@ -133,7 +135,8 @@ stock = Stock("CPALL")
 highlight = await stock.get_highlight_data()
 profile = await stock.get_profile()
 financials = await stock.get_balance_sheet()
-# ... all 11 services accessible
+latest = await stock.get_latest_price()    # latest traded price vs now
+# ... all stock services accessible
 ```
 
 ## API Design Principles
