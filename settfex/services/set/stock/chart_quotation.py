@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
@@ -12,6 +13,22 @@ from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.parsing import decode_json, validate_or_raise
 
 PeriodType = Literal["1D", "5D", "1M", "3M", "6M", "1Y", "3Y", "5Y", "MAX"]
+
+# SET trades in Asia/Bangkok; quotation timestamps are tz-aware (+07:00) while ``as_of`` inputs may
+# be naive or in any zone. Normalizing both sides to Bangkok keeps comparisons safe (never
+# naive-vs-aware) and correct across timezones.
+BANGKOK_TZ = ZoneInfo("Asia/Bangkok")
+
+
+def _to_bangkok(value: datetime) -> datetime:
+    """Return ``value`` as an aware Asia/Bangkok datetime.
+
+    A naive datetime is assumed to already be Bangkok local time; an aware datetime is converted.
+    This guarantees safe comparisons (we never compare a naive and an aware datetime directly).
+    """
+    if value.tzinfo is None:
+        return value.replace(tzinfo=BANGKOK_TZ)
+    return value.astimezone(BANGKOK_TZ)
 
 
 class Intermission(BaseModel):
@@ -55,6 +72,61 @@ class ChartQuotation(BaseModel):
     )
 
     model_config = ConfigDict(populate_by_name=True)
+
+    def get_latest_quotation(self, as_of: datetime | None = None) -> Quotation | None:
+        """Return the most recent quotation that has actual trade data at or before ``as_of``.
+
+        The API pre-populates the whole trading session with one bucket per minute; minutes that
+        are in the future, fall in the lunch intermission, or simply had no trade carry
+        ``volume=None`` (the ``price`` may still be carried forward). This returns the quotation
+        with the **greatest** timestamp that is (a) at or before ``as_of`` **and** (b) has a
+        non-null ``volume`` — i.e. the latest minute that actually traded.
+
+        Args:
+            as_of: Reference instant. A naive value is treated as Asia/Bangkok local time; an
+                aware value is converted to Bangkok. Defaults to "now" in Asia/Bangkok.
+
+        Returns:
+            The latest traded ``Quotation``, or ``None`` if nothing has traded by ``as_of``
+            (e.g. before the market opens, or an all-null/empty series).
+
+        Example:
+            >>> data = await get_chart_quotation("CPALL", period="1D")
+            >>> q = data.get_latest_quotation()
+            >>> if q:
+            ...     print(f"{q.local_datetime}: {q.price} (vol {q.volume})")
+        """
+        cutoff = _to_bangkok(as_of) if as_of is not None else datetime.now(BANGKOK_TZ)
+
+        latest: Quotation | None = None
+        latest_dt: datetime | None = None
+        for quotation in self.quotations:
+            if quotation.volume is None:
+                continue
+            quote_dt = _to_bangkok(quotation.quote_datetime)
+            if quote_dt <= cutoff and (latest_dt is None or quote_dt > latest_dt):
+                latest = quotation
+                latest_dt = quote_dt
+        return latest
+
+    def get_latest_price(self, as_of: datetime | None = None) -> float | None:
+        """Return the latest traded price at or before ``as_of``, falling back to ``prior``.
+
+        Convenience scalar accessor over :meth:`get_latest_quotation`. When nothing has traded yet
+        (pre-open, or an all-null/empty series), this falls back to ``prior`` (the previous
+        session's close), or ``None`` when ``prior`` is also unavailable.
+
+        Args:
+            as_of: Reference instant (see :meth:`get_latest_quotation`). Defaults to now in
+                Asia/Bangkok.
+
+        Returns:
+            The latest traded ``price``, or ``prior`` as a fallback, or ``None``.
+        """
+        latest = self.get_latest_quotation(as_of)
+        if latest is not None and latest.price is not None:
+            return latest.price
+        return self.prior
 
 
 class ChartQuotationService:
@@ -212,3 +284,39 @@ async def get_chart_quotation(
     return await service.fetch_chart_quotation(
         symbol=symbol, period=period, accumulated=accumulated
     )
+
+
+async def get_latest_price(
+    symbol: str,
+    period: PeriodType = "1D",
+    accumulated: bool = False,
+    as_of: datetime | None = None,
+    config: FetcherConfig | None = None,
+) -> Quotation | None:
+    """Fetch chart quotation and return the latest *traded* quotation relative to ``as_of``.
+
+    One-line access to the most recent real price point — the quotation with the greatest
+    timestamp at or before ``as_of`` that has a non-null ``volume``. The pre-populated future and
+    no-trade buckets are excluded. Returns ``None`` when nothing has traded yet.
+
+    Args:
+        symbol: Stock symbol (e.g., "CPALL", "PTT", "JAS-W4"). Hyphens are preserved.
+        period: Time period — one of '1D','5D','1M','3M','6M','1Y','3Y','5Y','MAX' (default '1D').
+        accumulated: Whether to return accumulated volume/value (default: False).
+        as_of: Reference instant. A naive value is treated as Asia/Bangkok local time; an aware
+            value is converted. Defaults to "now" in Asia/Bangkok.
+        config: Optional fetcher configuration.
+
+    Returns:
+        The latest traded ``Quotation``, or ``None`` if nothing has traded by ``as_of``.
+
+    Example:
+        >>> from settfex.services.set.stock import get_latest_price
+        >>> q = await get_latest_price("CPALL")
+        >>> if q:
+        ...     print(f"{q.local_datetime}: {q.price} (vol {q.volume})")
+    """
+    data = await get_chart_quotation(
+        symbol=symbol, period=period, accumulated=accumulated, config=config
+    )
+    return data.get_latest_quotation(as_of)

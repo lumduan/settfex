@@ -54,6 +54,8 @@ All examples include beginner explanations, professional trading use cases, and 
 9. **[Trading Statistics](examples/set/09_trading_statistics.ipynb)** - Multi-period performance and volatility
 10. **[Price Performance](examples/set/10_price_performance.ipynb)** - Sector comparison and alpha calculation
 11. **[Financial Statements](examples/set/11_financial.ipynb)** - Balance sheet, income, cash flow analysis
+12. **[Earnings Call (Opportunity Day)](examples/set/12_earnings_call.ipynb)** - OPPDAY calendar, YouTube links, Thai transcripts for AI
+13. **[Chart Quotation & Latest Price](examples/set/13_chart_quotation.ipynb)** - Intraday series and the latest traded price relative to now
 
 ### 📈 TFEX Examples (Thailand Futures Exchange)
 
@@ -81,7 +83,7 @@ Want to dig deeper? Check out our detailed guides:
 - **[Trading Statistics Service](docs/settfex/services/set/trading_stat.md)** - Historical trading performance and metrics
 - **[Price Performance Service](docs/settfex/services/set/price_performance.md)** - Stock, sector, and market price performance comparison
 - **[Financial Service](docs/settfex/services/set/financial.md)** - Balance sheet, income statement, and cash flow data
-- **[Chart Quotation Service](docs/settfex/services/set/chart_quotation.md)** - Intraday and historical price chart data
+- **[Chart Quotation Service](docs/settfex/services/set/chart_quotation.md)** - Intraday/historical price chart series, plus the latest *traded* price relative to now
 - **[Latest Historical Trading Service](docs/settfex/services/set/latest_historical_trading.md)** - Latest trading day summary with OHLCV and valuation metrics
 - **[Earnings Call (Opportunity Day) Service](docs/settfex/services/set/earnings_call.md)** - OPPDAY earnings-call calendar with YouTube links, as models or a DataFrame
 
@@ -307,6 +309,27 @@ print(f"Market ({data.market.symbol}): {data.market.ytd_percent_change:+.2f}%")
 ```
 
 **👉 [Learn more about Price Performance](docs/settfex/services/set/price_performance.md)**
+
+---
+
+#### ⏱️ Get the Latest Traded Price (Intraday)
+
+Fetch the intraday chart-quotation series, or jump straight to the latest *traded* price relative to now (the null future/lunch/no-trade buckets are excluded automatically):
+
+```python
+from settfex.services.set import get_latest_price, get_chart_quotation
+
+# The latest TRADED quotation right now (or None if nothing has traded yet)
+quote = await get_latest_price("CPALL")
+if quote:
+    print(f"{quote.local_datetime}: {quote.price} (vol {quote.volume:,.0f})")
+
+# Or work with the full series; the model also exposes a prior-fallback scalar
+data = await get_chart_quotation("CPALL", period="1D")
+print(f"Prior close: {data.prior}, latest price: {data.get_latest_price()}")
+```
+
+**👉 [Learn more about Chart Quotation & Latest Price](docs/settfex/services/set/chart_quotation.md)**
 
 ---
 

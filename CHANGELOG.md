@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-21
+
+### Added
+
+- **Latest traded price for SET stocks** — on top of the existing chart-quotation service, a
+  first-class way to get the most recent *traded* price relative to now. The SET intraday feed
+  pre-populates the rest of the session with null/no-trade buckets; these are excluded
+  automatically.
+  - `get_latest_price(symbol, period="1D", accumulated=False, as_of=None) -> Quotation | None` —
+    top-level convenience returning the latest traded quotation (time, price, volume, change), or
+    `None` if nothing has traded yet.
+  - `ChartQuotation.get_latest_quotation(as_of=None) -> Quotation | None` and
+    `ChartQuotation.get_latest_price(as_of=None) -> float | None` (scalar, falls back to `prior`) —
+    pure, timezone-safe selection in Asia/Bangkok; `as_of` defaults to now (naive values are
+    treated as Bangkok local time).
+  - `Stock.get_latest_price(period="1D", accumulated=False, as_of=None)` on the unified Stock class.
+  - Hyphenated warrant symbols (e.g. `JAS-W4`) are preserved.
+  - The chart-quotation models, service, and `get_chart_quotation` are now also exported from
+    `settfex.services.set` (previously only from `settfex.services.set.stock`).
+
 ## [0.6.0] - 2026-06-19
 
 ### Added

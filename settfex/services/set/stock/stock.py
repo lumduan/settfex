@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Literal
 
 from loguru import logger
@@ -9,6 +10,7 @@ from loguru import logger
 from settfex.services.set.stock.chart_quotation import (
     ChartQuotation,
     ChartQuotationService,
+    Quotation,
 )
 from settfex.services.set.stock.highlight_data import (
     StockHighlightData,
@@ -146,6 +148,38 @@ class Stock:
         return await self.chart_quotation_service.fetch_chart_quotation(
             symbol=self.symbol, period=period, accumulated=accumulated
         )
+
+    async def get_latest_price(
+        self,
+        period: PeriodType = "1D",
+        accumulated: bool = False,
+        as_of: datetime | None = None,
+    ) -> Quotation | None:
+        """
+        Fetch the latest *traded* quotation for this stock relative to ``as_of``.
+
+        Returns the most recent quotation with a non-null volume at or before ``as_of`` (default:
+        now in Asia/Bangkok), excluding the pre-populated future/no-trade buckets. Returns None if
+        nothing has traded yet.
+
+        Args:
+            period: Time period — one of '1D','5D','1M','3M','6M','1Y','3Y','5Y','MAX'
+            accumulated: Whether to return accumulated volume/value (default: False)
+            as_of: Reference instant; naive values are treated as Asia/Bangkok local time.
+                Defaults to now in Asia/Bangkok.
+
+        Returns:
+            The latest traded Quotation, or None if nothing has traded by ``as_of``
+
+        Example:
+            >>> stock = Stock("CPALL")
+            >>> q = await stock.get_latest_price()
+            >>> if q:
+            ...     print(f"{q.local_datetime}: {q.price} (vol {q.volume})")
+        """
+        logger.debug(f"Fetching latest price for {self.symbol} period={period}")
+        data = await self.get_chart_quotation(period=period, accumulated=accumulated)
+        return data.get_latest_quotation(as_of)
 
     @property
     def latest_historical_trading_service(self) -> LatestHistoricalTradingService:
