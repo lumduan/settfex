@@ -56,6 +56,7 @@ All examples include beginner explanations, professional trading use cases, and 
 11. **[Financial Statements](examples/set/11_financial.ipynb)** - Balance sheet, income, cash flow analysis
 12. **[Earnings Call (Opportunity Day)](examples/set/12_earnings_call.ipynb)** - OPPDAY calendar, YouTube links, Thai transcripts for AI
 13. **[Chart Quotation & Latest Price](examples/set/13_chart_quotation.ipynb)** - Intraday series and the latest traded price relative to now
+14. **[Latest Historical Trading](examples/set/14_latest_historical_trading.ipynb)** - Latest trading-day summary: OHLCV, P/E, P/BV, market cap
 
 ### 📈 TFEX Examples (Thailand Futures Exchange)
 
@@ -395,7 +396,7 @@ trading = await get_latest_historical_trading("CPALL")
 
 print(f"Date: {trading.date}")
 print(f"Close: {trading.close:.2f} THB ({trading.percent_change:+.2f}%)")
-print(f"P/E: {trading.pe_ratio}, P/BV: {trading.pb_ratio}")
+print(f"P/E: {trading.pe}, P/BV: {trading.pbv}")
 print(f"Market Cap: {trading.market_cap:,.0f} THB")
 ```
 
