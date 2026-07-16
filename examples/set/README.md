@@ -226,6 +226,69 @@ Complete, beginner-friendly tutorials for all SET (Stock Exchange of Thailand) s
 - DCF modeling
 - Trend analysis
 
+---
+
+### 12. Earnings Call / Opportunity Day (`12_earnings_call.ipynb`)
+**What it does**: OPPDAY earnings-call calendar with YouTube links and Thai transcripts
+
+**Learn how to**:
+- Search the earnings-call archive with filters
+- Fetch clip details and YouTube URLs
+- Pull Thai transcripts for AI workflows
+- Export the calendar to pandas
+
+**Use cases**:
+- Earnings-season monitoring
+- AI summarization of management calls
+- Event-driven research
+
+---
+
+### 13. Chart Quotation & Latest Price (`13_chart_quotation.ipynb`)
+**What it does**: Intraday/historical per-minute series and the latest *traded* price vs now
+
+**Learn how to**:
+- Fetch 1D–MAX chart series
+- Get the latest traded price (skipping no-trade buckets)
+- Handle Asia/Bangkok timestamps safely
+
+**Use cases**:
+- Live price snapshots
+- Intraday analytics
+- Data capture pipelines
+
+---
+
+### 14. Latest Historical Trading (`14_latest_historical_trading.ipynb`)
+**What it does**: Latest completed trading-day summary (OHLCV + valuation metrics)
+
+**Learn how to**:
+- Fetch the last trading-day OHLCV
+- Read P/E, P/BV, dividend yield, market cap
+
+**Use cases**:
+- End-of-day snapshots
+- Valuation screening
+
+---
+
+### 15. Market Index Service (`15_market_index.ipynb`)
+**What it does**: Market index directory, quotations, constituents, and index membership per stock
+
+**Learn how to**:
+- List all 55 indices (headline / industry / sector levels)
+- Fetch index quotations (last, change, OHLC, volume, value, market status)
+- Fetch constituents with full quote rows (bid/offer, market cap, P/E)
+- Drill down SET industries into sectors; handle mai's `AGRO-m` query symbols
+- Get the latest traded index value intraday
+- Use the enriched stock list (`indices` per stock, `filter_by_index`)
+
+**Use cases**:
+- Index-tracking portfolios and SET50/SET100 universes
+- ESG (SETESG) and dividend (SETHD) strategy screens
+- Breadth/heatmap dashboards from constituent quotes
+- Index membership monitoring for rebalance events
+
 ## Learning Path
 
 ### Beginners

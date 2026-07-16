@@ -1,5 +1,6 @@
 """SET Stock List Service - Fetch list of stock details from SET API."""
 
+import asyncio
 from typing import Any
 
 from loguru import logger
@@ -27,6 +28,13 @@ class StockSymbol(BaseModel):
         alias="isForeignListing", description="Is foreign listing flag"
     )
     remark: str = Field(default="", description="Additional remarks")
+    indices: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Market index memberships (e.g. ['SET50', 'SET100', 'SETESG']); populated when "
+            "fetching with include_indices=True (the default), empty otherwise"
+        ),
+    )
 
     model_config = ConfigDict(
         populate_by_name=True,  # Allow both field name and alias
@@ -74,6 +82,22 @@ class StockListResponse(BaseModel):
         """
         return [s for s in self.security_symbols if s.industry.upper() == industry.upper()]
 
+    def filter_by_index(self, index: str) -> list[StockSymbol]:
+        """
+        Filter securities by market index membership.
+
+        Requires the list to have been fetched with ``include_indices=True`` (the default);
+        otherwise every ``indices`` list is empty and this returns nothing.
+
+        Args:
+            index: Index symbol (e.g., 'SET50', 'SETESG'); case-insensitive ('sset' works)
+
+        Returns:
+            List of stock symbols that are members of the specified index
+        """
+        target = index.strip().upper()
+        return [s for s in self.security_symbols if any(ix.upper() == target for ix in s.indices)]
+
     def get_symbol(self, symbol: str) -> StockSymbol | None:
         """
         Get a specific stock symbol.
@@ -114,9 +138,19 @@ class StockListService:
         self.base_url = SET_BASE_URL
         logger.info(f"StockListService initialized with base_url={self.base_url}")
 
-    async def fetch_stock_list(self) -> StockListResponse:
+    async def fetch_stock_list(self, include_indices: bool = True) -> StockListResponse:
         """
         Fetch the complete list of stocks from SET API.
+
+        By default each stock is enriched with its market index memberships (e.g. CPALL ->
+        ['SET50', 'SET100', 'SETESG']) by fetching the constituents of every headline
+        sub-index concurrently (~10 extra requests). Pass ``include_indices=False`` for the
+        previous single-request behavior. Enrichment failures are logged and degrade to
+        empty ``indices`` lists — they never fail the stock list itself.
+
+        Args:
+            include_indices: Whether to populate ``StockSymbol.indices`` with index
+                memberships (default: True)
 
         Returns:
             StockListResponse containing all stock symbols and details
@@ -129,6 +163,8 @@ class StockListService:
             >>> response = await service.fetch_stock_list()
             >>> print(f"Total stocks: {response.count}")
             >>> print(f"SET stocks: {len(response.filter_by_market('SET'))}")
+            >>> cpall = response.get_symbol("CPALL")
+            >>> print(f"CPALL indices: {cpall.indices}")
         """
         url = f"{self.base_url}{SET_STOCK_LIST_ENDPOINT}"
 
@@ -146,7 +182,61 @@ class StockListService:
 
             logger.info(f"Successfully fetched {response.count} stock symbols from SET API")
 
-            return response
+        if include_indices:
+            try:
+                membership = await self._fetch_index_memberships()
+            except Exception as exc:
+                logger.warning(
+                    f"Index membership enrichment failed; "
+                    f"returning stock list without indices: {exc}"
+                )
+                membership = {}
+            for stock in response.security_symbols:
+                stock.indices = membership.get(stock.symbol.upper(), [])
+
+        return response
+
+    async def _fetch_index_memberships(self) -> dict[str, list[str]]:
+        """
+        Build a stock-symbol -> index-memberships map from the sub-index compositions.
+
+        Fetches the index directory, keeps the headline sub-indices (level 'INDEX' minus the
+        whole markets 'SET' and 'mai', whose membership is already ``StockSymbol.market``),
+        and fetches their compositions concurrently. A failed composition is logged and
+        skipped so a single unavailable index never poisons the whole map.
+
+        Returns:
+            Mapping of uppercased stock symbol to canonical index symbols, in the index
+            directory's order (e.g. {'CPALL': ['SET50', 'SET100', 'SETESG']})
+        """
+        # Lazy imports: keep the stock list module free of import-time coupling to the
+        # index sub-package (and give tests a clean patch seam).
+        from settfex.services.set.index.composition import IndexCompositionService
+        from settfex.services.set.index.list import IndexListService
+
+        index_list = await IndexListService(config=self.config).fetch_index_list()
+        targets = [
+            ix for ix in index_list.market_indices if ix.symbol.upper() not in {"SET", "MAI"}
+        ]
+        logger.info(
+            f"Enriching stock list with index memberships from {len(targets)} indices: "
+            f"{[ix.symbol for ix in targets]}"
+        )
+
+        service = IndexCompositionService(config=self.config)
+        results = await asyncio.gather(
+            *(service.fetch_composition(ix.query_symbol) for ix in targets),
+            return_exceptions=True,
+        )
+
+        membership: dict[str, list[str]] = {}
+        for ix, result in zip(targets, results, strict=True):
+            if isinstance(result, BaseException):
+                logger.warning(f"Skipping index '{ix.symbol}' in membership enrichment: {result}")
+                continue
+            for constituent in result.composition.stock_infos:
+                membership.setdefault(constituent.symbol.upper(), []).append(ix.symbol)
+        return membership
 
     async def fetch_stock_list_raw(self) -> dict[str, Any]:
         """
@@ -182,12 +272,20 @@ class StockListService:
 
 
 # Convenience function for quick access
-async def get_stock_list(config: FetcherConfig | None = None) -> StockListResponse:
+async def get_stock_list(
+    config: FetcherConfig | None = None, include_indices: bool = True
+) -> StockListResponse:
     """
     Convenience function to fetch stock list.
 
+    By default each stock is enriched with its market index memberships (~10 extra
+    concurrent requests); pass ``include_indices=False`` for the single-request behavior.
+    Enrichment failures degrade to empty ``indices`` lists — they never raise.
+
     Args:
         config: Optional fetcher configuration
+        include_indices: Whether to populate ``StockSymbol.indices`` with index
+            memberships (default: True)
 
     Returns:
         StockListResponse with all stock symbols
@@ -196,8 +294,8 @@ async def get_stock_list(config: FetcherConfig | None = None) -> StockListRespon
         >>> from settfex.services.set import get_stock_list
         >>> # Uses SessionManager for automatic cookie handling
         >>> response = await get_stock_list()
-        >>> for stock in response.security_symbols[:5]:
-        ...     print(f"{stock.symbol}: {stock.name_en}")
+        >>> for stock in response.filter_by_index("SET50")[:5]:
+        ...     print(f"{stock.symbol}: {stock.indices}")
     """
     service = StockListService(config=config)
-    return await service.fetch_stock_list()
+    return await service.fetch_stock_list(include_indices=include_indices)
