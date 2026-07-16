@@ -37,7 +37,7 @@ This includes pandas, matplotlib, and jupyter notebook support.
 - [Stock List](examples/set/01_stock_list.ipynb) → [Highlight Data](examples/set/02_highlight_data.ipynb) → [Price Performance](examples/set/10_price_performance.ipynb) → [Financial Statements](examples/set/11_financial.ipynb)
 
 **Professional Trading :** Master all features for institutional use:
-- All 11 SET notebooks + 2 TFEX notebooks (see below)
+- All 15 SET notebooks + TFEX notebooks (see below)
 
 ### 📊 SET Examples (Stock Exchange of Thailand)
 
@@ -57,6 +57,7 @@ All examples include beginner explanations, professional trading use cases, and 
 12. **[Earnings Call (Opportunity Day)](examples/set/12_earnings_call.ipynb)** - OPPDAY calendar, YouTube links, Thai transcripts for AI
 13. **[Chart Quotation & Latest Price](examples/set/13_chart_quotation.ipynb)** - Intraday series and the latest traded price relative to now
 14. **[Latest Historical Trading](examples/set/14_latest_historical_trading.ipynb)** - Latest trading-day summary: OHLCV, P/E, P/BV, market cap
+15. **[Market Index](examples/set/15_market_index.ipynb)** - Index directory, SET50/SETESG quotations, constituents, and index membership per stock
 
 ### 📈 TFEX Examples (Thailand Futures Exchange)
 
@@ -87,6 +88,7 @@ Want to dig deeper? Check out our detailed guides:
 - **[Chart Quotation Service](docs/settfex/services/set/chart_quotation.md)** - Intraday/historical price chart series, plus the latest *traded* price relative to now
 - **[Latest Historical Trading Service](docs/settfex/services/set/latest_historical_trading.md)** - Latest trading day summary with OHLCV and valuation metrics
 - **[Earnings Call (Opportunity Day) Service](docs/settfex/services/set/earnings_call.md)** - OPPDAY earnings-call calendar with YouTube links, as models or a DataFrame
+- **[Market Index Service](docs/settfex/services/set/index.md)** - Index directory (SET50/SET100/sSET/SETESG/...), quotations, constituents, and latest index value
 
 ### TFEX Services
 
@@ -115,9 +117,38 @@ print(f"Found {stock_list.count} stocks!")
 # Filter by market
 set_stocks = stock_list.filter_by_market("SET")
 mai_stocks = stock_list.filter_by_market("mai")
+
+# Index memberships are included by default
+print(stock_list.get_symbol("CPALL").indices)   # ['SET50', 'SET100', 'SETESG', ...]
+set50_members = stock_list.filter_by_index("SET50")
 ```
 
 **👉 [Learn more about Stock Lists](docs/settfex/services/set/list.md)**
+
+---
+
+#### 📈 Get Market Index Data
+
+Track SET50, SET100, sSET, SETESG, and every other index — quotes and constituents!
+
+```python
+from settfex import SetIndex
+from settfex.services.set import get_index_list, get_index_info_list
+
+# All indices with one call each
+indices = await get_index_list()                 # directory: 55 indices
+quotes = await get_index_info_list()             # live quotes for the 11 headline indices
+
+# Deep-dive one index
+index = SetIndex("SET50")
+info = await index.get_info()                    # last, change, OHLC, volume, value, status
+print(f"SET50: {info.last} ({info.percent_change:+.2f}%) [{info.market_status}]")
+
+constituents = await index.get_constituents()    # 50 stocks with full quote rows
+latest = await index.get_latest_price()          # latest traded index value (intraday)
+```
+
+**👉 [Learn more about Market Indices](docs/settfex/services/set/index.md)**
 
 ---
 

@@ -9,7 +9,9 @@ The Stock List Service provides async methods to fetch the complete list of stoc
 - **Async-First Design**: Built on `AsyncDataFetcher` for optimal performance
 - **Full Type Safety**: Complete Pydantic models with runtime validation
 - **Thai/Unicode Support**: Proper handling of Thai company names
-- **Filtering Capabilities**: Filter stocks by market, industry, or lookup by symbol
+- **Filtering Capabilities**: Filter stocks by market, industry, index membership, or lookup by symbol
+- **Index Memberships**: Each stock lists its headline sub-index memberships (SET50, SET100,
+  sSET, SETESG, ...) by default — see `include_indices`
 - **Browser Impersonation**: Bypasses bot detection using realistic browser headers
 - **Shared Configuration**: Reusable base URL for all SET services
 
@@ -113,6 +115,8 @@ Model representing individual stock information.
 - `is_iff: bool` - Infrastructure Fund Flag
 - `is_foreign_listing: bool` - Foreign listing flag
 - `remark: str` - Additional remarks (default: "")
+- `indices: list[str]` - Market index memberships (e.g. `['SET50', 'SET100', 'SETESG']`);
+  populated when fetching with `include_indices=True` (the default), empty otherwise
 
 **Example:**
 ```python
@@ -122,6 +126,7 @@ print(f"English: {stock.name_en}")
 print(f"Thai: {stock.name_th}")
 print(f"Market: {stock.market}")
 print(f"Industry: {stock.industry}")
+print(f"Indices: {stock.indices}")
 ```
 
 #### StockListResponse
@@ -166,6 +171,24 @@ Filter securities by industry.
 ```python
 bank_stocks = response.filter_by_industry("BANK")
 tech_stocks = response.filter_by_industry("TECH")
+```
+
+##### `filter_by_index(index: str) -> list[StockSymbol]`
+
+Filter securities by market index membership (case-insensitive). Requires the list to have
+been fetched with `include_indices=True` (the default); otherwise every `indices` list is
+empty and this returns nothing.
+
+**Parameters:**
+- `index: str` - Index symbol (e.g., "SET50", "SETESG", "sset")
+
+**Returns:**
+- `list[StockSymbol]` - Stocks that are members of the specified index
+
+**Example:**
+```python
+set50_stocks = response.filter_by_index("SET50")    # 50 stocks
+esg_stocks = response.filter_by_index("SETESG")
 ```
 
 ##### `get_symbol(symbol: str) -> StockSymbol | None`
@@ -213,9 +236,19 @@ config = FetcherConfig(timeout=60, max_retries=5)
 service = StockListService(config=config)
 ```
 
-##### `async fetch_stock_list() -> StockListResponse`
+##### `async fetch_stock_list(include_indices: bool = True) -> StockListResponse`
 
 Fetch the complete stock list with Pydantic validation.
+
+By default each stock is enriched with its market index memberships by fetching the nine
+headline sub-index compositions (SET50, SET50FF, SET100, SET100FF, sSET, SETCLMV, SETHD,
+SETESG, SETWB) **concurrently** — one index-directory request plus nine composition requests
+(~10 extra requests). Enrichment failures are logged and degrade to empty `indices` lists;
+they never fail the stock list call.
+
+**Parameters:**
+- `include_indices: bool` - Whether to populate `StockSymbol.indices` (default: `True`).
+  Pass `False` for the single-request behavior.
 
 **Returns:**
 - `StockListResponse` - Validated response with all stocks
@@ -228,6 +261,10 @@ Fetch the complete stock list with Pydantic validation.
 service = StockListService()
 response = await service.fetch_stock_list()
 print(f"Total: {response.count}")
+print(response.get_symbol("CPALL").indices)   # ['SET50', 'SET50FF', ...]
+
+# Single-request (no index memberships)
+response = await service.fetch_stock_list(include_indices=False)
 ```
 
 ##### `async fetch_stock_list_raw() -> dict[str, Any]`
@@ -251,12 +288,14 @@ print(raw_data.keys())
 
 ### Convenience Functions
 
-#### `get_stock_list(config: FetcherConfig | None = None) -> StockListResponse`
+#### `get_stock_list(config: FetcherConfig | None = None, include_indices: bool = True) -> StockListResponse`
 
 Quick one-line function to fetch stock list.
 
 **Parameters:**
 - `config: FetcherConfig | None` - Optional fetcher configuration
+- `include_indices: bool` - Whether to populate `StockSymbol.indices` with index memberships
+  (default: `True`; ~10 extra concurrent requests)
 
 **Returns:**
 - `StockListResponse` - Complete stock list
@@ -265,8 +304,12 @@ Quick one-line function to fetch stock list.
 ```python
 from settfex.services.set import get_stock_list
 
-# Quick access
+# Quick access (index memberships included by default)
 stock_list = await get_stock_list()
+print(stock_list.get_symbol("CPALL").indices)
+
+# Without index memberships (single request, fastest)
+stock_list = await get_stock_list(include_indices=False)
 
 # With custom config
 config = FetcherConfig(timeout=60)
@@ -582,8 +625,18 @@ The service uses shared constants defined in [settfex/services/set/constants.py]
 - `SET_BASE_URL`: `"https://www.set.or.th"`
 - `SET_STOCK_LIST_ENDPOINT`: `"/api/set/stock/list"`
 
+## Performance Note: Index Membership Enrichment
+
+`fetch_stock_list()` / `get_stock_list()` enrich each stock with its index memberships **by
+default**. This adds one index-directory request plus nine composition requests (all fetched
+concurrently) on top of the single stock-list request — typically well under a second with a
+warm session. If any of those requests fail, the affected index is skipped (or the whole
+enrichment is skipped) with a warning; the stock list itself is never affected. Pass
+`include_indices=False` when you only need the raw universe.
+
 ## See Also
 
+- [Market Index Service](index.md) - Index directory, quotations, and constituents
 - [AsyncDataFetcher](../../utils/data_fetcher.md) - Underlying HTTP client
 - [Logging Utilities](../../utils/logging.md) - Logging configuration
 - [FetcherConfig](../../utils/data_fetcher.md#fetcherconfig) - Configuration options

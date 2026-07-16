@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-16
+
+### Added
+
+- **Market Index services** — a new `settfex.services.set.index` sub-package covering the
+  SET index API (`/api/set/index/...`):
+  - **Index directory** — `get_index_list()` / `IndexListService`: all 55 indices across three
+    levels (headline `INDEX`: SET, SET50, SET50FF, SET100, SET100FF, sSET, SETCLMV, SETHD,
+    SETESG, SETWB, mai; `INDUSTRY`; `SECTOR`), with `filter_by_market()`/`filter_by_level()`
+    helpers and `get_index()` lookup that disambiguates the SET-vs-mai industry pairs
+    (e.g. `AGRO` vs `AGRO-m`).
+  - **Index quotation** — `get_index_info()` / `IndexInfoService`: the index page header data
+    (last, change, %change, open/high/low, volume, value, market status, tz-aware timestamp);
+    `get_index_info_list()` fetches all headline (or all industry/sector) quotes in one call.
+  - **Index composition** — `get_index_composition()` / `IndexCompositionService`: the
+    securities used to calculate an index, each with a full quote row (OHLC, change, best
+    bid/offer — string prices coerced to float —, volume, value, market cap, P/E, P/B,
+    dividend yield, 52-week range, NVDR net volume). SET industries return their sector
+    drilldown in `sub_indices`; `SET`/`mai` raise a helpful error (no composition endpoint).
+  - **Index chart quotation / latest value** — `get_index_chart_quotation()` and
+    `get_index_latest_price()` reuse the stock chart-quotation models and latest-traded scan.
+  - **`SetIndex` facade** — `SetIndex("SET50")` with `get_info()`, `get_composition()`,
+    `get_constituents()`, `get_chart_quotation()`, `get_latest_price()`, mirroring `Stock`.
+  - Index symbols preserve casing (`sSET`, `AGRO-m`); the API resolves paths case-insensitively.
+- **Stock list index membership** — `StockSymbol.indices` lists each stock's headline
+  sub-index memberships (e.g. CPALL → `['SET50', 'SET50FF', 'SET100', 'SET100FF', 'SETESG',
+  'SETWB']`), plus a case-insensitive `StockListResponse.filter_by_index()`.
+- Example notebook `examples/set/15_market_index.ipynb` and service documentation
+  `docs/settfex/services/set/index.md`.
+
+### Changed
+
+- `get_stock_list()` / `StockListService.fetch_stock_list()` now enrich each stock with its
+  index memberships **by default** (one index-directory request plus nine concurrent
+  composition requests, ~10 extra requests total). Pass `include_indices=False` for the
+  previous single-request behavior. Enrichment failures are logged and degrade to empty
+  `indices` lists — they never fail the stock list call. `fetch_stock_list_raw()` is unchanged.
+
 ## [0.7.1] - 2026-06-21
 
 ### Fixed

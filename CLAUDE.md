@@ -16,8 +16,11 @@ Published on PyPI, targeting Python 3.11+ with modern async patterns.
 settfex/
 ├── settfex/                    # Main package
 │   ├── services/              # Business logic and API integrations
-│   │   ├── set/              # SET-specific services (11 services)
+│   │   ├── set/              # SET-specific services
 │   │   │   ├── constants.py, list.py
+│   │   │   ├── index/        # Market index services: list, info (quotation),
+│   │   │   │                 #   composition (constituents), chart_quotation,
+│   │   │   │                 #   index.py (SetIndex facade), utils.py
 │   │   │   └── stock/        # Stock services: highlight_data, profile_stock,
 │   │   │                     #   profile_company, corporate_action, shareholder,
 │   │   │                     #   nvdr_holder, board_of_director, trading_stat,
@@ -100,13 +103,13 @@ data = await get_highlight_data("CPALL")   # or convenience function
 all_stocks = await get_stock_list()        # no cookie params needed
 ```
 
-## Services Inventory (16 total)
+## Services Inventory (17 total)
 
-### SET Services (14)
+### SET Services (15)
 
 | # | Service | Module | Endpoint Pattern | Key Data |
 |---|---|---|---|---|
-| 1 | Stock List | `list.py` | `/api/set/stock/list` | All SET/MAI stocks, filter by market/industry/symbol |
+| 1 | Stock List | `list.py` | `/api/set/stock/list` | All SET/MAI stocks, filter by market/industry/symbol; **index-membership enrichment** per stock (default on, `include_indices=False` to skip; `filter_by_index()`) |
 | 2 | Highlight Data | `stock/highlight_data.py` | `/api/set/stock/{sym}/highlight-data` | P/E, P/B, market cap, beta, dividends, 52-wk range, NVDR |
 | 3 | Stock Profile | `stock/profile_stock.py` | `/api/set/stock/{sym}/profile` | Listing details, IPO, sector, foreign limits, ISIN, warrants |
 | 4 | Company Profile | `stock/profile_company.py` | `/api/set/company/{sym}/profile` | ESG rating, CG score, auditors, management, capital structure |
@@ -120,6 +123,7 @@ all_stocks = await get_stock_list()        # no cookie params needed
 | 12 | Earnings Call (Opportunity Day) | `earnings_call.py` | `POST api.lcp.setgroup.or.th/.../investor/search/archive` (+ `GET /investor/vdo/{id}`, `/investor/filter/*`) | OPPDAY calendar (symbol, company, date, clip duration, YouTube URL); concurrent `fetch_all`/`get_all_earnings_calls` (+ optional `tqdm` progress); detail-by-id (`get_earnings_call_detail`); 7 filter helpers; pandas `to_dataframe()`; **Thai YouTube transcripts** for AI (`fetch_transcripts` / `get_earnings_call_transcript` / `fetch_youtube_transcript`, `EarningsCallItem.transcript`); stateless host (no SessionManager); optional extras: `dataframe` (pandas) / `progress` (tqdm) / `transcript` (youtube-transcript-api) |
 | 13 | Chart Quotation / Latest Price | `stock/chart_quotation.py` | `/api/set/stock/{sym}/chart-quotation` | Intraday/historical per-minute series (price/volume/value/%chg, intermissions, prior close); **latest *traded* price relative to now** — `get_latest_price()` (→ `Quotation`), model `get_latest_quotation()`/`get_latest_price()` (→ float, `prior` fallback); skips null future/lunch/no-trade buckets; Asia/Bangkok tz-safe `as_of`; hyphen-safe symbols (`JAS-W4`) |
 | 14 | Latest Historical Trading | `stock/latest_historical_trading.py` | `/api/set/stock/{sym}/latest-historical-trading` | Latest trading-day summary: OHLCV, change/%change, and valuation metrics |
+| 15 | Market Index | `index/{list,info,composition,chart_quotation,index}.py` | `/api/set/index/list`, `/api/set/index/info/list`, `/api/set/index/{sym}/info`, `/api/set/index/{sym}/composition`, `/api/set/index/{sym}/chart-quotation` | 55-index directory (INDEX/INDUSTRY/SECTOR levels; mai industries use `-m` query symbols); page-header quotes (last/chg/%chg/OHLC/vol/value/marketStatus/tz-aware timestamp); constituents w/ full quote rows incl. bid/offer (string prices coerced); `SetIndex` facade + `get_index_latest_price()` (reuses stock ChartQuotation); index symbols keep casing (`sSET`, `AGRO-m`); `SET`/`mai` have no composition (404 w/ helpful error). **Note:** index API uses `?language=`, not `?lang=` |
 
 ### TFEX Services (2)
 
@@ -137,6 +141,15 @@ profile = await stock.get_profile()
 financials = await stock.get_balance_sheet()
 latest = await stock.get_latest_price()    # latest traded price vs now
 # ... all stock services accessible
+```
+
+### Unified SetIndex Class (`index/index.py`)
+Same pattern for market indices:
+```python
+index = SetIndex("SET50")
+info = await index.get_info()                  # last/chg/OHLC/vol/value/status
+constituents = await index.get_constituents()  # 50 stocks w/ quote rows
+latest = await index.get_latest_price()        # latest traded index value vs now
 ```
 
 ## API Design Principles
@@ -175,6 +188,13 @@ latest = await stock.get_latest_price()    # latest traded price vs now
 - Never commit credentials or API keys to version control
 
 ## Recent Change History (Condensed)
+
+### 2026-07-16
+- **Market Index services (0.8.0)**: new `services/set/index/` sub-package — index directory
+  (55 indices, 3 levels), quotations (single + all-at-once), constituents with bid/offer
+  quote rows, chart-quotation/latest-value (reuses stock models), `SetIndex` facade
+- **Stock list enrichment**: `StockSymbol.indices` (headline sub-index memberships, default
+  on via 9 concurrent composition fetches, failure-tolerant) + `filter_by_index()`
 
 ### 2025-10-05
 - **Jupyter Examples**: 13 notebooks covering all services with beginner guides, professional use cases, and CSV/pandas export

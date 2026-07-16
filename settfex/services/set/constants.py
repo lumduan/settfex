@@ -20,6 +20,13 @@ SET_FINANCIAL_CASH_FLOW_ENDPOINT = "/api/set/factsheet/{symbol}/financialstateme
 SET_STOCK_CHART_QUOTATION_ENDPOINT = "/api/set/stock/{symbol}/chart-quotation"
 SET_STOCK_LATEST_HISTORICAL_TRADING_ENDPOINT = "/api/set/stock/{symbol}/latest-historical-trading"
 
+# Market index endpoints (note: the index API uses ?language=, not ?lang= like stock endpoints)
+SET_INDEX_LIST_ENDPOINT = "/api/set/index/list"
+SET_INDEX_INFO_LIST_ENDPOINT = "/api/set/index/info/list"
+SET_INDEX_INFO_ENDPOINT = "/api/set/index/{symbol}/info"
+SET_INDEX_COMPOSITION_ENDPOINT = "/api/set/index/{symbol}/composition"
+SET_INDEX_CHART_QUOTATION_ENDPOINT = "/api/set/index/{symbol}/chart-quotation"
+
 # Earnings Call (Opportunity Day) calendar API.
 # Hosted on a separate, stateless backend (no Incapsula/cookies, no auth) — the public page
 # is https://opportunity-day.setgroup.or.th/en/earnings-call.
