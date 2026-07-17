@@ -159,6 +159,7 @@ class TestModels:
         # The list's `period` is a duration; the detail's `period` is a clock-time range and
         # must surface separately (never overwriting the list duration).
         assert detail.meeting_time == "16:15 - 17:00"
+        assert detail.company_name_th is not None
         assert detail.company_name_th.startswith("HANN:")
         assert detail.video_link == "https://www.youtube.com/embed/qCw7HH77f0U?"
 
@@ -310,7 +311,7 @@ class TestFetchEarningsCalls:
     @pytest.mark.asyncio
     async def test_invalid_language_raises(self, mock_fetcher: Any) -> None:
         with pytest.raises(ValueError, match="language"):
-            await EarningsCallService().fetch_earnings_calls(language="xx")
+            await EarningsCallService().fetch_earnings_calls(language="xx")  # type: ignore[arg-type]  # intentional: runtime-permissive language
 
 
 class TestFetchRaw:
@@ -558,7 +559,7 @@ class TestDetailById:
     @pytest.mark.asyncio
     async def test_fetch_detail_invalid_language(self, mock_fetcher: Any) -> None:
         with pytest.raises(ValueError, match="language"):
-            await EarningsCallService().fetch_earnings_call_detail(10647, language="xx")
+            await EarningsCallService().fetch_earnings_call_detail(10647, language="xx")  # type: ignore[arg-type]  # intentional: runtime-permissive language
 
 
 def _paged(no_records: int, per_page: int) -> Any:

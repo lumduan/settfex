@@ -2,6 +2,7 @@
 
 import json
 from datetime import timedelta
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -19,7 +20,7 @@ from settfex.utils.data_fetcher import FetchResponse
 
 # Live /api/set/index/SET50/composition payload shape: one full constituent row (CPALL-like,
 # with the string bid/offer prices the API really sends), one minimal row with null ladders.
-SAMPLE_COMPOSITION: dict = {
+SAMPLE_COMPOSITION: dict[str, Any] = {
     "composition": {
         "symbol": "SET50",
         "nameEN": "SET50",
@@ -104,7 +105,7 @@ SAMPLE_COMPOSITION: dict = {
 }
 
 # SET industry indices (e.g. 'AGRO') return no stocks — just their sector quotes.
-SAMPLE_INDUSTRY_DRILLDOWN: dict = {
+SAMPLE_INDUSTRY_DRILLDOWN: dict[str, Any] = {
     "composition": {
         "symbol": "AGRO",
         "nameEN": "Agro & Food Industry",
@@ -119,7 +120,7 @@ SAMPLE_INDUSTRY_DRILLDOWN: dict = {
 }
 
 
-def _response(payload: dict, status_code: int = 200) -> FetchResponse:
+def _response(payload: dict[str, Any], status_code: int = 200) -> FetchResponse:
     """Build a FetchResponse whose body is ``payload`` serialized as JSON."""
     body = json.dumps(payload)
     return FetchResponse(

@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -17,7 +18,7 @@ from settfex.utils.data_fetcher import FetcherConfig, FetchResponse
 from settfex.utils.parsing import ResponseParseError
 
 # Sample test data based on actual API response
-MOCK_SHAREHOLDER_DATA = {
+MOCK_SHAREHOLDER_DATA: dict[str, Any] = {
     "symbol": "MINT",
     "bookCloseDate": "2025-09-02T00:00:00+07:00",
     "caType": "XD",
@@ -168,7 +169,7 @@ class TestShareholderService:
 
         # Test various language inputs
         for lang_input in ["th", "TH", "thai", "THAI"]:
-            result = await service.fetch_shareholder_data("MINT", lang=lang_input)
+            result = await service.fetch_shareholder_data("MINT", lang=lang_input)  # type: ignore[arg-type]  # intentional: runtime-permissive language
             assert result.symbol == "MINT"
 
     async def test_fetch_shareholder_data_empty_symbol(self):
@@ -183,7 +184,7 @@ class TestShareholderService:
         service = ShareholderService()
 
         with pytest.raises(ValueError, match="Invalid language"):
-            await service.fetch_shareholder_data("MINT", lang="invalid")
+            await service.fetch_shareholder_data("MINT", lang="invalid")  # type: ignore[arg-type]  # intentional: runtime-permissive language
 
     async def test_fetch_shareholder_data_http_error(self, mock_fetcher):
         """Test handling of HTTP error response."""
@@ -299,7 +300,7 @@ class TestShareholderModels:
     def test_model_alias_support(self):
         """Test that models support both field names and aliases."""
         # Test MajorShareholder with alias (camelCase)
-        sh1 = MajorShareholder(
+        sh1 = MajorShareholder(  # type: ignore[call-arg]  # intentional: constructs via camelCase alias
             sequence=1,
             name="Test Company",
             nationality=None,

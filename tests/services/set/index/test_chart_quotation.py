@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime, timedelta, timezone
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -18,7 +19,7 @@ from settfex.utils.data_fetcher import FetchResponse
 BKK = timezone(timedelta(hours=7))
 
 # Trimmed 1D index series: pre-open null bucket, two traded minutes, trailing null bucket.
-SAMPLE_CHART: dict = {
+SAMPLE_CHART: dict[str, Any] = {
     "prior": 1071.84,
     "intermissions": [
         {"begin": "2026-07-16T12:30:00", "end": "2026-07-16T13:45:00"},
@@ -69,7 +70,7 @@ def _at(hour: int, minute: int = 0) -> datetime:
     return datetime(2026, 7, 16, hour, minute, tzinfo=BKK)
 
 
-def _response(payload: dict, status_code: int = 200) -> FetchResponse:
+def _response(payload: dict[str, Any], status_code: int = 200) -> FetchResponse:
     """Build a FetchResponse whose body is ``payload`` serialized as JSON."""
     body = json.dumps(payload)
     return FetchResponse(

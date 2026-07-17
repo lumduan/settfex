@@ -145,7 +145,7 @@ class TestAccount:
 
     def test_account_model_creation(self):
         """Test Account model can be created with valid data."""
-        account = Account(
+        account = Account(  # type: ignore[call-arg]  # intentional: constructs via camelCase alias
             accountCode="601",
             accountName="Cash And Cash Equivalents",
             amount=37680002.0,
@@ -181,7 +181,7 @@ class TestAccount:
 
     def test_account_model_null_amount(self):
         """Test Account model handles null amounts."""
-        account = Account(
+        account = Account(  # type: ignore[call-arg]  # intentional: constructs via camelCase alias
             accountCode="618",
             accountName="Treasury Stock",
             amount=None,

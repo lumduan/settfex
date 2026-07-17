@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime, timedelta, timezone
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -19,7 +20,7 @@ from settfex.utils.data_fetcher import FetcherConfig, FetchResponse
 BKK = timezone(timedelta(hours=7))
 
 # Live /api/set/index/SET50/info payload shape (values trimmed).
-SAMPLE_INFO: dict = {
+SAMPLE_INFO: dict[str, Any] = {
     "symbol": "SET50",
     "nameEN": "SET50",
     "nameTH": "SET50",
@@ -41,7 +42,7 @@ SAMPLE_INFO: dict = {
     "level": "INDEX",
 }
 
-SAMPLE_INFO_LIST: dict = {
+SAMPLE_INFO_LIST: dict[str, Any] = {
     "indexIndustrySectors": [
         SAMPLE_INFO,
         {
@@ -69,7 +70,7 @@ SAMPLE_INFO_LIST: dict = {
 }
 
 
-def _response(payload: dict, status_code: int = 200) -> FetchResponse:
+def _response(payload: dict[str, Any], status_code: int = 200) -> FetchResponse:
     """Build a FetchResponse whose body is ``payload`` serialized as JSON."""
     body = json.dumps(payload)
     return FetchResponse(
@@ -165,7 +166,7 @@ class TestIndexInfoService:
 
     async def test_fetch_invalid_language_raises(self):
         with pytest.raises(ValueError, match="Invalid language"):
-            await IndexInfoService().fetch_index_info("SET50", lang="jp")
+            await IndexInfoService().fetch_index_info("SET50", lang="jp")  # type: ignore[arg-type]  # intentional: runtime-permissive language
 
     async def test_fetch_http_error_raises(self, mock_fetcher):
         mock_fetcher.fetch.return_value = _response({}, status_code=404)

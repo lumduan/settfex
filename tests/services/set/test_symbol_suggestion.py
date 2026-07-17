@@ -1,5 +1,6 @@
 """Tests for the network-free 'did you mean?' symbol suggestion on SymbolNotFoundError."""
 
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -9,7 +10,7 @@ from settfex.exceptions import FetchError, SymbolNotFoundError, raise_for_status
 from settfex.services.set.list import StockListService, suggest_symbol
 
 
-def _stock(symbol: str) -> dict:
+def _stock(symbol: str) -> dict[str, Any]:
     """Minimal securitySymbols row."""
     return {
         "symbol": symbol,

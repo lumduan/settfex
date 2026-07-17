@@ -1,5 +1,6 @@
 """Tests for the SET stock list service, incl. the index-membership enrichment."""
 
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -15,7 +16,7 @@ from settfex.services.set.list import (
 from settfex.utils.data_fetcher import FetcherConfig
 
 
-def _stock(symbol: str, market: str = "SET", industry: str = "SERVICE") -> dict:
+def _stock(symbol: str, market: str = "SET", industry: str = "SERVICE") -> dict[str, Any]:
     """Build one realistic securitySymbols row."""
     return {
         "symbol": symbol,
@@ -33,7 +34,7 @@ def _stock(symbol: str, market: str = "SET", industry: str = "SERVICE") -> dict:
     }
 
 
-SAMPLE_STOCK_LIST: dict = {
+SAMPLE_STOCK_LIST: dict[str, Any] = {
     "securitySymbols": [
         _stock("CPALL"),
         _stock("AAA", industry="INDUS"),

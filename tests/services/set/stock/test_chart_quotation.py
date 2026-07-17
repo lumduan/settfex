@@ -2,6 +2,7 @@
 
 import json
 from datetime import UTC, datetime, timedelta, timezone
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -26,7 +27,7 @@ BKK = timezone(timedelta(hours=7))
 #   - a null bucket inside the lunch intermission (13:00)
 #   - an afternoon trade (14:00)
 #   - a trailing future / no-trade null bucket (16:00)
-SAMPLE: dict = {
+SAMPLE: dict[str, Any] = {
     "prior": 0.21,
     "intermissions": [
         {"begin": "2026-06-19T12:30:00", "end": "2026-06-19T13:45:00"},
@@ -95,7 +96,7 @@ def _at(hour: int, minute: int = 0) -> datetime:
     return datetime(2026, 6, 19, hour, minute, tzinfo=BKK)
 
 
-def _response(payload: dict) -> FetchResponse:
+def _response(payload: dict[str, Any]) -> FetchResponse:
     """Build a 200 FetchResponse whose body is ``payload`` serialized as JSON."""
     body = json.dumps(payload)
     return FetchResponse(
@@ -349,7 +350,7 @@ class TestGetLatestQuotation:
 
         class _FixedDatetime(datetime):
             @classmethod
-            def now(cls, tz=None):  # type: ignore[override]
+            def now(cls, tz=None):
                 return datetime(2026, 6, 19, 11, 0, tzinfo=tz)
 
         monkeypatch.setattr(module, "datetime", _FixedDatetime)

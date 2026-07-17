@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime, timedelta, timezone
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -18,7 +19,7 @@ BKK = timezone(timedelta(hours=7))
 
 # Real API response shape for CPALL (captured from the live endpoint). `nav` / `marketIndex` /
 # `marketPercentChange` come back null for ordinary stocks.
-SAMPLE: dict = {
+SAMPLE: dict[str, Any] = {
     "date": "2026-06-19T00:00:00+07:00",
     "symbol": "CPALL",
     "prior": 46.75,
@@ -45,7 +46,7 @@ SAMPLE: dict = {
 }
 
 
-def _response(payload: dict) -> FetchResponse:
+def _response(payload: dict[str, Any]) -> FetchResponse:
     """Build a 200 FetchResponse whose body is ``payload`` serialized as JSON."""
     body = json.dumps(payload)
     return FetchResponse(

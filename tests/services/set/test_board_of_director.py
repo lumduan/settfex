@@ -1,6 +1,7 @@
 """Tests for SET board of director service."""
 
 import json
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -14,7 +15,7 @@ from settfex.utils.data_fetcher import FetcherConfig, FetchResponse
 from settfex.utils.parsing import ResponseParseError
 
 # Sample test data based on actual API response
-MOCK_BOARD_DATA = [
+MOCK_BOARD_DATA: list[dict[str, Any]] = [
     {
         "name": "Mr. WILLIAM ELLWOOD HEINECKE",
         "positions": ["CHAIRMAN"],
@@ -34,7 +35,7 @@ MOCK_BOARD_DATA = [
 ]
 
 # Sample Thai language data
-MOCK_BOARD_DATA_THAI = [
+MOCK_BOARD_DATA_THAI: list[dict[str, Any]] = [
     {
         "name": "นาย วิลเลี่ยม เอลล์วูด ไฮเนเก้",
         "positions": ["ประธานกรรมการ"],
@@ -164,7 +165,7 @@ class TestBoardOfDirectorService:
 
         # Test various language inputs
         for lang_input in ["th", "TH", "thai", "THAI"]:
-            result = await service.fetch_board_of_directors("MINT", lang=lang_input)
+            result = await service.fetch_board_of_directors("MINT", lang=lang_input)  # type: ignore[arg-type]  # intentional: runtime-permissive language
             assert len(result) == 4
 
     async def test_fetch_board_of_directors_empty_symbol(self):
@@ -179,7 +180,7 @@ class TestBoardOfDirectorService:
         service = BoardOfDirectorService()
 
         with pytest.raises(ValueError, match="Invalid language"):
-            await service.fetch_board_of_directors("MINT", lang="invalid")
+            await service.fetch_board_of_directors("MINT", lang="invalid")  # type: ignore[arg-type]  # intentional: runtime-permissive language
 
     async def test_fetch_board_of_directors_http_error(self, mock_fetcher):
         """Test handling of HTTP error response."""
