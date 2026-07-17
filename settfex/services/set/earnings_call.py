@@ -817,6 +817,28 @@ async def get_earnings_calls(
 ) -> EarningsCallResponse:
     """Convenience: fetch one page of earnings-call entries.
 
+    Thin wrapper over :meth:`EarningsCallService.fetch_earnings_calls`.
+
+    Args:
+        type_id: Presentation type (1 = Earnings Call/OPPDAY, 2 = Digital Roadshow,
+            3 = C-Sign Public Presentation).
+        quarter_id: Quarter filter id (0 = all quarters); see ``fetch_filter_years()``.
+        keyword: Free-text symbol/company search (normalized via ``normalize_symbol``).
+        industries_id: Industry filter code (see ``fetch_filter_industries()``).
+        composition_id: Optional composition/theme filter id.
+        start: 1-based page number.
+        page_size: Items per page.
+        language: ``"en"`` or ``"th"``.
+        enrich: If True, also fetch per-item detail concurrently (bounded).
+        config: Optional :class:`FetcherConfig` override.
+
+    Returns:
+        An :class:`EarningsCallResponse` for the requested page.
+
+    Raises:
+        ValueError: If ``start``/``page_size`` are out of range or ``language`` is invalid.
+        ResponseParseError: If the response cannot be decoded.
+
     Example:
         >>> from settfex.services.set import get_earnings_calls
         >>> response = await get_earnings_calls(keyword="HANN")
@@ -858,6 +880,27 @@ async def get_earnings_calls_dataframe(
 
     Requires pandas (``pip install settfex[dataframe]``).
 
+    Args:
+        type_id: Presentation type (1 = Earnings Call/OPPDAY, 2 = Digital Roadshow,
+            3 = C-Sign Public Presentation).
+        quarter_id: Quarter filter id (0 = all quarters).
+        keyword: Free-text symbol/company search.
+        industries_id: Industry filter code (see ``fetch_filter_industries()``).
+        composition_id: Optional composition/theme filter id.
+        start: 1-based page number.
+        page_size: Items per page.
+        language: ``"en"`` or ``"th"``.
+        columns: Column subset/order for the DataFrame (defaults to the five above).
+        config: Optional :class:`FetcherConfig` override.
+
+    Returns:
+        A :class:`pandas.DataFrame` with one row per earnings-call entry.
+
+    Raises:
+        ImportError: If pandas is not installed (``pip install settfex[dataframe]``).
+        ValueError: If a requested column is unknown, or ``start``/``page_size``/``language``
+            is invalid.
+
     Example:
         >>> from settfex.services.set import get_earnings_calls_dataframe
         >>> df = await get_earnings_calls_dataframe()
@@ -886,6 +929,18 @@ async def get_earnings_call_detail(
     """Convenience: fetch a single OPPDAY presentation's detail by id.
 
     The ``id`` is the number in an opportunity-day ``/vdo/{id}`` URL.
+
+    Args:
+        item_id: The presentation id (the number in a ``/vdo/{id}`` URL).
+        language: ``"en"`` or ``"th"``.
+        config: Optional :class:`FetcherConfig` override.
+
+    Returns:
+        An :class:`EarningsCallDetail` for the presentation.
+
+    Raises:
+        ValueError: If ``language`` is invalid.
+        ResponseParseError: If the response cannot be decoded.
 
     Example:
         >>> from settfex.services.set import get_earnings_call_detail
@@ -920,6 +975,32 @@ async def get_all_earnings_calls(
     ``progress=True`` for a tqdm bar (``pip install "settfex[progress]"``), or a
     ``progress_callback(done, total)`` for a dependency-free hook. Bound the crawl with
     ``max_records`` / ``max_pages`` / ``max_concurrency``.
+
+    Args:
+        type_id: Presentation type (1 = Earnings Call/OPPDAY, 2 = Digital Roadshow,
+            3 = C-Sign Public Presentation).
+        quarter_id: Quarter filter id (0 = all quarters).
+        keyword: Free-text symbol/company search.
+        industries_id: Industry filter code (see ``fetch_filter_industries()``).
+        composition_id: Optional composition/theme filter id.
+        start: 1-based starting page number.
+        page_size: Records per request (default 200; larger = fewer requests).
+        language: ``"en"`` or ``"th"``.
+        enrich: If True, also fetch per-item detail concurrently (bounded).
+        max_records: Stop once this many items are collected (then truncate).
+        max_pages: Fetch at most this many pages.
+        max_concurrency: Max simultaneous page requests (politeness bound, default 5).
+        progress: Show a ``tqdm`` progress bar (needs ``settfex[progress]``).
+        progress_callback: Optional ``(done, total)`` hook, fired as pages complete.
+        config: Optional :class:`FetcherConfig` override.
+
+    Returns:
+        An :class:`EarningsCallResponse` with all collected items (in page order) and the API's
+        ``no_records`` total.
+
+    Raises:
+        ValueError: If ``max_records``/``max_pages`` are set but < 1, ``max_concurrency`` < 1,
+            or ``language`` is invalid.
 
     Example:
         >>> from settfex.services.set import get_all_earnings_calls
@@ -1024,6 +1105,20 @@ async def get_earnings_call_transcript(
     Resolves the presentation's video via the detail endpoint, then fetches its transcript (Thai
     by default). Returns ``None`` if the presentation has no YouTube video or no matching
     captions. Requires the ``transcript`` extra (``pip install "settfex[transcript]"``).
+
+    Args:
+        item_id: The presentation id (the number in a ``/vdo/{id}`` URL).
+        languages: Transcript language priority (default Thai, ``("th",)``).
+        proxies: Optional ``{"http": url, "https": url}`` proxy mapping.
+        config: Optional :class:`FetcherConfig` override.
+
+    Returns:
+        The transcript as a plain string (raw text, ready for AI/LLM use), or ``None`` if the
+        presentation has no YouTube video or no matching captions.
+
+    Raises:
+        ImportError: If the ``transcript`` extra is not installed
+            (``pip install "settfex[transcript]"``).
 
     Example:
         >>> from settfex.services.set import get_earnings_call_transcript

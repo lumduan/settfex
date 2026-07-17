@@ -44,7 +44,7 @@ settfex/
 uv sync              # install dependencies (includes the dev group)
 uv run pytest        # run the test suite
 uv run ruff check .  # lint
-uv run mypy .        # type-check (strict mode)
+uv run mypy settfex  # type-check the package (strict mode)
 ```
 
 ## Architecture Principles

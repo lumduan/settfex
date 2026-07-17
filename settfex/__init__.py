@@ -2,6 +2,17 @@
 
 A modern Python library for fetching real-time and historical data from Thai financial markets.
 
+Designed for both humans and AI/LLM agents. Every service exposes three tiers:
+
+- ``get_*()`` — flat, one-call convenience functions (e.g. ``get_highlight_data("CPALL")``);
+  the intended entry point for LLM tool-calling.
+- ``fetch_*()`` — return validated Pydantic models, giving structured, schema-checked output
+  that lowers hallucination risk for agents.
+- ``fetch_*_raw()`` — return the raw API ``dict`` as an escape hatch.
+
+All I/O is async. Language arguments accept ``en``/``th`` (plus ``english``/``thai`` aliases);
+symbols are auto-normalized (uppercased).
+
 Usage:
     >>> import asyncio
     >>> from settfex.services.set import SetIndex, Stock, get_stock_list

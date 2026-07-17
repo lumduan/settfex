@@ -668,7 +668,7 @@ We'd love your help making settfex better! Here's how:
 4. Make your changes with proper type hints and tests
 5. Run tests: `uv run pytest`
 6. Run linting: `uv run ruff check .`
-7. Type-check: `uv run mypy .`
+7. Type-check: `uv run mypy settfex`
 8. Commit: `git commit -m 'Add cool new thing'`
 9. Push: `git push origin feature/cool-new-thing`
 10. Open a Pull Request
