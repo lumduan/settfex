@@ -1,5 +1,6 @@
 """Tests for the SET market index list service (index directory)."""
 
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -14,7 +15,7 @@ from settfex.utils.data_fetcher import FetcherConfig
 
 # Representative slice of the live /api/set/index/list payload: headline indices for both
 # markets, the SET/mai 'AGRO' industry pair (same symbol, different querySymbol), one sector.
-SAMPLE_INDEX_LIST: list[dict] = [
+SAMPLE_INDEX_LIST: list[dict[str, Any]] = [
     {
         "symbol": "SET",
         "market": "SET",
@@ -215,7 +216,7 @@ class TestIndexListService:
 
     async def test_fetch_invalid_language_raises(self):
         with pytest.raises(ValueError, match="Invalid language"):
-            await IndexListService().fetch_index_list(lang="fr")
+            await IndexListService().fetch_index_list(lang="fr")  # type: ignore[arg-type]  # intentional: runtime-permissive language
 
     async def test_fetch_uses_default_referer(self, mock_fetcher):
         mock_fetcher.fetch_json.return_value = SAMPLE_INDEX_LIST
@@ -243,5 +244,5 @@ class TestConvenienceFunctions:
 
     async def test_get_index_list_thai(self, mock_fetcher):
         mock_fetcher.fetch_json.return_value = SAMPLE_INDEX_LIST
-        await get_index_list(lang="thai")
+        await get_index_list(lang="thai")  # type: ignore[arg-type]  # intentional: runtime-permissive language
         assert "language=th" in mock_fetcher.fetch_json.call_args.args[0]

@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime, timedelta, timezone
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -14,7 +15,7 @@ from settfex.utils.data_fetcher import FetcherConfig, FetchResponse
 
 BKK = timezone(timedelta(hours=7))
 
-SAMPLE_INFO: dict = {
+SAMPLE_INFO: dict[str, Any] = {
     "symbol": "SET50",
     "last": 1078.25,
     "change": 6.41,
@@ -23,7 +24,7 @@ SAMPLE_INFO: dict = {
     "level": "INDEX",
 }
 
-SAMPLE_COMPOSITION: dict = {
+SAMPLE_COMPOSITION: dict[str, Any] = {
     "composition": {
         "symbol": "SET50",
         "stockInfos": [
@@ -35,7 +36,7 @@ SAMPLE_COMPOSITION: dict = {
     "indexInfos": [SAMPLE_INFO],
 }
 
-SAMPLE_CHART: dict = {
+SAMPLE_CHART: dict[str, Any] = {
     "prior": 1071.84,
     "intermissions": [],
     "quotations": [
@@ -52,14 +53,14 @@ SAMPLE_CHART: dict = {
 }
 
 
-def _response(payload: dict) -> FetchResponse:
+def _response(payload: dict[str, Any]) -> FetchResponse:
     body = json.dumps(payload)
     return FetchResponse(
         status_code=200, content=body.encode("utf-8"), text=body, headers={}, url="x", elapsed=0.1
     )
 
 
-def _patch_fetcher(module: str, payload: dict):
+def _patch_fetcher(module: str, payload: dict[str, Any]):
     """Context manager patching AsyncDataFetcher in ``module`` to return ``payload``."""
     patcher = patch(f"settfex.services.set.index.{module}.AsyncDataFetcher")
     mock = patcher.start()

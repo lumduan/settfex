@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -15,7 +16,7 @@ from settfex.utils.data_fetcher import FetcherConfig, FetchResponse
 from settfex.utils.parsing import ResponseParseError
 
 # Sample test data based on actual API response
-MOCK_CORPORATE_ACTION_DATA = [
+MOCK_CORPORATE_ACTION_DATA: list[dict[str, Any]] = [
     {
         "symbol": "AOT",
         "name": "",
@@ -123,6 +124,7 @@ class TestCorporateActionService:
         xm_action = result[1]
         assert xm_action.ca_type == "XM"
         assert xm_action.meeting_type == "AGM"
+        assert xm_action.agenda is not None
         assert "Cash dividend payment" in xm_action.agenda
 
     async def test_fetch_corporate_actions_symbol_normalization(self, mock_fetcher):
@@ -159,7 +161,7 @@ class TestCorporateActionService:
 
         # Test various language inputs
         for lang_input in ["th", "TH", "thai", "THAI"]:
-            result = await service.fetch_corporate_actions("AOT", lang=lang_input)
+            result = await service.fetch_corporate_actions("AOT", lang=lang_input)  # type: ignore[arg-type]  # intentional: runtime-permissive language
             assert len(result) == 2
 
     async def test_fetch_corporate_actions_empty_symbol(self):
@@ -174,7 +176,7 @@ class TestCorporateActionService:
         service = CorporateActionService()
 
         with pytest.raises(ValueError, match="Invalid language"):
-            await service.fetch_corporate_actions("AOT", lang="invalid")
+            await service.fetch_corporate_actions("AOT", lang="invalid")  # type: ignore[arg-type]  # intentional: runtime-permissive language
 
     async def test_fetch_corporate_actions_http_error(self, mock_fetcher):
         """Test handling of HTTP error response."""
@@ -291,13 +293,14 @@ class TestCorporateActionModel:
         assert action.symbol == "AOT"
         assert action.ca_type == "XM"
         assert action.meeting_type == "AGM"
+        assert action.agenda is not None
         assert "Cash dividend payment" in action.agenda
         assert isinstance(action.meeting_date, datetime)
 
     def test_model_alias_support(self):
         """Test that model supports both field names and aliases."""
         # Test with alias (camelCase)
-        action1 = CorporateAction(
+        action1 = CorporateAction(  # type: ignore[call-arg]  # intentional: constructs via camelCase alias
             symbol="TEST",
             name="Test Company",
             caType="XD",
@@ -324,7 +327,7 @@ class TestCorporateActionModel:
 
     def test_model_optional_fields(self):
         """Test that optional fields can be None."""
-        action = CorporateAction(
+        action = CorporateAction(  # type: ignore[call-arg]  # intentional: constructs via camelCase alias
             symbol="TEST",
             name="",
             caType="XD",

@@ -104,15 +104,17 @@ ignore = []
 "tests/**" = ["E501", "B017"]
 
 [tool.mypy]
+plugins = ["pydantic.mypy"]
 python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
-# scripts/ are untyped standalone verification helpers (not a package, not shipped); keep them out
-# of `uv run mypy .` discovery so the gate reflects the packaged library. tests/ are handled by the
-# ignore_errors override below.
-exclude = ['^scripts/']
+# Derive module names from the repo root so non-package dirs get dotted names (e.g.
+# scripts.settfex....) and can be targeted by the per-module override below. No-op in CI, which
+# has no scripts/ (it is gitignored — see below).
+explicit_package_bases = true
+mypy_path = "."
 
 # pandas/tqdm/youtube-transcript-api are optional, untyped runtime extras; don't require their
 # stubs to keep the strict gate green.
@@ -127,12 +129,16 @@ module = [
 ]
 ignore_missing_imports = true
 
-# tests/ are intentionally not strictly typed (untyped test functions). Exclude them from the
-# strict gate so `uv run mypy .` type-checks the shipped package. The pre-existing test-annotation
-# errors are tracked as separate backlog, not masked by scoping the command to settfex/.
+# tests/ ARE type-checked for real errors (arg-type, union-attr, call-arg, ...), but are not
+# required to carry full annotations — no `-> None`/param boilerplate on every test. The shipped
+# package itself stays fully strict (disallow_untyped_defs above).
+# scripts/ is gitignored (local-only verification helpers); it is listed here purely so that
+# `uv run mypy .` stays usable for developers who keep those local scripts.
 [[tool.mypy.overrides]]
-module = ["tests", "tests.*"]
-ignore_errors = true
+module = ["tests", "tests.*", "scripts", "scripts.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
 
 [tool.bandit]
 exclude_dirs = ["tests", ".venv", "scripts"]
