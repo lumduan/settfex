@@ -1,14 +1,20 @@
 """SET Stock List Service - Fetch list of stock details from SET API."""
 
 import asyncio
+import difflib
 from typing import Any
 
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from settfex.exceptions import register_symbol_suggester
 from settfex.services.set.constants import SET_BASE_URL, SET_STOCK_LIST_ENDPOINT
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.parsing import validate_or_raise
+
+# In-memory cache of the last-fetched SET stock symbols, powering network-free "did you mean?"
+# suggestions on SymbolNotFoundError. Populated by fetch_stock_list; reading it never fetches.
+_KNOWN_SYMBOLS: list[str] | None = None
 
 
 class StockSymbol(BaseModel):
@@ -114,6 +120,31 @@ class StockListResponse(BaseModel):
         return None
 
 
+def _cache_known_symbols(response: StockListResponse) -> None:
+    """Cache fetched symbols for network-free symbol suggestions (see :func:`suggest_symbol`)."""
+    global _KNOWN_SYMBOLS
+    _KNOWN_SYMBOLS = [s.symbol for s in response.security_symbols]
+
+
+def suggest_symbol(symbol: str) -> str | None:
+    """Return the closest known SET stock symbol to ``symbol``, or ``None``.
+
+    Uses stdlib :func:`difflib.get_close_matches` against the symbols cached by the most recent
+    :func:`get_stock_list` / ``fetch_stock_list`` call **in this process**. Returns ``None`` — and
+    never performs a fetch — when no stock list has been fetched yet, or when no close match
+    exists. Powers :attr:`settfex.exceptions.SymbolNotFoundError.suggestion`.
+
+    Example:
+        >>> await get_stock_list()          # populates the cache (once per session)
+        >>> suggest_symbol("CPALLL")
+        'CPALL'
+    """
+    if not symbol or _KNOWN_SYMBOLS is None:
+        return None
+    matches = difflib.get_close_matches(symbol.strip().upper(), _KNOWN_SYMBOLS, n=1, cutoff=0.6)
+    return matches[0] if matches else None
+
+
 class StockListService:
     """
     Service for fetching stock list from SET API.
@@ -179,6 +210,7 @@ class StockListService:
 
             # Validate response using Pydantic (context-rich on failure)
             response = validate_or_raise(StockListResponse, data, context="set stock-list")
+            _cache_known_symbols(response)
 
             logger.info(f"Successfully fetched {response.count} stock symbols from SET API")
 
@@ -299,3 +331,8 @@ async def get_stock_list(
     """
     service = StockListService(config=config)
     return await service.fetch_stock_list(include_indices=include_indices)
+
+
+# Register the network-free symbol suggester so SymbolNotFoundError can offer "did you mean?"
+# hints without this module and settfex.exceptions importing each other cyclically.
+register_symbol_suggester(suggest_symbol)

@@ -93,7 +93,7 @@ class IndexChartQuotationService:
                     f"HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise_for_status(response.status_code, error_msg, symbol=symbol)
+                raise_for_status(response.status_code, error_msg, symbol=symbol, suggest=False)
 
             data = decode_json(response.text, context=f"{symbol} (index-chart-quotation)")
 
@@ -152,7 +152,7 @@ class IndexChartQuotationService:
                     f"HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise_for_status(response.status_code, error_msg, symbol=symbol)
+                raise_for_status(response.status_code, error_msg, symbol=symbol, suggest=False)
 
             data = decode_json(response.text, context=f"{symbol} (index-chart-quotation)")
 

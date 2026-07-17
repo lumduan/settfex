@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-17
+
+### Added
+
+- **"Did you mean?" suggestions on `SymbolNotFoundError`**: a mistyped SET stock symbol now carries
+  a `.suggestion` attribute (the closest known symbol, via stdlib `difflib`) that agents can read
+  programmatically, and the hint is appended to the error message (e.g. `… HTTP 404 — did you mean
+  'CPALL'?`). Also exposes a `suggest_symbol()` helper. The suggestion is computed **network-free**:
+  it only consults the stock list already fetched earlier in the session (`get_stock_list()`), so a
+  404 never triggers an extra fetch, and `.suggestion` is `None` when no list has been fetched yet.
+  Index lookups are excluded from stock-symbol matching (`raise_for_status(..., suggest=False)`).
+
 ## [0.9.0] - 2026-07-17
 
 ### Added

@@ -66,6 +66,7 @@ from settfex.services.set.list import (
     StockListService,
     StockSymbol,
     get_stock_list,
+    suggest_symbol,
 )
 from settfex.services.set.stock import (
     Account,
@@ -150,6 +151,7 @@ __all__ = [
     "StockListResponse",
     "StockSymbol",
     "get_stock_list",
+    "suggest_symbol",
     # Market Index Services
     "SetIndex",
     "IndexListService",
