@@ -254,7 +254,8 @@ they never fail the stock list call.
 - `StockListResponse` - Validated response with all stocks
 
 **Raises:**
-- `Exception` - If request fails or response cannot be parsed
+- `FetchError` - If the request fails (subclass of `Exception`)
+- `ResponseParseError` - If the response cannot be parsed (subclass of `ValueError`)
 
 **Example:**
 ```python
@@ -277,7 +278,7 @@ Useful for debugging or when you need the raw API response.
 - `dict[str, Any]` - Raw dictionary from API
 
 **Raises:**
-- `Exception` - If request fails
+- `FetchError` - If the request fails (subclass of `Exception`)
 
 **Example:**
 ```python
@@ -401,20 +402,28 @@ async def export_to_csv():
 
 ## Error Handling
 
+settfex raises typed exceptions from `settfex.exceptions` (all re-exported from the top-level
+`settfex` package). Fetch errors subclass `Exception` and validation errors subclass `ValueError`,
+so pre-0.9 `except Exception` / `except ValueError` handlers keep working.
+
 ### Basic Error Handling
 
 ```python
+from settfex.exceptions import FetchError
+
 async def safe_fetch():
     try:
         stock_list = await get_stock_list()
         print(f"Fetched {stock_list.count} stocks")
-    except Exception as e:
+    except FetchError as e:            # HTTP/transport failure; has .status_code and .symbol
         print(f"Failed to fetch stock list: {e}")
 ```
 
 ### Retry on Failure
 
 ```python
+from settfex.exceptions import FetchError
+
 async def fetch_with_retry():
     from settfex.utils.data_fetcher import FetcherConfig
 
@@ -427,9 +436,32 @@ async def fetch_with_retry():
     try:
         stock_list = await get_stock_list(config=config)
         return stock_list
-    except Exception as e:
+    except FetchError as e:
         print(f"All retries failed: {e}")
         return None
+```
+
+### Symbol suggestions ("did you mean?")
+
+Fetching the stock list also warms an in-process cache that powers a **network-free** "did you
+mean?" hint on `SymbolNotFoundError` — so a later typo on any stock service suggests the closest
+real symbol, with no extra request (the suggestion is `None`, and no fetch happens, when no list
+has been fetched this session):
+
+```python
+from settfex import get_highlight_data, get_stock_list
+from settfex.exceptions import SymbolNotFoundError
+from settfex.services.set import suggest_symbol
+
+await get_stock_list()                      # once per session — warms the suggestion cache
+
+try:
+    await get_highlight_data("CPALLL")      # typo
+except SymbolNotFoundError as exc:
+    print(exc)                              # "... HTTP 404 — did you mean 'CPALL'?"
+    print(exc.suggestion)                   # "CPALL"
+
+print(suggest_symbol("CPALLL"))             # "CPALL"  (or None if no list fetched yet)
 ```
 
 ## Performance
