@@ -155,7 +155,7 @@ class IndexInfoService:
             if response.status_code != 200:
                 error_msg = f"Failed to fetch index info for {symbol}: HTTP {response.status_code}"
                 logger.error(error_msg)
-                raise_for_status(response.status_code, error_msg, symbol=symbol)
+                raise_for_status(response.status_code, error_msg, symbol=symbol, suggest=False)
 
             data = decode_json(response.text, context=f"{symbol} (index-info)")
 
@@ -200,7 +200,7 @@ class IndexInfoService:
             if response.status_code != 200:
                 error_msg = f"Failed to fetch index info for {symbol}: HTTP {response.status_code}"
                 logger.error(error_msg)
-                raise_for_status(response.status_code, error_msg, symbol=symbol)
+                raise_for_status(response.status_code, error_msg, symbol=symbol, suggest=False)
 
             data = decode_json(response.text, context=f"{symbol} (index-info)")
 
