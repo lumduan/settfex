@@ -35,16 +35,23 @@ Usage:
     >>> asyncio.run(main())
 """
 
-__version__ = "0.8.0"
+__version__ = "0.9.0"
 __author__ = "batt"
 __license__ = "MIT"
 
 # Public API exports - import commonly used classes/functions
+from settfex.exceptions import (
+    FetchError,
+    InvalidLanguageError,
+    InvalidSymbolError,
+    SymbolNotFoundError,
+)
 from settfex.services.set import (
     CompanyProfile,
     IndexCompositionResponse,
     IndexInfo,
     IndexListResponse,
+    Language,
     SetIndex,
     Stock,
     StockHighlightData,
@@ -90,4 +97,11 @@ __all__ = [
     "AsyncDataFetcher",
     "FetcherConfig",
     "setup_logger",
+    # Exceptions
+    "FetchError",
+    "SymbolNotFoundError",
+    "InvalidSymbolError",
+    "InvalidLanguageError",
+    # Types
+    "Language",
 ]

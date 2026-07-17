@@ -83,6 +83,7 @@ from settfex.services.set.stock import (
     FinancialStatement,
     IncomeStatement,
     Intermission,
+    Language,
     LatestHistoricalTrading,
     LatestHistoricalTradingService,
     NVDRHolderData,
@@ -235,6 +236,7 @@ __all__ = [
     "get_income_statement",
     "get_cash_flow",
     # Stock Utilities
+    "Language",
     "normalize_symbol",
     "normalize_language",
 ]

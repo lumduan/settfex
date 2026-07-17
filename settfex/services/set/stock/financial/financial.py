@@ -6,13 +6,14 @@ from typing import Any, Literal
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from settfex.exceptions import InvalidSymbolError, raise_for_status
 from settfex.services.set.constants import (
     SET_BASE_URL,
     SET_FINANCIAL_BALANCE_SHEET_ENDPOINT,
     SET_FINANCIAL_CASH_FLOW_ENDPOINT,
     SET_FINANCIAL_INCOME_STATEMENT_ENDPOINT,
 )
-from settfex.services.set.stock.utils import normalize_language, normalize_symbol
+from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.parsing import decode_json, validate_list_or_raise
 
@@ -113,7 +114,7 @@ class FinancialService:
         self,
         symbol: str,
         account_type: Literal["balance_sheet", "income_statement", "cash_flow"],
-        lang: str = "en",
+        lang: Language = "en",
     ) -> list[dict[str, Any]]:
         """
         Internal method to fetch financial data from SET API.
@@ -127,8 +128,11 @@ class FinancialService:
             List of raw financial statement dictionaries
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails or response cannot be parsed
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
         """
         # Normalize and validate inputs
         symbol = normalize_symbol(symbol=symbol)
@@ -137,7 +141,7 @@ class FinancialService:
         if not symbol:
             error_msg = "Stock symbol cannot be empty"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise InvalidSymbolError(error_msg)
 
         # Select endpoint based on account type
         endpoint_map = {
@@ -164,7 +168,7 @@ class FinancialService:
                     f"Failed to fetch {account_type} for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             # Parse JSON
             data = decode_json(response.text, context=f"{symbol} ({account_type})")
@@ -179,7 +183,7 @@ class FinancialService:
 
             return data
 
-    async def fetch_balance_sheet(self, symbol: str, lang: str = "en") -> list[BalanceSheet]:
+    async def fetch_balance_sheet(self, symbol: str, lang: Language = "en") -> list[BalanceSheet]:
         """
         Fetch balance sheet data for a specific stock symbol.
 
@@ -191,8 +195,11 @@ class FinancialService:
             List of BalanceSheet statements (multiple periods)
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails or response cannot be parsed
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = FinancialService()
@@ -209,7 +216,9 @@ class FinancialService:
         logger.info(f"Parsed {len(balance_sheets)} balance sheet statements for {symbol}")
         return balance_sheets
 
-    async def fetch_balance_sheet_raw(self, symbol: str, lang: str = "en") -> list[dict[str, Any]]:
+    async def fetch_balance_sheet_raw(
+        self, symbol: str, lang: Language = "en"
+    ) -> list[dict[str, Any]]:
         """
         Fetch balance sheet data as raw dictionary without Pydantic validation.
 
@@ -223,8 +232,11 @@ class FinancialService:
             List of raw dictionaries from API
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = FinancialService()
@@ -235,7 +247,9 @@ class FinancialService:
             symbol=symbol, account_type="balance_sheet", lang=lang
         )
 
-    async def fetch_income_statement(self, symbol: str, lang: str = "en") -> list[IncomeStatement]:
+    async def fetch_income_statement(
+        self, symbol: str, lang: Language = "en"
+    ) -> list[IncomeStatement]:
         """
         Fetch income statement data for a specific stock symbol.
 
@@ -247,8 +261,11 @@ class FinancialService:
             List of IncomeStatement statements (multiple periods)
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails or response cannot be parsed
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = FinancialService()
@@ -266,7 +283,7 @@ class FinancialService:
         return income_statements
 
     async def fetch_income_statement_raw(
-        self, symbol: str, lang: str = "en"
+        self, symbol: str, lang: Language = "en"
     ) -> list[dict[str, Any]]:
         """
         Fetch income statement data as raw dictionary without Pydantic validation.
@@ -281,8 +298,11 @@ class FinancialService:
             List of raw dictionaries from API
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = FinancialService()
@@ -293,7 +313,7 @@ class FinancialService:
             symbol=symbol, account_type="income_statement", lang=lang
         )
 
-    async def fetch_cash_flow(self, symbol: str, lang: str = "en") -> list[CashFlow]:
+    async def fetch_cash_flow(self, symbol: str, lang: Language = "en") -> list[CashFlow]:
         """
         Fetch cash flow data for a specific stock symbol.
 
@@ -305,8 +325,11 @@ class FinancialService:
             List of CashFlow statements (multiple periods)
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails or response cannot be parsed
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = FinancialService()
@@ -319,7 +342,7 @@ class FinancialService:
         logger.info(f"Parsed {len(cash_flows)} cash flow statements for {symbol}")
         return cash_flows
 
-    async def fetch_cash_flow_raw(self, symbol: str, lang: str = "en") -> list[dict[str, Any]]:
+    async def fetch_cash_flow_raw(self, symbol: str, lang: Language = "en") -> list[dict[str, Any]]:
         """
         Fetch cash flow data as raw dictionary without Pydantic validation.
 
@@ -333,8 +356,11 @@ class FinancialService:
             List of raw dictionaries from API
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = FinancialService()
@@ -347,7 +373,7 @@ class FinancialService:
 # Convenience functions for quick access
 async def get_balance_sheet(
     symbol: str,
-    lang: str = "en",
+    lang: Language = "en",
     config: FetcherConfig | None = None,
 ) -> list[BalanceSheet]:
     """
@@ -373,7 +399,7 @@ async def get_balance_sheet(
 
 async def get_income_statement(
     symbol: str,
-    lang: str = "en",
+    lang: Language = "en",
     config: FetcherConfig | None = None,
 ) -> list[IncomeStatement]:
     """
@@ -399,7 +425,7 @@ async def get_income_statement(
 
 async def get_cash_flow(
     symbol: str,
-    lang: str = "en",
+    lang: Language = "en",
     config: FetcherConfig | None = None,
 ) -> list[CashFlow]:
     """

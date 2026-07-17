@@ -6,8 +6,9 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from settfex.exceptions import InvalidSymbolError, raise_for_status
 from settfex.services.set.constants import SET_BASE_URL, SET_NVDR_HOLDER_ENDPOINT
-from settfex.services.set.stock.utils import normalize_language, normalize_symbol
+from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.parsing import decode_json, validate_or_raise
 
@@ -86,7 +87,7 @@ class NVDRHolderService:
         self.base_url = SET_BASE_URL
         logger.info(f"NVDRHolderService initialized with base_url={self.base_url}")
 
-    async def fetch_nvdr_holder_data(self, symbol: str, lang: str = "en") -> NVDRHolderData:
+    async def fetch_nvdr_holder_data(self, symbol: str, lang: Language = "en") -> NVDRHolderData:
         """
         Fetch NVDR holder data for a specific stock symbol.
 
@@ -98,8 +99,11 @@ class NVDRHolderService:
             NVDRHolderData containing major NVDR holders and ownership stats
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails or response cannot be parsed
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = NVDRHolderService()
@@ -116,7 +120,7 @@ class NVDRHolderService:
         if not symbol:
             error_msg = "Stock symbol cannot be empty"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise InvalidSymbolError(error_msg)
 
         # Build URL with symbol and language parameters
         endpoint = SET_NVDR_HOLDER_ENDPOINT.format(symbol=symbol)
@@ -139,7 +143,7 @@ class NVDRHolderService:
                     f"Failed to fetch NVDR holder data for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             # Parse JSON
             data = decode_json(response.text, context=f"{symbol} (nvdr-holder)")
@@ -157,7 +161,9 @@ class NVDRHolderService:
 
             return nvdr_holder_data
 
-    async def fetch_nvdr_holder_data_raw(self, symbol: str, lang: str = "en") -> dict[str, Any]:
+    async def fetch_nvdr_holder_data_raw(
+        self, symbol: str, lang: Language = "en"
+    ) -> dict[str, Any]:
         """
         Fetch NVDR holder data as raw dictionary without Pydantic validation.
 
@@ -171,8 +177,11 @@ class NVDRHolderService:
             Raw dictionary from API
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = NVDRHolderService()
@@ -186,7 +195,7 @@ class NVDRHolderService:
         if not symbol:
             error_msg = "Stock symbol cannot be empty"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise InvalidSymbolError(error_msg)
 
         # Build URL with symbol and language parameters
         endpoint = SET_NVDR_HOLDER_ENDPOINT.format(symbol=symbol)
@@ -208,7 +217,7 @@ class NVDRHolderService:
                     f"Failed to fetch NVDR holder data for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             # Parse JSON
             data = decode_json(response.text, context=f"{symbol} (nvdr-holder)")
@@ -222,7 +231,7 @@ class NVDRHolderService:
 # Convenience function for quick access
 async def get_nvdr_holder_data(
     symbol: str,
-    lang: str = "en",
+    lang: Language = "en",
     config: FetcherConfig | None = None,
 ) -> NVDRHolderData:
     """

@@ -23,7 +23,7 @@ import asyncio
 import re
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
@@ -36,7 +36,7 @@ from settfex.services.set.constants import (
     SET_OPPDAY_ORIGIN,
     SET_OPPDAY_REFERER,
 )
-from settfex.services.set.stock.utils import normalize_language, normalize_symbol
+from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.parsing import (
     ResponseParseError,
@@ -44,6 +44,9 @@ from settfex.utils.parsing import (
     validate_or_raise,
 )
 from settfex.utils.youtube_transcript import fetch_youtube_transcript
+
+PresentationType = Literal[1, 2, 3]
+"""Earnings-call presentation type: 1 = Earnings Call/OPPDAY, 2 = Digital Roadshow, 3 = C-Sign."""
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -453,14 +456,14 @@ class EarningsCallService:
     async def fetch_earnings_calls(
         self,
         *,
-        type_id: int = 1,
+        type_id: PresentationType = 1,
         quarter_id: int = 0,
         keyword: str | None = None,
         industries_id: str | None = None,
         composition_id: int | None = None,
         start: int = 1,
         page_size: int = 12,
-        language: str = "en",
+        language: Language = "en",
         enrich: bool = False,
     ) -> EarningsCallResponse:
         """Fetch one page of earnings-call entries.
@@ -510,14 +513,14 @@ class EarningsCallService:
     async def fetch_earnings_calls_raw(
         self,
         *,
-        type_id: int = 1,
+        type_id: PresentationType = 1,
         quarter_id: int = 0,
         keyword: str | None = None,
         industries_id: str | None = None,
         composition_id: int | None = None,
         start: int = 1,
         page_size: int = 12,
-        language: str = "en",
+        language: Language = "en",
     ) -> dict[str, Any]:
         """Fetch one page as a raw dict (no Pydantic validation).
 
@@ -557,14 +560,14 @@ class EarningsCallService:
     async def fetch_all_earnings_calls(
         self,
         *,
-        type_id: int = 1,
+        type_id: PresentationType = 1,
         quarter_id: int = 0,
         keyword: str | None = None,
         industries_id: str | None = None,
         composition_id: int | None = None,
         start: int = 1,
         page_size: int = 200,
-        language: str = "en",
+        language: Language = "en",
         enrich: bool = False,
         max_records: int | None = None,
         max_pages: int | None = None,
@@ -692,7 +695,7 @@ class EarningsCallService:
         )
 
     async def fetch_earnings_call_detail(
-        self, item_id: int, language: str = "en"
+        self, item_id: int, language: Language = "en"
     ) -> EarningsCallDetail:
         """Fetch a single OPPDAY presentation's detail by its id.
 
@@ -760,7 +763,7 @@ class EarningsCallService:
         await asyncio.gather(*(_attach(item) for item in items))
         reporter.close()
 
-    async def _fetch_filter(self, name: str, language: str = "en") -> list[FilterOption]:
+    async def _fetch_filter(self, name: str, language: Language = "en") -> list[FilterOption]:
         """Fetch a single filter endpoint and validate it into a list of options."""
         language = normalize_language(language)
         endpoint = SET_EARNINGS_CALL_FILTER_ENDPOINT.format(name=name)
@@ -773,45 +776,45 @@ class EarningsCallService:
                 FilterOption, data, context=f"set earnings-call filter/{name}"
             )
 
-    async def fetch_filter_types(self, language: str = "en") -> list[FilterOption]:
+    async def fetch_filter_types(self, language: Language = "en") -> list[FilterOption]:
         """Fetch presentation types (e.g. 1 = Earnings Call/OPPDAY)."""
         return await self._fetch_filter("types", language)
 
-    async def fetch_filter_years(self, language: str = "en") -> list[FilterOption]:
+    async def fetch_filter_years(self, language: Language = "en") -> list[FilterOption]:
         """Fetch quarter/year filter options (ids usable as ``quarter_id``)."""
         return await self._fetch_filter("years", language)
 
-    async def fetch_filter_industries(self, language: str = "en") -> list[FilterOption]:
+    async def fetch_filter_industries(self, language: Language = "en") -> list[FilterOption]:
         """Fetch industry filter options (string codes usable as ``industries_id``)."""
         return await self._fetch_filter("industries", language)
 
-    async def fetch_filter_markets(self, language: str = "en") -> list[FilterOption]:
+    async def fetch_filter_markets(self, language: Language = "en") -> list[FilterOption]:
         """Fetch market filter options (e.g. SET / mai / LiVEx)."""
         return await self._fetch_filter("markets", language)
 
-    async def fetch_filter_themes(self, language: str = "en") -> list[FilterOption]:
+    async def fetch_filter_themes(self, language: Language = "en") -> list[FilterOption]:
         """Fetch theme filter options (e.g. SET50, SET100, SETESG)."""
         return await self._fetch_filter("themes", language)
 
-    async def fetch_filter_trusts(self, language: str = "en") -> list[FilterOption]:
+    async def fetch_filter_trusts(self, language: Language = "en") -> list[FilterOption]:
         """Fetch trust/security-kind filter options (e.g. Common Stock, REIT)."""
         return await self._fetch_filter("trusts", language)
 
-    async def fetch_filter_stages(self, language: str = "en") -> list[FilterOption]:
+    async def fetch_filter_stages(self, language: Language = "en") -> list[FilterOption]:
         """Fetch stage filter options (e.g. Upcoming, Live, Video)."""
         return await self._fetch_filter("stages", language)
 
 
 async def get_earnings_calls(
     *,
-    type_id: int = 1,
+    type_id: PresentationType = 1,
     quarter_id: int = 0,
     keyword: str | None = None,
     industries_id: str | None = None,
     composition_id: int | None = None,
     start: int = 1,
     page_size: int = 12,
-    language: str = "en",
+    language: Language = "en",
     enrich: bool = False,
     config: FetcherConfig | None = None,
 ) -> EarningsCallResponse:
@@ -861,14 +864,14 @@ async def get_earnings_calls(
 
 async def get_earnings_calls_dataframe(
     *,
-    type_id: int = 1,
+    type_id: PresentationType = 1,
     quarter_id: int = 0,
     keyword: str | None = None,
     industries_id: str | None = None,
     composition_id: int | None = None,
     start: int = 1,
     page_size: int = 12,
-    language: str = "en",
+    language: Language = "en",
     columns: list[str] | None = None,
     config: FetcherConfig | None = None,
 ) -> "pd.DataFrame":
@@ -923,7 +926,7 @@ async def get_earnings_calls_dataframe(
 
 async def get_earnings_call_detail(
     item_id: int,
-    language: str = "en",
+    language: Language = "en",
     config: FetcherConfig | None = None,
 ) -> EarningsCallDetail:
     """Convenience: fetch a single OPPDAY presentation's detail by id.
@@ -953,14 +956,14 @@ async def get_earnings_call_detail(
 
 async def get_all_earnings_calls(
     *,
-    type_id: int = 1,
+    type_id: PresentationType = 1,
     quarter_id: int = 0,
     keyword: str | None = None,
     industries_id: str | None = None,
     composition_id: int | None = None,
     start: int = 1,
     page_size: int = 200,
-    language: str = "en",
+    language: Language = "en",
     enrich: bool = False,
     max_records: int | None = None,
     max_pages: int | None = None,

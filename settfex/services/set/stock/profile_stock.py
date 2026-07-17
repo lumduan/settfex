@@ -6,8 +6,9 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from settfex.exceptions import InvalidSymbolError, raise_for_status
 from settfex.services.set.constants import SET_BASE_URL, SET_STOCK_PROFILE_ENDPOINT
-from settfex.services.set.stock.utils import normalize_language, normalize_symbol
+from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.parsing import decode_json, validate_or_raise
 
@@ -118,7 +119,7 @@ class StockProfileService:
         self.base_url = SET_BASE_URL
         logger.info(f"StockProfileService initialized with base_url={self.base_url}")
 
-    async def fetch_profile(self, symbol: str, lang: str = "en") -> StockProfile:
+    async def fetch_profile(self, symbol: str, lang: Language = "en") -> StockProfile:
         """
         Fetch profile data for a specific stock symbol.
 
@@ -130,8 +131,11 @@ class StockProfileService:
             StockProfile containing comprehensive company and listing information
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails or response cannot be parsed
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = StockProfileService()
@@ -148,7 +152,7 @@ class StockProfileService:
         if not symbol:
             error_msg = "Stock symbol cannot be empty"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise InvalidSymbolError(error_msg)
 
         # Build URL with symbol and language parameters
         endpoint = SET_STOCK_PROFILE_ENDPOINT.format(symbol=symbol)
@@ -169,7 +173,7 @@ class StockProfileService:
             if response.status_code != 200:
                 error_msg = f"Failed to fetch profile for {symbol}: HTTP {response.status_code}"
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             # Parse JSON
             data = decode_json(response.text, context=f"{symbol} (stock-profile)")
@@ -185,7 +189,7 @@ class StockProfileService:
 
             return profile
 
-    async def fetch_profile_raw(self, symbol: str, lang: str = "en") -> dict[str, Any]:
+    async def fetch_profile_raw(self, symbol: str, lang: Language = "en") -> dict[str, Any]:
         """
         Fetch profile data as raw dictionary without Pydantic validation.
 
@@ -199,8 +203,11 @@ class StockProfileService:
             Raw dictionary from API
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = StockProfileService()
@@ -214,7 +221,7 @@ class StockProfileService:
         if not symbol:
             error_msg = "Stock symbol cannot be empty"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise InvalidSymbolError(error_msg)
 
         # Build URL with symbol and language parameters
         endpoint = SET_STOCK_PROFILE_ENDPOINT.format(symbol=symbol)
@@ -239,7 +246,7 @@ class StockProfileService:
 # Convenience function for quick access
 async def get_profile(
     symbol: str,
-    lang: str = "en",
+    lang: Language = "en",
     config: FetcherConfig | None = None,
 ) -> StockProfile:
     """

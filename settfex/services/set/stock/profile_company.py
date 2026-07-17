@@ -6,8 +6,9 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from settfex.exceptions import InvalidSymbolError, raise_for_status
 from settfex.services.set.constants import SET_BASE_URL, SET_COMPANY_PROFILE_ENDPOINT
-from settfex.services.set.stock.utils import normalize_language, normalize_symbol
+from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.parsing import decode_json, validate_or_raise
 
@@ -160,7 +161,7 @@ class CompanyProfileService:
         self.base_url = SET_BASE_URL
         logger.info(f"CompanyProfileService initialized with base_url={self.base_url}")
 
-    async def fetch_company_profile(self, symbol: str, lang: str = "en") -> CompanyProfile:
+    async def fetch_company_profile(self, symbol: str, lang: Language = "en") -> CompanyProfile:
         """
         Fetch company profile data for a specific stock symbol.
 
@@ -172,8 +173,11 @@ class CompanyProfileService:
             CompanyProfile containing comprehensive company information
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails or response cannot be parsed
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = CompanyProfileService()
@@ -191,7 +195,7 @@ class CompanyProfileService:
         if not symbol:
             error_msg = "Stock symbol cannot be empty"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise InvalidSymbolError(error_msg)
 
         # Build URL with symbol and language parameters
         endpoint = SET_COMPANY_PROFILE_ENDPOINT.format(symbol=symbol)
@@ -214,7 +218,7 @@ class CompanyProfileService:
                     f"Failed to fetch company profile for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             # Parse JSON
             data = decode_json(response.text, context=f"{symbol} (company-profile)")
@@ -230,7 +234,7 @@ class CompanyProfileService:
 
             return profile
 
-    async def fetch_company_profile_raw(self, symbol: str, lang: str = "en") -> dict[str, Any]:
+    async def fetch_company_profile_raw(self, symbol: str, lang: Language = "en") -> dict[str, Any]:
         """
         Fetch company profile data as raw dictionary without Pydantic validation.
 
@@ -244,8 +248,11 @@ class CompanyProfileService:
             Raw dictionary from API
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = CompanyProfileService()
@@ -259,7 +266,7 @@ class CompanyProfileService:
         if not symbol:
             error_msg = "Stock symbol cannot be empty"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise InvalidSymbolError(error_msg)
 
         # Build URL with symbol and language parameters
         endpoint = SET_COMPANY_PROFILE_ENDPOINT.format(symbol=symbol)
@@ -284,7 +291,7 @@ class CompanyProfileService:
 # Convenience function for quick access
 async def get_company_profile(
     symbol: str,
-    lang: str = "en",
+    lang: Language = "en",
     config: FetcherConfig | None = None,
 ) -> CompanyProfile:
     """

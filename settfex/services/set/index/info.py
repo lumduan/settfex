@@ -6,13 +6,14 @@ from typing import Any, Literal
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from settfex.exceptions import InvalidSymbolError, raise_for_status
 from settfex.services.set.constants import (
     SET_BASE_URL,
     SET_INDEX_INFO_ENDPOINT,
     SET_INDEX_INFO_LIST_ENDPOINT,
 )
 from settfex.services.set.index.utils import normalize_index_symbol
-from settfex.services.set.stock.utils import normalize_language
+from settfex.services.set.stock.utils import Language, normalize_language
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.parsing import decode_json, validate_or_raise
 
@@ -112,7 +113,7 @@ class IndexInfoService:
         self.base_url = SET_BASE_URL
         logger.info(f"IndexInfoService initialized with base_url={self.base_url}")
 
-    async def fetch_index_info(self, symbol: str, lang: str = "en") -> IndexInfo:
+    async def fetch_index_info(self, symbol: str, lang: Language = "en") -> IndexInfo:
         """
         Fetch the quotation for a specific market index.
 
@@ -125,8 +126,11 @@ class IndexInfoService:
             IndexInfo with last value, change, OHLC, volume, value, and market status
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails or response cannot be parsed
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = IndexInfoService()
@@ -136,7 +140,7 @@ class IndexInfoService:
         symbol = normalize_index_symbol(symbol)
         lang = normalize_language(lang)
         if not symbol:
-            raise ValueError("Index symbol cannot be empty")
+            raise InvalidSymbolError("Index symbol cannot be empty")
 
         endpoint = SET_INDEX_INFO_ENDPOINT.format(symbol=symbol)
         url = f"{self.base_url}{endpoint}?language={lang}"
@@ -151,7 +155,7 @@ class IndexInfoService:
             if response.status_code != 200:
                 error_msg = f"Failed to fetch index info for {symbol}: HTTP {response.status_code}"
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             data = decode_json(response.text, context=f"{symbol} (index-info)")
 
@@ -162,7 +166,7 @@ class IndexInfoService:
             )
             return result
 
-    async def fetch_index_info_raw(self, symbol: str, lang: str = "en") -> dict[str, Any]:
+    async def fetch_index_info_raw(self, symbol: str, lang: Language = "en") -> dict[str, Any]:
         """
         Fetch index quotation as raw dictionary without Pydantic validation.
 
@@ -181,7 +185,7 @@ class IndexInfoService:
         symbol = normalize_index_symbol(symbol)
         lang = normalize_language(lang)
         if not symbol:
-            raise ValueError("Index symbol cannot be empty")
+            raise InvalidSymbolError("Index symbol cannot be empty")
 
         endpoint = SET_INDEX_INFO_ENDPOINT.format(symbol=symbol)
         url = f"{self.base_url}{endpoint}?language={lang}"
@@ -196,7 +200,7 @@ class IndexInfoService:
             if response.status_code != 200:
                 error_msg = f"Failed to fetch index info for {symbol}: HTTP {response.status_code}"
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             data = decode_json(response.text, context=f"{symbol} (index-info)")
 
@@ -206,7 +210,7 @@ class IndexInfoService:
             return data  # type: ignore[no-any-return]
 
     async def fetch_index_info_list(
-        self, index_type: IndexInfoType = "INDEX", lang: str = "en"
+        self, index_type: IndexInfoType = "INDEX", lang: Language = "en"
     ) -> list[IndexInfo]:
         """
         Fetch quotations for all indices of a type in one request.
@@ -220,8 +224,9 @@ class IndexInfoService:
             List of IndexInfo quotations
 
         Raises:
-            ValueError: If language is invalid
-            Exception: If request fails or response cannot be parsed
+            InvalidLanguageError: If the language is not recognized.
+            FetchError: On HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = IndexInfoService()
@@ -249,7 +254,7 @@ class IndexInfoService:
             return quotes
 
     async def fetch_index_info_list_raw(
-        self, index_type: IndexInfoType = "INDEX", lang: str = "en"
+        self, index_type: IndexInfoType = "INDEX", lang: Language = "en"
     ) -> dict[str, Any]:
         """
         Fetch the index info list as raw dictionary without Pydantic validation.
@@ -283,7 +288,7 @@ class IndexInfoService:
 
 # Convenience functions for quick access
 async def get_index_info(
-    symbol: str, lang: str = "en", config: FetcherConfig | None = None
+    symbol: str, lang: Language = "en", config: FetcherConfig | None = None
 ) -> IndexInfo:
     """
     Convenience function to fetch a market index quotation.
@@ -307,7 +312,7 @@ async def get_index_info(
 
 async def get_index_info_list(
     index_type: IndexInfoType = "INDEX",
-    lang: str = "en",
+    lang: Language = "en",
     config: FetcherConfig | None = None,
 ) -> list[IndexInfo]:
     """

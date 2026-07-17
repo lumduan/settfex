@@ -13,6 +13,7 @@ from settfex.services.set.index.composition import (
 from settfex.services.set.index.info import IndexInfo, IndexInfoService
 from settfex.services.set.index.utils import normalize_index_symbol
 from settfex.services.set.stock.chart_quotation import ChartQuotation, PeriodType, Quotation
+from settfex.services.set.stock.utils import Language
 from settfex.utils.data_fetcher import FetcherConfig
 
 
@@ -70,7 +71,7 @@ class SetIndex:
             self._info_service = IndexInfoService(config=self.config)
         return self._info_service
 
-    async def get_info(self, lang: str = "en") -> IndexInfo:
+    async def get_info(self, lang: Language = "en") -> IndexInfo:
         """
         Fetch the quotation for this index (page-header data).
 
@@ -95,7 +96,7 @@ class SetIndex:
             self._composition_service = IndexCompositionService(config=self.config)
         return self._composition_service
 
-    async def get_composition(self, lang: str = "en") -> IndexCompositionResponse:
+    async def get_composition(self, lang: Language = "en") -> IndexCompositionResponse:
         """
         Fetch the constituents of this index with per-stock quote rows.
 
@@ -106,7 +107,9 @@ class SetIndex:
             IndexCompositionResponse with constituent quotes and the index's own quote
 
         Raises:
-            Exception: HTTP 404 for the whole-market indices 'SET' and 'mai'
+            SymbolNotFoundError: HTTP 404 for the whole-market indices 'SET' and 'mai'
+                (query a sub-index, sector, or industry instead).
+            FetchError: On other HTTP or transport failures.
 
         Example:
             >>> index = SetIndex("SET50")
@@ -117,7 +120,7 @@ class SetIndex:
         logger.debug(f"Fetching index composition for {self.symbol} (lang={lang})")
         return await self.composition_service.fetch_composition(symbol=self.symbol, lang=lang)
 
-    async def get_constituents(self, lang: str = "en") -> list[IndexConstituent]:
+    async def get_constituents(self, lang: Language = "en") -> list[IndexConstituent]:
         """
         Fetch just the constituent quote rows of this index.
 

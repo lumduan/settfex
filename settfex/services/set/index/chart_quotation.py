@@ -11,6 +11,7 @@ from typing import Any
 
 from loguru import logger
 
+from settfex.exceptions import InvalidSymbolError, raise_for_status
 from settfex.services.set.constants import SET_BASE_URL, SET_INDEX_CHART_QUOTATION_ENDPOINT
 from settfex.services.set.index.utils import normalize_index_symbol
 from settfex.services.set.stock.chart_quotation import ChartQuotation, PeriodType, Quotation
@@ -55,8 +56,10 @@ class IndexChartQuotationService:
             ChartQuotation containing prior value, intermissions, and quotation list
 
         Raises:
-            ValueError: If symbol is empty
-            Exception: If request fails or response cannot be parsed
+            InvalidSymbolError: If the symbol is empty.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = IndexChartQuotationService()
@@ -68,7 +71,7 @@ class IndexChartQuotationService:
         """
         symbol = normalize_index_symbol(symbol)
         if not symbol:
-            raise ValueError("Index symbol cannot be empty")
+            raise InvalidSymbolError("Index symbol cannot be empty")
 
         accumulated_str = str(accumulated).lower()
         endpoint = SET_INDEX_CHART_QUOTATION_ENDPOINT.format(symbol=symbol)
@@ -90,7 +93,7 @@ class IndexChartQuotationService:
                     f"HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             data = decode_json(response.text, context=f"{symbol} (index-chart-quotation)")
 
@@ -127,7 +130,7 @@ class IndexChartQuotationService:
         """
         symbol = normalize_index_symbol(symbol)
         if not symbol:
-            raise ValueError("Index symbol cannot be empty")
+            raise InvalidSymbolError("Index symbol cannot be empty")
 
         accumulated_str = str(accumulated).lower()
         endpoint = SET_INDEX_CHART_QUOTATION_ENDPOINT.format(symbol=symbol)
@@ -149,7 +152,7 @@ class IndexChartQuotationService:
                     f"HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             data = decode_json(response.text, context=f"{symbol} (index-chart-quotation)")
 
