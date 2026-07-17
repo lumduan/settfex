@@ -652,6 +652,30 @@ stock_list = await get_stock_list()
 
 Great for debugging or monitoring in production. Default is ERROR level for clean output.
 
+## 🧯 Error Handling
+
+settfex raises typed exceptions from `settfex.exceptions` (all re-exported from the top level), so you can catch exactly what you need. They stay backward-compatible — fetch errors subclass `Exception`, validation errors subclass `ValueError`:
+
+```python
+from settfex import get_highlight_data
+from settfex.exceptions import (
+    FetchError,            # HTTP/transport failure — has .status_code and .symbol
+    SymbolNotFoundError,   # HTTP 404 for a symbol — subclass of FetchError
+    InvalidSymbolError,    # empty/invalid symbol  — subclass of ValueError
+    InvalidLanguageError,  # unrecognized language — subclass of ValueError
+)
+
+try:
+    data = await get_highlight_data("CPALLL")            # typo
+except SymbolNotFoundError as exc:
+    print(exc)              # "... HTTP 404 — did you mean 'CPALL'?"
+    print(exc.suggestion)   # "CPALL" — a network-free hint from a stock list you already fetched
+except FetchError as exc:
+    print(f"Fetch failed (HTTP {exc.status_code}) for {exc.symbol}")
+```
+
+`SymbolNotFoundError.suggestion` is computed only from the stock list already fetched this session (via `get_stock_list()`); a 404 never triggers an extra request, and it's `None` when no list has been fetched yet.
+
 ## 📋 Changelog
 
 See **[CHANGELOG.md](CHANGELOG.md)** for the full, versioned release history (this project
