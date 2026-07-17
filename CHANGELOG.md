@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-17
+
+### Added
+
+- **Typed exception hierarchy** (`settfex.exceptions`, re-exported from the top-level `settfex`
+  namespace): `FetchError` (carrying `status_code`/`symbol`), `SymbolNotFoundError` (HTTP 404),
+  `InvalidSymbolError` and `InvalidLanguageError`. The validation errors subclass `ValueError` and
+  the fetch errors subclass `Exception`, so existing `except ValueError`/`except Exception`
+  handlers keep working. Adds a `Language` (`Literal["en", "th"]`) type alias.
+
+### Changed
+
+- Service calls now raise the typed exceptions above instead of bare `Exception`/`ValueError`
+  (e.g. `except SymbolNotFoundError`); `board_of_director` list-shape errors now raise
+  `ResponseParseError`, consistent with sibling services. **Backward-compatible at runtime.**
+- **`lang`/`language` parameters are now typed `Literal["en", "th"]`** on all public entry points
+  (`get_*`, `fetch_*`, `Stock.*`, `SetIndex.*`); `type_id` on the earnings-call APIs is now
+  `Literal[1, 2, 3]`. This is a static-typing tightening only — `normalize_language()` stays
+  internal and still accepts `eng`/`english`/`tha`/`thai` at runtime.
+- Excluded `tests/` and `scripts/` (untyped helper code) from the strict `mypy` gate so
+  `uv run mypy .` type-checks the shipped package.
+
 ## [0.8.0] - 2026-07-16
 
 ### Added

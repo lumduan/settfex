@@ -8,6 +8,7 @@ from curl_cffi import requests
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from settfex.exceptions import FetchError
 from settfex.utils.parsing import decode_json
 
 # Static default request headers, built once at import and copied per request. Copying a
@@ -360,7 +361,7 @@ class AsyncDataFetcher:
 
         # All retries exhausted
         logger.error(f"All fetch attempts failed for {url}")
-        raise Exception(
+        raise FetchError(
             f"Failed to fetch {url} after {self.config.max_retries + 1} attempts"
         ) from last_exception  # noqa: E501
 

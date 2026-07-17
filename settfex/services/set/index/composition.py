@@ -6,10 +6,11 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from settfex.exceptions import FetchError, InvalidSymbolError, SymbolNotFoundError
 from settfex.services.set.constants import SET_BASE_URL, SET_INDEX_COMPOSITION_ENDPOINT
 from settfex.services.set.index.info import IndexInfo
 from settfex.services.set.index.utils import normalize_index_symbol
-from settfex.services.set.stock.utils import normalize_language
+from settfex.services.set.stock.utils import Language, normalize_language
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.parsing import decode_json, validate_or_raise
 
@@ -314,12 +315,15 @@ class IndexCompositionService:
                 f"indices 'SET' and 'mai' have no composition endpoint; query a sub-index "
                 f"(e.g. 'SET50'), a sector, or an industry instead"
             )
-        else:
-            error_msg = f"Failed to fetch index composition for {symbol}: HTTP {status_code}"
+            logger.error(error_msg)
+            raise SymbolNotFoundError(error_msg, status_code=status_code, symbol=symbol)
+        error_msg = f"Failed to fetch index composition for {symbol}: HTTP {status_code}"
         logger.error(error_msg)
-        raise Exception(error_msg)
+        raise FetchError(error_msg, status_code=status_code, symbol=symbol)
 
-    async def fetch_composition(self, symbol: str, lang: str = "en") -> IndexCompositionResponse:
+    async def fetch_composition(
+        self, symbol: str, lang: Language = "en"
+    ) -> IndexCompositionResponse:
         """
         Fetch the constituents of a specific market index.
 
@@ -334,8 +338,11 @@ class IndexCompositionService:
             IndexCompositionResponse with constituent quote rows and the index's own quote
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails (incl. HTTP 404 for 'SET'/'mai') or cannot be parsed
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the index is not found (HTTP 404; incl. 'SET'/'mai').
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = IndexCompositionService()
@@ -347,7 +354,7 @@ class IndexCompositionService:
         symbol = normalize_index_symbol(symbol)
         lang = normalize_language(lang)
         if not symbol:
-            raise ValueError("Index symbol cannot be empty")
+            raise InvalidSymbolError("Index symbol cannot be empty")
 
         url = self._build_url(symbol, lang)
 
@@ -372,7 +379,7 @@ class IndexCompositionService:
             )
             return result
 
-    async def fetch_composition_raw(self, symbol: str, lang: str = "en") -> dict[str, Any]:
+    async def fetch_composition_raw(self, symbol: str, lang: Language = "en") -> dict[str, Any]:
         """
         Fetch index composition as raw dictionary without Pydantic validation.
 
@@ -383,6 +390,13 @@ class IndexCompositionService:
         Returns:
             Raw dictionary from API (with 'composition' and 'indexInfos' keys)
 
+        Raises:
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the index is not found (HTTP 404; incl. 'SET'/'mai').
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
+
         Example:
             >>> service = IndexCompositionService()
             >>> raw = await service.fetch_composition_raw("SET50")
@@ -391,7 +405,7 @@ class IndexCompositionService:
         symbol = normalize_index_symbol(symbol)
         lang = normalize_language(lang)
         if not symbol:
-            raise ValueError("Index symbol cannot be empty")
+            raise InvalidSymbolError("Index symbol cannot be empty")
 
         url = self._build_url(symbol, lang)
 
@@ -414,7 +428,7 @@ class IndexCompositionService:
 
 # Convenience function for quick access
 async def get_index_composition(
-    symbol: str, lang: str = "en", config: FetcherConfig | None = None
+    symbol: str, lang: Language = "en", config: FetcherConfig | None = None
 ) -> IndexCompositionResponse:
     """
     Convenience function to fetch the constituents of a market index.

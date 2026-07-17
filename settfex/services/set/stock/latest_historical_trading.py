@@ -6,6 +6,7 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from settfex.exceptions import InvalidSymbolError, raise_for_status
 from settfex.services.set.constants import (
     SET_BASE_URL,
     SET_STOCK_LATEST_HISTORICAL_TRADING_ENDPOINT,
@@ -79,8 +80,10 @@ class LatestHistoricalTradingService:
             LatestHistoricalTrading with OHLCV and valuation data
 
         Raises:
-            ValueError: If symbol is empty
-            Exception: If request fails or response cannot be parsed
+            InvalidSymbolError: If the symbol is empty.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = LatestHistoricalTradingService()
@@ -90,7 +93,7 @@ class LatestHistoricalTradingService:
         """
         symbol = normalize_symbol(symbol)
         if not symbol:
-            raise ValueError("Stock symbol cannot be empty")
+            raise InvalidSymbolError("Stock symbol cannot be empty")
 
         endpoint = SET_STOCK_LATEST_HISTORICAL_TRADING_ENDPOINT.format(symbol=symbol)
         url = f"{self.base_url}{endpoint}"
@@ -108,7 +111,7 @@ class LatestHistoricalTradingService:
                     f"HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             data = decode_json(response.text, context=f"{symbol} (latest-historical-trading)")
 
@@ -132,6 +135,12 @@ class LatestHistoricalTradingService:
         Returns:
             Raw dictionary from API
 
+        Raises:
+            InvalidSymbolError: If the symbol is empty.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
+
         Example:
             >>> service = LatestHistoricalTradingService()
             >>> raw = await service.fetch_latest_historical_trading_raw("CPALL")
@@ -139,7 +148,7 @@ class LatestHistoricalTradingService:
         """
         symbol = normalize_symbol(symbol)
         if not symbol:
-            raise ValueError("Stock symbol cannot be empty")
+            raise InvalidSymbolError("Stock symbol cannot be empty")
 
         endpoint = SET_STOCK_LATEST_HISTORICAL_TRADING_ENDPOINT.format(symbol=symbol)
         url = f"{self.base_url}{endpoint}"
@@ -157,7 +166,7 @@ class LatestHistoricalTradingService:
                     f"HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             data = decode_json(response.text, context=f"{symbol} (latest-historical-trading)")
 
@@ -178,6 +187,12 @@ async def get_latest_historical_trading(
 
     Returns:
         LatestHistoricalTrading with OHLCV and valuation data
+
+    Raises:
+        InvalidSymbolError: If the symbol is empty.
+        SymbolNotFoundError: If the symbol is not found (HTTP 404).
+        FetchError: On other HTTP or transport failures.
+        ResponseParseError: If the response cannot be parsed.
 
     Example:
         >>> from settfex.services.set.stock import get_latest_historical_trading

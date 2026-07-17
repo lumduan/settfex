@@ -5,10 +5,11 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from settfex.exceptions import InvalidSymbolError, raise_for_status
 from settfex.services.set.constants import SET_BASE_URL, SET_BOARD_OF_DIRECTOR_ENDPOINT
-from settfex.services.set.stock.utils import normalize_language, normalize_symbol
+from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
-from settfex.utils.parsing import decode_json, validate_list_or_raise
+from settfex.utils.parsing import ResponseParseError, decode_json, validate_list_or_raise
 
 
 class Director(BaseModel):
@@ -45,7 +46,7 @@ class BoardOfDirectorService:
         self.base_url = SET_BASE_URL
         logger.info(f"BoardOfDirectorService initialized with base_url={self.base_url}")
 
-    async def fetch_board_of_directors(self, symbol: str, lang: str = "en") -> list[Director]:
+    async def fetch_board_of_directors(self, symbol: str, lang: Language = "en") -> list[Director]:
         """
         Fetch board of directors for a specific stock symbol.
 
@@ -57,8 +58,11 @@ class BoardOfDirectorService:
             List of Director objects containing name and positions
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails or response cannot be parsed
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = BoardOfDirectorService()
@@ -73,7 +77,7 @@ class BoardOfDirectorService:
         if not symbol:
             error_msg = "Stock symbol cannot be empty"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise InvalidSymbolError(error_msg)
 
         # Build URL with symbol and language parameters
         endpoint = SET_BOARD_OF_DIRECTOR_ENDPOINT.format(symbol=symbol)
@@ -96,7 +100,7 @@ class BoardOfDirectorService:
                     f"Failed to fetch board of directors for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             # Parse JSON
             data = decode_json(response.text, context=f"{symbol} (board-of-director)")
@@ -107,7 +111,7 @@ class BoardOfDirectorService:
                     f"Expected list response but got {type(data).__name__}: {str(data)[:200]}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise ResponseParseError(error_msg)
 
             # Validate each director using Pydantic (context-rich on failure)
             directors = validate_list_or_raise(
@@ -119,7 +123,7 @@ class BoardOfDirectorService:
             return directors
 
     async def fetch_board_of_directors_raw(
-        self, symbol: str, lang: str = "en"
+        self, symbol: str, lang: Language = "en"
     ) -> list[dict[str, Any]]:
         """
         Fetch board of directors as raw list of dictionaries without Pydantic validation.
@@ -134,8 +138,11 @@ class BoardOfDirectorService:
             Raw list of dictionaries from API
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = BoardOfDirectorService()
@@ -150,7 +157,7 @@ class BoardOfDirectorService:
         if not symbol:
             error_msg = "Stock symbol cannot be empty"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise InvalidSymbolError(error_msg)
 
         # Build URL with symbol and language parameters
         endpoint = SET_BOARD_OF_DIRECTOR_ENDPOINT.format(symbol=symbol)
@@ -172,7 +179,7 @@ class BoardOfDirectorService:
                     f"Failed to fetch board of directors for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             # Parse JSON
             data = decode_json(response.text, context=f"{symbol} (board-of-director)")
@@ -183,7 +190,7 @@ class BoardOfDirectorService:
                     f"Expected list response but got {type(data).__name__}: {str(data)[:200]}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise ResponseParseError(error_msg)
 
             logger.debug(f"Raw response: {len(data)} directors")
             return data
@@ -192,7 +199,7 @@ class BoardOfDirectorService:
 # Convenience function for quick access
 async def get_board_of_directors(
     symbol: str,
-    lang: str = "en",
+    lang: Language = "en",
     config: FetcherConfig | None = None,
 ) -> list[Director]:
     """

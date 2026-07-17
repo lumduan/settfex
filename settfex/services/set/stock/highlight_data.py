@@ -6,8 +6,9 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from settfex.exceptions import InvalidSymbolError, raise_for_status
 from settfex.services.set.constants import SET_BASE_URL, SET_STOCK_HIGHLIGHT_DATA_ENDPOINT
-from settfex.services.set.stock.utils import normalize_language, normalize_symbol
+from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.parsing import decode_json, validate_or_raise
 
@@ -99,7 +100,7 @@ class StockHighlightDataService:
         self.base_url = SET_BASE_URL
         logger.info(f"StockHighlightDataService initialized with base_url={self.base_url}")
 
-    async def fetch_highlight_data(self, symbol: str, lang: str = "en") -> StockHighlightData:
+    async def fetch_highlight_data(self, symbol: str, lang: Language = "en") -> StockHighlightData:
         """
         Fetch highlight data for a specific stock symbol.
 
@@ -111,8 +112,11 @@ class StockHighlightDataService:
             StockHighlightData containing highlight metrics and statistics
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails or response cannot be parsed
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = StockHighlightDataService()
@@ -128,7 +132,7 @@ class StockHighlightDataService:
         if not symbol:
             error_msg = "Stock symbol cannot be empty"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise InvalidSymbolError(error_msg)
 
         # Build URL with symbol and language parameters
         endpoint = SET_STOCK_HIGHLIGHT_DATA_ENDPOINT.format(symbol=symbol)
@@ -151,7 +155,7 @@ class StockHighlightDataService:
                     f"Failed to fetch highlight data for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             # Parse JSON
             data = decode_json(response.text, context=f"{symbol} (highlight-data)")
@@ -170,7 +174,7 @@ class StockHighlightDataService:
 
             return highlight_data
 
-    async def fetch_highlight_data_raw(self, symbol: str, lang: str = "en") -> dict[str, Any]:
+    async def fetch_highlight_data_raw(self, symbol: str, lang: Language = "en") -> dict[str, Any]:
         """
         Fetch highlight data as raw dictionary without Pydantic validation.
 
@@ -184,8 +188,11 @@ class StockHighlightDataService:
             Raw dictionary from API
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = StockHighlightDataService()
@@ -199,7 +206,7 @@ class StockHighlightDataService:
         if not symbol:
             error_msg = "Stock symbol cannot be empty"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise InvalidSymbolError(error_msg)
 
         # Build URL with symbol and language parameters
         endpoint = SET_STOCK_HIGHLIGHT_DATA_ENDPOINT.format(symbol=symbol)
@@ -221,7 +228,7 @@ class StockHighlightDataService:
                     f"Failed to fetch highlight data for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             # Parse JSON
             data = decode_json(response.text, context=f"{symbol} (highlight-data)")
@@ -235,7 +242,7 @@ class StockHighlightDataService:
 # Convenience function for quick access
 async def get_highlight_data(
     symbol: str,
-    lang: str = "en",
+    lang: Language = "en",
     config: FetcherConfig | None = None,
 ) -> StockHighlightData:
     """
@@ -248,6 +255,13 @@ async def get_highlight_data(
 
     Returns:
         StockHighlightData with highlight metrics and statistics
+
+    Raises:
+        InvalidSymbolError: If the symbol is empty.
+        InvalidLanguageError: If the language is not recognized.
+        SymbolNotFoundError: If the symbol is not found (HTTP 404).
+        FetchError: On other HTTP or transport failures.
+        ResponseParseError: If the response cannot be parsed.
 
     Example:
         >>> from settfex.services.set.stock import get_highlight_data

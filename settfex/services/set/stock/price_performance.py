@@ -8,8 +8,9 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from settfex.exceptions import InvalidSymbolError, raise_for_status
 from settfex.services.set.constants import SET_BASE_URL, SET_PRICE_PERFORMANCE_ENDPOINT
-from settfex.services.set.stock.utils import normalize_language, normalize_symbol
+from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.parsing import decode_json, validate_or_raise
 
@@ -86,7 +87,9 @@ class PricePerformanceService:
         self.base_url = SET_BASE_URL
         logger.info(f"PricePerformanceService initialized with base_url={self.base_url}")
 
-    async def fetch_price_performance(self, symbol: str, lang: str = "en") -> PricePerformanceData:
+    async def fetch_price_performance(
+        self, symbol: str, lang: Language = "en"
+    ) -> PricePerformanceData:
         """
         Fetch price performance data for a specific stock symbol.
 
@@ -98,8 +101,11 @@ class PricePerformanceService:
             PricePerformanceData object containing stock, sector, and market metrics
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails or response cannot be parsed
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = PricePerformanceService()
@@ -119,7 +125,7 @@ class PricePerformanceService:
         if not symbol:
             error_msg = "Stock symbol cannot be empty"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise InvalidSymbolError(error_msg)
 
         # Build URL with symbol and language parameters
         endpoint = SET_PRICE_PERFORMANCE_ENDPOINT.format(symbol=symbol)
@@ -142,7 +148,7 @@ class PricePerformanceService:
                     f"Failed to fetch price performance for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             # Parse JSON
             data = decode_json(response.text, context=f"{symbol} (price-performance)")
@@ -175,7 +181,9 @@ class PricePerformanceService:
 
             return price_performance
 
-    async def fetch_price_performance_raw(self, symbol: str, lang: str = "en") -> dict[str, Any]:
+    async def fetch_price_performance_raw(
+        self, symbol: str, lang: Language = "en"
+    ) -> dict[str, Any]:
         """
         Fetch price performance as raw dictionary without Pydantic validation.
 
@@ -189,8 +197,11 @@ class PricePerformanceService:
             Raw dictionary from API
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = PricePerformanceService()
@@ -205,7 +216,7 @@ class PricePerformanceService:
         if not symbol:
             error_msg = "Stock symbol cannot be empty"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise InvalidSymbolError(error_msg)
 
         # Build URL with symbol and language parameters
         endpoint = SET_PRICE_PERFORMANCE_ENDPOINT.format(symbol=symbol)
@@ -227,7 +238,7 @@ class PricePerformanceService:
                     f"Failed to fetch price performance for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             # Parse JSON
             data = decode_json(response.text, context=f"{symbol} (price-performance)")
@@ -245,7 +256,7 @@ class PricePerformanceService:
 # Convenience function for quick access
 async def get_price_performance(
     symbol: str,
-    lang: str = "en",
+    lang: Language = "en",
     config: FetcherConfig | None = None,
 ) -> PricePerformanceData:
     """

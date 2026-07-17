@@ -6,8 +6,9 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from settfex.exceptions import InvalidSymbolError, raise_for_status
 from settfex.services.set.constants import SET_BASE_URL, SET_CORPORATE_ACTION_ENDPOINT
-from settfex.services.set.stock.utils import normalize_language, normalize_symbol
+from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.parsing import decode_json, validate_list_or_raise
 
@@ -108,7 +109,9 @@ class CorporateActionService:
         self.base_url = SET_BASE_URL
         logger.info(f"CorporateActionService initialized with base_url={self.base_url}")
 
-    async def fetch_corporate_actions(self, symbol: str, lang: str = "en") -> list[CorporateAction]:
+    async def fetch_corporate_actions(
+        self, symbol: str, lang: Language = "en"
+    ) -> list[CorporateAction]:
         """
         Fetch corporate actions for a specific stock symbol.
 
@@ -120,8 +123,11 @@ class CorporateActionService:
             List of CorporateAction objects with corporate action data
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails or response cannot be parsed
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = CorporateActionService()
@@ -141,7 +147,7 @@ class CorporateActionService:
         if not symbol:
             error_msg = "Stock symbol cannot be empty"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise InvalidSymbolError(error_msg)
 
         # Build URL with symbol and language parameters
         endpoint = SET_CORPORATE_ACTION_ENDPOINT.format(symbol=symbol)
@@ -164,7 +170,7 @@ class CorporateActionService:
                     f"Failed to fetch corporate actions for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             # Parse JSON
             data = decode_json(response.text, context=f"{symbol} (corporate-action)")
@@ -196,7 +202,7 @@ class CorporateActionService:
             return corporate_actions
 
     async def fetch_corporate_actions_raw(
-        self, symbol: str, lang: str = "en"
+        self, symbol: str, lang: Language = "en"
     ) -> list[dict[str, Any]]:
         """
         Fetch corporate actions as raw list of dictionaries without Pydantic validation.
@@ -211,8 +217,11 @@ class CorporateActionService:
             Raw list of dictionaries from API
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = CorporateActionService()
@@ -228,7 +237,7 @@ class CorporateActionService:
         if not symbol:
             error_msg = "Stock symbol cannot be empty"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise InvalidSymbolError(error_msg)
 
         # Build URL with symbol and language parameters
         endpoint = SET_CORPORATE_ACTION_ENDPOINT.format(symbol=symbol)
@@ -250,7 +259,7 @@ class CorporateActionService:
                     f"Failed to fetch corporate actions for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             # Parse JSON
             data = decode_json(response.text, context=f"{symbol} (corporate-action)")
@@ -268,7 +277,7 @@ class CorporateActionService:
 # Convenience function for quick access
 async def get_corporate_actions(
     symbol: str,
-    lang: str = "en",
+    lang: Language = "en",
     config: FetcherConfig | None = None,
 ) -> list[CorporateAction]:
     """

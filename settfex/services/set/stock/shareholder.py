@@ -6,8 +6,9 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from settfex.exceptions import InvalidSymbolError, raise_for_status
 from settfex.services.set.constants import SET_BASE_URL, SET_STOCK_SHAREHOLDER_ENDPOINT
-from settfex.services.set.stock.utils import normalize_language, normalize_symbol
+from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.parsing import decode_json, validate_or_raise
 
@@ -98,7 +99,7 @@ class ShareholderService:
         self.base_url = SET_BASE_URL
         logger.info(f"ShareholderService initialized with base_url={self.base_url}")
 
-    async def fetch_shareholder_data(self, symbol: str, lang: str = "en") -> ShareholderData:
+    async def fetch_shareholder_data(self, symbol: str, lang: Language = "en") -> ShareholderData:
         """
         Fetch shareholder data for a specific stock symbol.
 
@@ -110,8 +111,11 @@ class ShareholderService:
             ShareholderData containing major shareholders, free float, and ownership stats
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails or response cannot be parsed
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = ShareholderService()
@@ -128,7 +132,7 @@ class ShareholderService:
         if not symbol:
             error_msg = "Stock symbol cannot be empty"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise InvalidSymbolError(error_msg)
 
         # Build URL with symbol and language parameters
         endpoint = SET_STOCK_SHAREHOLDER_ENDPOINT.format(symbol=symbol)
@@ -151,7 +155,7 @@ class ShareholderService:
                     f"Failed to fetch shareholder data for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             # Parse JSON
             data = decode_json(response.text, context=f"{symbol} (shareholder)")
@@ -169,7 +173,9 @@ class ShareholderService:
 
             return shareholder_data
 
-    async def fetch_shareholder_data_raw(self, symbol: str, lang: str = "en") -> dict[str, Any]:
+    async def fetch_shareholder_data_raw(
+        self, symbol: str, lang: Language = "en"
+    ) -> dict[str, Any]:
         """
         Fetch shareholder data as raw dictionary without Pydantic validation.
 
@@ -183,8 +189,11 @@ class ShareholderService:
             Raw dictionary from API
 
         Raises:
-            ValueError: If symbol is empty or language is invalid
-            Exception: If request fails
+            InvalidSymbolError: If the symbol is empty.
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = ShareholderService()
@@ -198,7 +207,7 @@ class ShareholderService:
         if not symbol:
             error_msg = "Stock symbol cannot be empty"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise InvalidSymbolError(error_msg)
 
         # Build URL with symbol and language parameters
         endpoint = SET_STOCK_SHAREHOLDER_ENDPOINT.format(symbol=symbol)
@@ -220,7 +229,7 @@ class ShareholderService:
                     f"Failed to fetch shareholder data for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             # Parse JSON
             data = decode_json(response.text, context=f"{symbol} (shareholder)")
@@ -234,7 +243,7 @@ class ShareholderService:
 # Convenience function for quick access
 async def get_shareholder_data(
     symbol: str,
-    lang: str = "en",
+    lang: Language = "en",
     config: FetcherConfig | None = None,
 ) -> ShareholderData:
     """

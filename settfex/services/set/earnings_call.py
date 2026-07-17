@@ -23,7 +23,7 @@ import asyncio
 import re
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
@@ -36,7 +36,7 @@ from settfex.services.set.constants import (
     SET_OPPDAY_ORIGIN,
     SET_OPPDAY_REFERER,
 )
-from settfex.services.set.stock.utils import normalize_language, normalize_symbol
+from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.parsing import (
     ResponseParseError,
@@ -44,6 +44,9 @@ from settfex.utils.parsing import (
     validate_or_raise,
 )
 from settfex.utils.youtube_transcript import fetch_youtube_transcript
+
+PresentationType = Literal[1, 2, 3]
+"""Earnings-call presentation type: 1 = Earnings Call/OPPDAY, 2 = Digital Roadshow, 3 = C-Sign."""
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -453,14 +456,14 @@ class EarningsCallService:
     async def fetch_earnings_calls(
         self,
         *,
-        type_id: int = 1,
+        type_id: PresentationType = 1,
         quarter_id: int = 0,
         keyword: str | None = None,
         industries_id: str | None = None,
         composition_id: int | None = None,
         start: int = 1,
         page_size: int = 12,
-        language: str = "en",
+        language: Language = "en",
         enrich: bool = False,
     ) -> EarningsCallResponse:
         """Fetch one page of earnings-call entries.
@@ -510,14 +513,14 @@ class EarningsCallService:
     async def fetch_earnings_calls_raw(
         self,
         *,
-        type_id: int = 1,
+        type_id: PresentationType = 1,
         quarter_id: int = 0,
         keyword: str | None = None,
         industries_id: str | None = None,
         composition_id: int | None = None,
         start: int = 1,
         page_size: int = 12,
-        language: str = "en",
+        language: Language = "en",
     ) -> dict[str, Any]:
         """Fetch one page as a raw dict (no Pydantic validation).
 
@@ -557,14 +560,14 @@ class EarningsCallService:
     async def fetch_all_earnings_calls(
         self,
         *,
-        type_id: int = 1,
+        type_id: PresentationType = 1,
         quarter_id: int = 0,
         keyword: str | None = None,
         industries_id: str | None = None,
         composition_id: int | None = None,
         start: int = 1,
         page_size: int = 200,
-        language: str = "en",
+        language: Language = "en",
         enrich: bool = False,
         max_records: int | None = None,
         max_pages: int | None = None,
@@ -692,7 +695,7 @@ class EarningsCallService:
         )
 
     async def fetch_earnings_call_detail(
-        self, item_id: int, language: str = "en"
+        self, item_id: int, language: Language = "en"
     ) -> EarningsCallDetail:
         """Fetch a single OPPDAY presentation's detail by its id.
 
@@ -760,7 +763,7 @@ class EarningsCallService:
         await asyncio.gather(*(_attach(item) for item in items))
         reporter.close()
 
-    async def _fetch_filter(self, name: str, language: str = "en") -> list[FilterOption]:
+    async def _fetch_filter(self, name: str, language: Language = "en") -> list[FilterOption]:
         """Fetch a single filter endpoint and validate it into a list of options."""
         language = normalize_language(language)
         endpoint = SET_EARNINGS_CALL_FILTER_ENDPOINT.format(name=name)
@@ -773,49 +776,71 @@ class EarningsCallService:
                 FilterOption, data, context=f"set earnings-call filter/{name}"
             )
 
-    async def fetch_filter_types(self, language: str = "en") -> list[FilterOption]:
+    async def fetch_filter_types(self, language: Language = "en") -> list[FilterOption]:
         """Fetch presentation types (e.g. 1 = Earnings Call/OPPDAY)."""
         return await self._fetch_filter("types", language)
 
-    async def fetch_filter_years(self, language: str = "en") -> list[FilterOption]:
+    async def fetch_filter_years(self, language: Language = "en") -> list[FilterOption]:
         """Fetch quarter/year filter options (ids usable as ``quarter_id``)."""
         return await self._fetch_filter("years", language)
 
-    async def fetch_filter_industries(self, language: str = "en") -> list[FilterOption]:
+    async def fetch_filter_industries(self, language: Language = "en") -> list[FilterOption]:
         """Fetch industry filter options (string codes usable as ``industries_id``)."""
         return await self._fetch_filter("industries", language)
 
-    async def fetch_filter_markets(self, language: str = "en") -> list[FilterOption]:
+    async def fetch_filter_markets(self, language: Language = "en") -> list[FilterOption]:
         """Fetch market filter options (e.g. SET / mai / LiVEx)."""
         return await self._fetch_filter("markets", language)
 
-    async def fetch_filter_themes(self, language: str = "en") -> list[FilterOption]:
+    async def fetch_filter_themes(self, language: Language = "en") -> list[FilterOption]:
         """Fetch theme filter options (e.g. SET50, SET100, SETESG)."""
         return await self._fetch_filter("themes", language)
 
-    async def fetch_filter_trusts(self, language: str = "en") -> list[FilterOption]:
+    async def fetch_filter_trusts(self, language: Language = "en") -> list[FilterOption]:
         """Fetch trust/security-kind filter options (e.g. Common Stock, REIT)."""
         return await self._fetch_filter("trusts", language)
 
-    async def fetch_filter_stages(self, language: str = "en") -> list[FilterOption]:
+    async def fetch_filter_stages(self, language: Language = "en") -> list[FilterOption]:
         """Fetch stage filter options (e.g. Upcoming, Live, Video)."""
         return await self._fetch_filter("stages", language)
 
 
 async def get_earnings_calls(
     *,
-    type_id: int = 1,
+    type_id: PresentationType = 1,
     quarter_id: int = 0,
     keyword: str | None = None,
     industries_id: str | None = None,
     composition_id: int | None = None,
     start: int = 1,
     page_size: int = 12,
-    language: str = "en",
+    language: Language = "en",
     enrich: bool = False,
     config: FetcherConfig | None = None,
 ) -> EarningsCallResponse:
     """Convenience: fetch one page of earnings-call entries.
+
+    Thin wrapper over :meth:`EarningsCallService.fetch_earnings_calls`.
+
+    Args:
+        type_id: Presentation type (1 = Earnings Call/OPPDAY, 2 = Digital Roadshow,
+            3 = C-Sign Public Presentation).
+        quarter_id: Quarter filter id (0 = all quarters); see ``fetch_filter_years()``.
+        keyword: Free-text symbol/company search (normalized via ``normalize_symbol``).
+        industries_id: Industry filter code (see ``fetch_filter_industries()``).
+        composition_id: Optional composition/theme filter id.
+        start: 1-based page number.
+        page_size: Items per page.
+        language: ``"en"`` or ``"th"``.
+        enrich: If True, also fetch per-item detail concurrently (bounded).
+        config: Optional :class:`FetcherConfig` override.
+
+    Returns:
+        An :class:`EarningsCallResponse` for the requested page.
+
+    Raises:
+        ValueError: If ``start``/``page_size`` are out of range or ``language`` is invalid.
+        ResponseParseError: If the response cannot be decoded.
 
     Example:
         >>> from settfex.services.set import get_earnings_calls
@@ -839,14 +864,14 @@ async def get_earnings_calls(
 
 async def get_earnings_calls_dataframe(
     *,
-    type_id: int = 1,
+    type_id: PresentationType = 1,
     quarter_id: int = 0,
     keyword: str | None = None,
     industries_id: str | None = None,
     composition_id: int | None = None,
     start: int = 1,
     page_size: int = 12,
-    language: str = "en",
+    language: Language = "en",
     columns: list[str] | None = None,
     config: FetcherConfig | None = None,
 ) -> "pd.DataFrame":
@@ -857,6 +882,27 @@ async def get_earnings_calls_dataframe(
     :meth:`EarningsCallService.fetch_all_earnings_calls` then :meth:`to_dataframe`.
 
     Requires pandas (``pip install settfex[dataframe]``).
+
+    Args:
+        type_id: Presentation type (1 = Earnings Call/OPPDAY, 2 = Digital Roadshow,
+            3 = C-Sign Public Presentation).
+        quarter_id: Quarter filter id (0 = all quarters).
+        keyword: Free-text symbol/company search.
+        industries_id: Industry filter code (see ``fetch_filter_industries()``).
+        composition_id: Optional composition/theme filter id.
+        start: 1-based page number.
+        page_size: Items per page.
+        language: ``"en"`` or ``"th"``.
+        columns: Column subset/order for the DataFrame (defaults to the five above).
+        config: Optional :class:`FetcherConfig` override.
+
+    Returns:
+        A :class:`pandas.DataFrame` with one row per earnings-call entry.
+
+    Raises:
+        ImportError: If pandas is not installed (``pip install settfex[dataframe]``).
+        ValueError: If a requested column is unknown, or ``start``/``page_size``/``language``
+            is invalid.
 
     Example:
         >>> from settfex.services.set import get_earnings_calls_dataframe
@@ -880,12 +926,24 @@ async def get_earnings_calls_dataframe(
 
 async def get_earnings_call_detail(
     item_id: int,
-    language: str = "en",
+    language: Language = "en",
     config: FetcherConfig | None = None,
 ) -> EarningsCallDetail:
     """Convenience: fetch a single OPPDAY presentation's detail by id.
 
     The ``id`` is the number in an opportunity-day ``/vdo/{id}`` URL.
+
+    Args:
+        item_id: The presentation id (the number in a ``/vdo/{id}`` URL).
+        language: ``"en"`` or ``"th"``.
+        config: Optional :class:`FetcherConfig` override.
+
+    Returns:
+        An :class:`EarningsCallDetail` for the presentation.
+
+    Raises:
+        ValueError: If ``language`` is invalid.
+        ResponseParseError: If the response cannot be decoded.
 
     Example:
         >>> from settfex.services.set import get_earnings_call_detail
@@ -898,14 +956,14 @@ async def get_earnings_call_detail(
 
 async def get_all_earnings_calls(
     *,
-    type_id: int = 1,
+    type_id: PresentationType = 1,
     quarter_id: int = 0,
     keyword: str | None = None,
     industries_id: str | None = None,
     composition_id: int | None = None,
     start: int = 1,
     page_size: int = 200,
-    language: str = "en",
+    language: Language = "en",
     enrich: bool = False,
     max_records: int | None = None,
     max_pages: int | None = None,
@@ -920,6 +978,32 @@ async def get_all_earnings_calls(
     ``progress=True`` for a tqdm bar (``pip install "settfex[progress]"``), or a
     ``progress_callback(done, total)`` for a dependency-free hook. Bound the crawl with
     ``max_records`` / ``max_pages`` / ``max_concurrency``.
+
+    Args:
+        type_id: Presentation type (1 = Earnings Call/OPPDAY, 2 = Digital Roadshow,
+            3 = C-Sign Public Presentation).
+        quarter_id: Quarter filter id (0 = all quarters).
+        keyword: Free-text symbol/company search.
+        industries_id: Industry filter code (see ``fetch_filter_industries()``).
+        composition_id: Optional composition/theme filter id.
+        start: 1-based starting page number.
+        page_size: Records per request (default 200; larger = fewer requests).
+        language: ``"en"`` or ``"th"``.
+        enrich: If True, also fetch per-item detail concurrently (bounded).
+        max_records: Stop once this many items are collected (then truncate).
+        max_pages: Fetch at most this many pages.
+        max_concurrency: Max simultaneous page requests (politeness bound, default 5).
+        progress: Show a ``tqdm`` progress bar (needs ``settfex[progress]``).
+        progress_callback: Optional ``(done, total)`` hook, fired as pages complete.
+        config: Optional :class:`FetcherConfig` override.
+
+    Returns:
+        An :class:`EarningsCallResponse` with all collected items (in page order) and the API's
+        ``no_records`` total.
+
+    Raises:
+        ValueError: If ``max_records``/``max_pages`` are set but < 1, ``max_concurrency`` < 1,
+            or ``language`` is invalid.
 
     Example:
         >>> from settfex.services.set import get_all_earnings_calls
@@ -1024,6 +1108,20 @@ async def get_earnings_call_transcript(
     Resolves the presentation's video via the detail endpoint, then fetches its transcript (Thai
     by default). Returns ``None`` if the presentation has no YouTube video or no matching
     captions. Requires the ``transcript`` extra (``pip install "settfex[transcript]"``).
+
+    Args:
+        item_id: The presentation id (the number in a ``/vdo/{id}`` URL).
+        languages: Transcript language priority (default Thai, ``("th",)``).
+        proxies: Optional ``{"http": url, "https": url}`` proxy mapping.
+        config: Optional :class:`FetcherConfig` override.
+
+    Returns:
+        The transcript as a plain string (raw text, ready for AI/LLM use), or ``None`` if the
+        presentation has no YouTube video or no matching captions.
+
+    Raises:
+        ImportError: If the ``transcript`` extra is not installed
+            (``pip install "settfex[transcript]"``).
 
     Example:
         >>> from settfex.services.set import get_earnings_call_transcript

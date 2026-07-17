@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from settfex.exceptions import InvalidSymbolError, raise_for_status
 from settfex.services.set.constants import SET_BASE_URL, SET_STOCK_CHART_QUOTATION_ENDPOINT
 from settfex.services.set.stock.utils import normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
@@ -160,8 +161,10 @@ class ChartQuotationService:
             ChartQuotation containing prior price, intermissions, and quotation list
 
         Raises:
-            ValueError: If symbol is empty
-            Exception: If request fails or response cannot be parsed
+            InvalidSymbolError: If the symbol is empty.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = ChartQuotationService()
@@ -172,7 +175,7 @@ class ChartQuotationService:
         """
         symbol = normalize_symbol(symbol)
         if not symbol:
-            raise ValueError("Stock symbol cannot be empty")
+            raise InvalidSymbolError("Stock symbol cannot be empty")
 
         accumulated_str = str(accumulated).lower()
         endpoint = SET_STOCK_CHART_QUOTATION_ENDPOINT.format(symbol=symbol)
@@ -192,7 +195,7 @@ class ChartQuotationService:
                     f"Failed to fetch chart quotation for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             data = decode_json(response.text, context=f"{symbol} (chart-quotation)")
 
@@ -227,7 +230,7 @@ class ChartQuotationService:
         """
         symbol = normalize_symbol(symbol)
         if not symbol:
-            raise ValueError("Stock symbol cannot be empty")
+            raise InvalidSymbolError("Stock symbol cannot be empty")
 
         accumulated_str = str(accumulated).lower()
         endpoint = SET_STOCK_CHART_QUOTATION_ENDPOINT.format(symbol=symbol)
@@ -247,7 +250,7 @@ class ChartQuotationService:
                     f"Failed to fetch chart quotation for {symbol}: HTTP {response.status_code}"
                 )
                 logger.error(error_msg)
-                raise Exception(error_msg)
+                raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             data = decode_json(response.text, context=f"{symbol} (chart-quotation)")
 

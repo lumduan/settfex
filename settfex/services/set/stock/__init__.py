@@ -70,7 +70,7 @@ from settfex.services.set.stock.trading_stat import (
     TradingStatService,
     get_trading_stats,
 )
-from settfex.services.set.stock.utils import normalize_language, normalize_symbol
+from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 
 __all__ = [
     # Main Stock Class
@@ -87,6 +87,7 @@ __all__ = [
     "get_chart_quotation",
     "get_latest_price",
     # Utilities
+    "Language",
     "normalize_symbol",
     "normalize_language",
     # Highlight Data Service

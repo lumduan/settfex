@@ -1,6 +1,16 @@
 """Utility functions for SET stock services."""
 
+from typing import Literal
+
 from loguru import logger
+
+from settfex.exceptions import InvalidLanguageError
+
+Language = Literal["en", "th"]
+"""Static type for the two accepted language codes.
+
+``normalize_language`` still accepts aliases like ``english``/``thai`` at runtime.
+"""
 
 
 def normalize_symbol(symbol: str) -> str:
@@ -26,7 +36,7 @@ def normalize_symbol(symbol: str) -> str:
     return normalized
 
 
-def normalize_language(lang: str) -> str:
+def normalize_language(lang: str) -> Language:
     """
     Normalize language code to 'en' or 'th'.
 
@@ -37,7 +47,7 @@ def normalize_language(lang: str) -> str:
         Normalized language code: 'en' or 'th'
 
     Raises:
-        ValueError: If language code is not recognized
+        InvalidLanguageError: If language code is not recognized
 
     Example:
         >>> normalize_language("en")
@@ -56,7 +66,7 @@ def normalize_language(lang: str) -> str:
     lang_lower = lang.strip().lower()
 
     # Map various language inputs to 'en' or 'th'
-    lang_map = {
+    lang_map: dict[str, Language] = {
         "en": "en",
         "eng": "en",
         "english": "en",
@@ -72,7 +82,7 @@ def normalize_language(lang: str) -> str:
             f"Accepted values: en, eng, english, th, tha, thai"
         )
         logger.error(error_msg)
-        raise ValueError(error_msg)
+        raise InvalidLanguageError(error_msg)
 
     logger.debug(f"Normalized language '{lang}' to '{normalized}'")
     return normalized

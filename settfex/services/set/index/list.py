@@ -6,7 +6,7 @@ from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
 from settfex.services.set.constants import SET_BASE_URL, SET_INDEX_LIST_ENDPOINT
-from settfex.services.set.stock.utils import normalize_language
+from settfex.services.set.stock.utils import Language, normalize_language
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.parsing import validate_list_or_raise
 
@@ -157,7 +157,7 @@ class IndexListService:
         self.base_url = SET_BASE_URL
         logger.info(f"IndexListService initialized with base_url={self.base_url}")
 
-    async def fetch_index_list(self, lang: str = "en") -> IndexListResponse:
+    async def fetch_index_list(self, lang: Language = "en") -> IndexListResponse:
         """
         Fetch the complete market index directory from SET API.
 
@@ -168,8 +168,9 @@ class IndexListService:
             IndexListResponse containing all index entries (INDEX/INDUSTRY/SECTOR levels)
 
         Raises:
-            ValueError: If language is invalid
-            Exception: If request fails or response cannot be parsed
+            InvalidLanguageError: If the language is not recognized.
+            FetchError: On HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = IndexListService()
@@ -198,7 +199,7 @@ class IndexListService:
 
             return response
 
-    async def fetch_index_list_raw(self, lang: str = "en") -> list[dict[str, Any]]:
+    async def fetch_index_list_raw(self, lang: Language = "en") -> list[dict[str, Any]]:
         """
         Fetch the index directory as a raw list without Pydantic validation.
 
@@ -211,8 +212,9 @@ class IndexListService:
             Raw list of dictionaries from API
 
         Raises:
-            ValueError: If language is invalid
-            Exception: If request fails
+            InvalidLanguageError: If the language is not recognized.
+            FetchError: On HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> service = IndexListService()
@@ -237,7 +239,7 @@ class IndexListService:
 
 # Convenience function for quick access
 async def get_index_list(
-    lang: str = "en", config: FetcherConfig | None = None
+    lang: Language = "en", config: FetcherConfig | None = None
 ) -> IndexListResponse:
     """
     Convenience function to fetch the market index directory.
@@ -248,6 +250,11 @@ async def get_index_list(
 
     Returns:
         IndexListResponse with all index entries
+
+    Raises:
+        InvalidLanguageError: If the language is not recognized.
+        FetchError: On HTTP or transport failures.
+        ResponseParseError: If the response cannot be parsed.
 
     Example:
         >>> from settfex.services.set import get_index_list

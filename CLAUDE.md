@@ -17,14 +17,15 @@ settfex/
 ├── settfex/                    # Main package
 │   ├── services/              # Business logic and API integrations
 │   │   ├── set/              # SET-specific services
-│   │   │   ├── constants.py, list.py
+│   │   │   ├── constants.py, list.py, earnings_call.py
 │   │   │   ├── index/        # Market index services: list, info (quotation),
 │   │   │   │                 #   composition (constituents), chart_quotation,
 │   │   │   │                 #   index.py (SetIndex facade), utils.py
 │   │   │   └── stock/        # Stock services: highlight_data, profile_stock,
 │   │   │                     #   profile_company, corporate_action, shareholder,
 │   │   │                     #   nvdr_holder, board_of_director, trading_stat,
-│   │   │                     #   price_performance, financial/, stock.py, utils.py
+│   │   │                     #   price_performance, chart_quotation,
+│   │   │                     #   latest_historical_trading, financial/, stock.py, utils.py
 │   │   └── tfex/             # TFEX services: list.py, trading_statistics.py
 │   └── utils/                # http.py, data_fetcher.py, session_manager.py,
 │                             #   session_cache.py, logging.py
@@ -35,6 +36,15 @@ settfex/
 ├── .github/                   # CI and agent instructions
 ├── pyproject.toml             # uv-based config
 └── README.md
+```
+
+## Commands
+
+```bash
+uv sync              # install dependencies (includes the dev group)
+uv run pytest        # run the test suite
+uv run ruff check .  # lint
+uv run mypy .        # type-check (strict mode)
 ```
 
 ## Architecture Principles
@@ -76,6 +86,7 @@ settfex/
 3. Update the appropriate `__init__.py` to export the service
 4. Document with docstrings + create verification script in `scripts/settfex/services/`
 5. Add Jupyter notebook example in `examples/`
+6. Update `CLAUDE.md` (Services Inventory count + table row, Project Structure tree, and Known Gotchas if any) and add the release entry to `CHANGELOG.md` — the canonical release history
 
 ### Adding Utility Functions
 1. Add to appropriate module in `settfex/utils/` or create new one
@@ -92,6 +103,8 @@ Every service follows this consistent pattern:
 - **SessionManager**: All cookie/bot-detection handled automatically (no manual cookie params)
 - **Async-first**: All I/O uses async/await via `AsyncDataFetcher`
 - **Bot bypass**: Symbol-specific referer header + SessionManager cookies (Incapsula bypass)
+
+**Why the three tiers (for humans *and* AI agents):** `get_*()` is a flat, one-call convenience function — the intended **LLM tool-calling entry point** (do not remove this layer when "simplifying"); `fetch_*()` returns validated Pydantic models, giving structured, schema-checked output that lowers hallucination risk for agents; `fetch_*_raw()` returns the raw API dict as an escape hatch for debugging or fields not yet modeled.
 
 Typical usage:
 ```python
@@ -123,7 +136,7 @@ all_stocks = await get_stock_list()        # no cookie params needed
 | 12 | Earnings Call (Opportunity Day) | `earnings_call.py` | `POST api.lcp.setgroup.or.th/.../investor/search/archive` (+ `GET /investor/vdo/{id}`, `/investor/filter/*`) | OPPDAY calendar (symbol, company, date, clip duration, YouTube URL); concurrent `fetch_all`/`get_all_earnings_calls` (+ optional `tqdm` progress); detail-by-id (`get_earnings_call_detail`); 7 filter helpers; pandas `to_dataframe()`; **Thai YouTube transcripts** for AI (`fetch_transcripts` / `get_earnings_call_transcript` / `fetch_youtube_transcript`, `EarningsCallItem.transcript`); stateless host (no SessionManager); optional extras: `dataframe` (pandas) / `progress` (tqdm) / `transcript` (youtube-transcript-api) |
 | 13 | Chart Quotation / Latest Price | `stock/chart_quotation.py` | `/api/set/stock/{sym}/chart-quotation` | Intraday/historical per-minute series (price/volume/value/%chg, intermissions, prior close); **latest *traded* price relative to now** — `get_latest_price()` (→ `Quotation`), model `get_latest_quotation()`/`get_latest_price()` (→ float, `prior` fallback); skips null future/lunch/no-trade buckets; Asia/Bangkok tz-safe `as_of`; hyphen-safe symbols (`JAS-W4`) |
 | 14 | Latest Historical Trading | `stock/latest_historical_trading.py` | `/api/set/stock/{sym}/latest-historical-trading` | Latest trading-day summary: OHLCV, change/%change, and valuation metrics |
-| 15 | Market Index | `index/{list,info,composition,chart_quotation,index}.py` | `/api/set/index/list`, `/api/set/index/info/list`, `/api/set/index/{sym}/info`, `/api/set/index/{sym}/composition`, `/api/set/index/{sym}/chart-quotation` | 55-index directory (INDEX/INDUSTRY/SECTOR levels; mai industries use `-m` query symbols); page-header quotes (last/chg/%chg/OHLC/vol/value/marketStatus/tz-aware timestamp); constituents w/ full quote rows incl. bid/offer (string prices coerced); `SetIndex` facade + `get_index_latest_price()` (reuses stock ChartQuotation); index symbols keep casing (`sSET`, `AGRO-m`); `SET`/`mai` have no composition (404 w/ helpful error). **Note:** index API uses `?language=`, not `?lang=` |
+| 15 | Market Index | `index/{list,info,composition,chart_quotation,index}.py` | `/api/set/index/list`, `/api/set/index/info/list`, `/api/set/index/{sym}/info`, `/api/set/index/{sym}/composition`, `/api/set/index/{sym}/chart-quotation` | 55-index directory (INDEX/INDUSTRY/SECTOR levels; mai industries use `-m` query symbols); page-header quotes (last/chg/%chg/OHLC/vol/value/marketStatus/tz-aware timestamp); constituents w/ full quote rows incl. bid/offer (string prices coerced); `SetIndex` facade + `get_index_latest_price()` (reuses stock ChartQuotation); index symbols keep casing (`sSET`, `AGRO-m`); `SET`/`mai` have no composition (404 w/ helpful error). |
 
 ### TFEX Services (2)
 
@@ -184,47 +197,13 @@ latest = await index.get_latest_price()        # latest traded index value vs no
 
 - This library is **not officially affiliated** with SET or TFEX
 - Always respect API rate limits and terms of service
+- The `curl_cffi` browser impersonation and `SessionManager` cookie caching exist to access **public** market data reliably and to **reduce** request volume (session/cookie caching yields ~25× fewer requests) — not to evade rate limits or terms of service. Continue to respect both.
 - Handle sensitive data (API keys, credentials) securely
 - Never commit credentials or API keys to version control
 
-## Recent Change History (Condensed)
+## Release History
 
-### 2026-07-16
-- **Market Index services (0.8.0)**: new `services/set/index/` sub-package — index directory
-  (55 indices, 3 levels), quotations (single + all-at-once), constituents with bid/offer
-  quote rows, chart-quotation/latest-value (reuses stock models), `SetIndex` facade
-- **Stock list enrichment**: `StockSymbol.indices` (headline sub-index memberships, default
-  on via 9 concurrent composition fetches, failure-tolerant) + `filter_by_index()`
-
-### 2025-10-05
-- **Jupyter Examples**: 13 notebooks covering all services with beginner guides, professional use cases, and CSV/pandas export
-- **TFEX Trading Statistics**: Settlement prices, margin (IM/MM), days to maturity, theoretical pricing
-- **TFEX Series List**: Complete futures/options discovery with 8 filter methods
-- **Financial Service**: Balance sheet, income statement, cash flow — multi-period with en/th support, 98% test coverage
-
-### 2025-10-04
-- **Price Performance**: Stock vs sector vs market across 5 periods (5D–YTD), P/E, P/B, turnover
-- **Trading Statistics (SET)**: 30+ fields across YTD/1M/3M/6M/1Y periods — price, volume, valuation, beta
-
-### 2025-10-03
-- **Board of Directors**: Director names, positions, en/th support
-- **NVDR Holders**: NVDR ownership data with Thai/foreign holder identification
-- **Corporate Actions**: Dividends (XD) and meetings (XM) with full detail
-- **Company Profile**: ESG ratings, CG scores, management, auditors, capital structure
-- **Shareholders**: Major holders, free float, ownership distribution
-- **Refactoring**: Removed legacy cookie generation (~200 lines); SessionManager now handles all bot detection
-
-### 2025-10-02
-- **Stock Profile**: 30+ fields — listing, IPO, sector, foreign limits, ISIN, warrants
-- **Highlight Data**: P/E, P/B, market cap, dividends, NVDR, 52-week range
-- **Unified Stock class**: Single entry point for all stock services with lazy init
-- **Stock utilities**: `normalize_symbol()`, `normalize_language()` shared across all services
-
-### 2025-10-01
-- **Stock List Service**: Full SET/MAI stock list with market/industry/symbol filtering
-- **AsyncDataFetcher**: Core HTTP client with Unicode/Thai support, retry logic, bot impersonation
-- **Migration**: httpx → curl_cffi (bot bypass), stdlib logging → loguru
-- Established the service architecture pattern used by all subsequent services
+See [`CHANGELOG.md`](CHANGELOG.md) for the full, versioned release history — this project follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and [Semantic Versioning](https://semver.org/). `CHANGELOG.md` is the single source of truth; do not maintain a parallel change log here.
 
 ## Future Enhancements (Ideas)
 
@@ -248,6 +227,12 @@ latest = await index.get_latest_price()        # latest traded index value vs no
 - Documentation: `docs/` directory
 - Issues: GitHub Issues
 - License: MIT
+
+## Known Gotchas
+
+- **Index API query param:** the SET *index* endpoints (`/api/set/index/...`) use `?language=`, whereas the SET *stock* endpoints use `?lang=`. Passing the wrong one silently returns the wrong-language payload instead of erroring.
+- **No composition for whole-market indices:** `SET` and `mai` have no `/composition` endpoint (the API returns HTTP 404) — query a sub-index (e.g. `SET50`), a sector, or an industry instead. The service raises with a helpful message.
+- **Two distinct `chart_quotation.py` modules:** `services/set/stock/chart_quotation.py` (per-stock) and `services/set/index/chart_quotation.py` (per-index) are different files — don't conflate them.
 
 ---
 

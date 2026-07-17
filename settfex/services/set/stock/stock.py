@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from loguru import logger
 
 from settfex.services.set.stock.chart_quotation import (
     ChartQuotation,
     ChartQuotationService,
+    PeriodType,
     Quotation,
 )
 from settfex.services.set.stock.highlight_data import (
@@ -20,14 +21,12 @@ from settfex.services.set.stock.latest_historical_trading import (
     LatestHistoricalTrading,
     LatestHistoricalTradingService,
 )
-from settfex.services.set.stock.utils import normalize_symbol
+from settfex.services.set.stock.utils import Language, normalize_symbol
 from settfex.utils.data_fetcher import FetcherConfig
 
 if TYPE_CHECKING:
     from settfex.services.set.stock.profile_stock import StockProfile, StockProfileService
     from settfex.services.set.stock.shareholder import ShareholderData, ShareholderService
-
-PeriodType = Literal["1D", "5D", "1M", "3M", "6M", "1Y", "3Y", "5Y", "MAX"]
 
 
 class Stock:
@@ -91,7 +90,7 @@ class Stock:
             self._highlight_data_service = StockHighlightDataService(config=self.config)
         return self._highlight_data_service
 
-    async def get_highlight_data(self, lang: str = "en") -> StockHighlightData:
+    async def get_highlight_data(self, lang: Language = "en") -> StockHighlightData:
         """
         Fetch highlight data for this stock.
 
@@ -102,8 +101,10 @@ class Stock:
             StockHighlightData with metrics and statistics
 
         Raises:
-            ValueError: If language is invalid
-            Exception: If request fails
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> stock = Stock("CPALL")
@@ -221,7 +222,7 @@ class Stock:
             self._profile_service = StockProfileService(config=self.config)
         return self._profile_service
 
-    async def get_profile(self, lang: str = "en") -> StockProfile:
+    async def get_profile(self, lang: Language = "en") -> StockProfile:
         """
         Fetch profile data for this stock.
 
@@ -232,8 +233,10 @@ class Stock:
             StockProfile with company and listing information
 
         Raises:
-            ValueError: If language is invalid
-            Exception: If request fails
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> stock = Stock("PTT")
@@ -258,7 +261,7 @@ class Stock:
             self._shareholder_service = ShareholderService(config=self.config)
         return self._shareholder_service
 
-    async def get_shareholder_data(self, lang: str = "en") -> ShareholderData:
+    async def get_shareholder_data(self, lang: Language = "en") -> ShareholderData:
         """
         Fetch shareholder data for this stock.
 
@@ -269,8 +272,10 @@ class Stock:
             ShareholderData with major shareholders and free float information
 
         Raises:
-            ValueError: If language is invalid
-            Exception: If request fails
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
 
         Example:
             >>> stock = Stock("MINT")
@@ -284,7 +289,7 @@ class Stock:
         return await self.shareholder_service.fetch_shareholder_data(symbol=self.symbol, lang=lang)
 
     # Future service methods (placeholders for documentation)
-    # async def get_financials(self, lang: str = "en") -> FinancialsData:
+    # async def get_financials(self, lang: Language = "en") -> FinancialsData:
     #     """Fetch financial statements for this stock."""
     #     pass
 
