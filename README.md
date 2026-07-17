@@ -8,6 +8,8 @@
 
 **settfex** makes it super easy to get stock market data from the Stock Exchange of Thailand (SET) and Thailand Futures Exchange (TFEX). Whether you're building a trading bot, doing market analysis, or just curious about Thai stocks, we've got you covered!
 
+Every service also exposes flat `get_*()` convenience functions that return typed Pydantic models — a clean fit for AI/LLM tool-calling and agent workflows.
+
 ## ⚡ Quick Install
 
 ```bash
@@ -344,21 +346,25 @@ print(f"Market ({data.market.symbol}): {data.market.ytd_percent_change:+.2f}%")
 
 ---
 
-#### ⏱️ Get the Latest Traded Price (Intraday)
+#### 📉 Get Chart Quotation & Latest Traded Price
 
-Fetch the intraday chart-quotation series, or jump straight to the latest *traded* price relative to now (the null future/lunch/no-trade buckets are excluded automatically):
+Fetch the intraday/historical price series for any stock, or jump straight to the latest *traded* price relative to now (null future/lunch/no-trade buckets are excluded automatically):
 
 ```python
-from settfex.services.set import get_latest_price, get_chart_quotation
+from settfex.services.set import get_chart_quotation, get_latest_price
 
 # The latest TRADED quotation right now (or None if nothing has traded yet)
 quote = await get_latest_price("CPALL")
 if quote:
     print(f"{quote.local_datetime}: {quote.price} (vol {quote.volume:,.0f})")
 
-# Or work with the full series; the model also exposes a prior-fallback scalar
-data = await get_chart_quotation("CPALL", period="1D")
-print(f"Prior close: {data.prior}, latest price: {data.get_latest_price()}")
+# Or work with the full series — intraday (1-minute) or historical (daily)
+chart = await get_chart_quotation("CPALL", period="1D")
+print(f"Prior close: {chart.prior}, data points: {len(chart.quotations)}")
+print(f"Latest: {chart.quotations[-1].close:.2f} THB")
+
+chart_1y = await get_chart_quotation("CPALL", period="1Y")
+print(f"1Y data points: {len(chart_1y.quotations)}")
 ```
 
 **👉 [Learn more about Chart Quotation & Latest Price](docs/settfex/services/set/chart_quotation.md)**
@@ -392,27 +398,6 @@ cash_flows = await get_cash_flow("CPALL")
 ```
 
 **👉 [Learn more about Financial Service](docs/settfex/services/set/financial.md)**
-
----
-
-#### 📉 Get Chart Quotation
-
-Fetch intraday and historical price chart data for any stock across multiple time periods:
-
-```python
-from settfex.services.set import get_chart_quotation
-
-# Get 1-day intraday chart (1-minute intervals)
-chart = await get_chart_quotation("CPALL", period="1D")
-print(f"Data points: {len(chart.quotations)}")
-print(f"Latest: {chart.quotations[-1].close:.2f} THB")
-
-# Get 1-year historical chart (daily intervals)
-chart_1y = await get_chart_quotation("CPALL", period="1Y")
-print(f"1Y data points: {len(chart_1y.quotations)}")
-```
-
-**👉 [Learn more about Chart Quotation](docs/settfex/services/set/chart_quotation.md)**
 
 ---
 
@@ -679,12 +664,14 @@ We'd love your help making settfex better! Here's how:
 
 1. Fork the repo
 2. Create a feature branch: `git checkout -b feature/cool-new-thing`
-3. Make your changes with proper type hints and tests
-4. Run tests: `pytest`
-5. Run linting: `ruff check .`
-6. Commit: `git commit -m 'Add cool new thing'`
-7. Push: `git push origin feature/cool-new-thing`
-8. Open a Pull Request
+3. Install dependencies: `uv sync`
+4. Make your changes with proper type hints and tests
+5. Run tests: `uv run pytest`
+6. Run linting: `uv run ruff check .`
+7. Type-check: `uv run mypy .`
+8. Commit: `git commit -m 'Add cool new thing'`
+9. Push: `git push origin feature/cool-new-thing`
+10. Open a Pull Request
 
 ## 📜 License
 
