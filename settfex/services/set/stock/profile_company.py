@@ -29,7 +29,10 @@ class Management(BaseModel):
     position_code: int = Field(alias="positionCode", description="Position code")
     position: str = Field(description="Position title")
     name: str = Field(description="Executive's name")
-    start_date: datetime = Field(alias="startDate", description="Start date in position")
+    start_date: datetime | None = Field(
+        alias="startDate",
+        description="Start date in position (null when the seat is vacant or undisclosed)",
+    )
 
     model_config = ConfigDict(populate_by_name=True)
 

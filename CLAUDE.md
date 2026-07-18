@@ -233,6 +233,7 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full, versioned release history — t
 - **Index API query param:** the SET *index* endpoints (`/api/set/index/...`) use `?language=`, whereas the SET *stock* endpoints use `?lang=`. Passing the wrong one silently returns the wrong-language payload instead of erroring.
 - **No composition for whole-market indices:** `SET` and `mai` have no `/composition` endpoint (the API returns HTTP 404) — query a sub-index (e.g. `SET50`), a sector, or an industry instead. The service raises with a helpful message.
 - **Two distinct `chart_quotation.py` modules:** `services/set/stock/chart_quotation.py` (per-stock) and `services/set/index/chart_quotation.py` (per-index) are different files — don't conflate them.
+- **Company-profile management `startDate` can be null:** SET reports a vacant/undisclosed executive seat with `"startDate": null` and an empty `name` (e.g. `VIBE`) — `Management.start_date` is `datetime | None`; guard before calling `.strftime()` on it.
 
 ---
 
