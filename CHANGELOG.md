@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-07-18
+
+### Fixed
+
+- **Company Profile: tolerate `startDate: null` on management entries.** SET reports a vacant or
+  undisclosed executive seat with `"startDate": null` (and an empty `name`) — e.g. `VIBE` lists
+  its top finance-responsibility position that way — so `fetch_company_profile()` raised a
+  `ValidationError` (`Management.start_date` was a required `datetime`). It is now
+  `datetime | None`. Every prior release (0.1.0–0.10.0) is affected; upgrading is the fix.
+
 ## [0.10.0] - 2026-07-17
 
 ### Added

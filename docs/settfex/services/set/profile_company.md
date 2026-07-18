@@ -130,7 +130,7 @@ Complete company profile data model.
 - `position_code: int` - Position code
 - `position: str` - Position title
 - `name: str` - Executive's name
-- `start_date: datetime` - Start date in position
+- `start_date: datetime | None` - Start date in position (`None` when the seat is vacant or undisclosed, e.g. VIBE's top finance position)
 
 #### Capital
 
@@ -291,7 +291,8 @@ async def show_management():
     print(f"Management Team ({len(profile.managements)} executives):")
     for mgmt in profile.managements[:5]:  # Show top 5
         print(f"  {mgmt.position}: {mgmt.name}")
-        print(f"    Since: {mgmt.start_date.strftime('%Y-%m-%d')}")
+        since = mgmt.start_date.strftime("%Y-%m-%d") if mgmt.start_date else "N/A"
+        print(f"    Since: {since}")
 
 asyncio.run(show_management())
 ```
