@@ -179,6 +179,9 @@ backups/
 *.db
 *.sqlite
 
+# Local scratch (e.g. HAR captures, ad-hoc dumps) — may contain cookies/tokens; never commit
+tmp/
+
 # OS specific
 .DS_Store
 .DS_Store?
