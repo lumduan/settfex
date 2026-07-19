@@ -39,7 +39,7 @@ This includes pandas, matplotlib, and jupyter notebook support.
 - [Stock List](examples/set/01_stock_list.ipynb) → [Highlight Data](examples/set/02_highlight_data.ipynb) → [Price Performance](examples/set/10_price_performance.ipynb) → [Financial Statements](examples/set/11_financial.ipynb)
 
 **Professional Trading :** Master all features for institutional use:
-- All 15 SET notebooks + TFEX notebooks (see below)
+- All 16 SET notebooks + TFEX notebooks (see below)
 
 ### 📊 SET Examples (Stock Exchange of Thailand)
 
@@ -60,6 +60,7 @@ All examples include beginner explanations, professional trading use cases, and 
 13. **[Chart Quotation & Latest Price](examples/set/13_chart_quotation.ipynb)** - Intraday series and the latest traded price relative to now
 14. **[Latest Historical Trading](examples/set/14_latest_historical_trading.ipynb)** - Latest trading-day summary: OHLCV, P/E, P/BV, market cap
 15. **[Market Index](examples/set/15_market_index.ipynb)** - Index directory, SET50/SETESG quotations, constituents, and index membership per stock
+16. **[SET News](examples/set/16_news.ipynb)** - Company news/disclosures for all stocks: symbol/date/keyword filters, Thai headlines
 
 ### 📈 TFEX Examples (Thailand Futures Exchange)
 
@@ -67,6 +68,7 @@ Professional derivatives trading workflows with margin calculations and risk man
 
 1. **[Series List](examples/tfex/01_series_list.ipynb)** - Discover futures/options, rollover monitoring, options chains
 2. **[Trading Statistics](examples/tfex/02_trading_statistics.ipynb)** - Margin requirements, position sizing, P/L tracking
+3. **[Underlying Price](examples/tfex/03_underlying_price.ipynb)** - Underlying instrument prices for TFEX series (SET50 spot for index futures/options)
 
 **[📂 View All Examples](examples/)** - Complete index with learning guides
 
@@ -91,6 +93,7 @@ Want to dig deeper? Check out our detailed guides:
 - **[Latest Historical Trading Service](docs/settfex/services/set/latest_historical_trading.md)** - Latest trading day summary with OHLCV and valuation metrics
 - **[Earnings Call (Opportunity Day) Service](docs/settfex/services/set/earnings_call.md)** - OPPDAY earnings-call calendar with YouTube links, as models or a DataFrame
 - **[Market Index Service](docs/settfex/services/set/index.md)** - Index directory (SET50/SET100/sSET/SETESG/...), quotations, constituents, and latest index value
+- **[News Service](docs/settfex/services/set/news.md)** - Company news and disclosures for all stocks, with symbol/date/keyword filters
 
 ### TFEX Services
 
@@ -458,6 +461,30 @@ text = await get_earnings_call_transcript(6319)   # …or one presentation's tra
 > pass `proxies={"http": ..., "https": ...}`. Results can vary by IP.
 
 **👉 [Learn more about the Earnings Call Service](docs/settfex/services/set/earnings_call.md)**
+
+---
+
+#### 📰 Get SET News & Disclosures (All Stocks)
+
+Company news for the whole market in one call — or filtered by symbol, date window, and keyword:
+
+```python
+from settfex.services.set import get_news
+
+# Latest trading day, ALL stocks (company disclosures, English)
+news = await get_news()
+print(f"{news.count} items")
+
+# One stock, Thai headlines, a July window
+# (dates are dd/MM/yyyy or datetime.date objects — ISO strings raise InvalidDateError)
+cpall = await get_news(symbol="CPALL", lang="th", from_date="01/07/2026", to_date="17/07/2026")
+
+# Helpers: today's items, financial statements only
+today = news.filter_today()
+fin = news.filter_by_tag("financial-statement")
+```
+
+**👉 [Learn more about the News Service](docs/settfex/services/set/news.md)**
 
 ---
 

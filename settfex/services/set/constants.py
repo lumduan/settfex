@@ -20,6 +20,11 @@ SET_FINANCIAL_CASH_FLOW_ENDPOINT = "/api/set/factsheet/{symbol}/financialstateme
 SET_STOCK_CHART_QUOTATION_ENDPOINT = "/api/set/stock/{symbol}/chart-quotation"
 SET_STOCK_LATEST_HISTORICAL_TRADING_ENDPOINT = "/api/set/stock/{symbol}/latest-historical-trading"
 
+# News search API (market-wide; uses ?lang=). sourceId=company filters to company disclosures —
+# unrecognized sourceId values are silently ignored (returns ALL sources). fromDate/toDate are
+# dd/MM/yyyy ONLY (ISO dates -> HTTP 400).
+SET_NEWS_SEARCH_ENDPOINT = "/api/set/news/search"
+
 # Market index endpoints (note: the index API uses ?language=, not ?lang= like stock endpoints)
 SET_INDEX_LIST_ENDPOINT = "/api/set/index/list"
 SET_INDEX_INFO_LIST_ENDPOINT = "/api/set/index/info/list"

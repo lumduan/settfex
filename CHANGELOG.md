@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-07-19
+
+### Added
+
+- **SET News service** (`settfex.services.set.news`) — company news/disclosures for **all
+  stocks** in one call, from `GET /api/set/news/search`: `get_news()` /
+  `NewsService.fetch_news()` (typed `NewsSearchResponse` with `count`, `filter_by_symbol()`,
+  `filter_today()`, `filter_by_tag()`) / `fetch_news_raw()`, plus a `Stock.get_news()` accessor
+  with the symbol pre-filled. Filters: `symbol`, `from_date`/`to_date` (accepts
+  `datetime.date`/`datetime` objects or dd/MM/yyyy strings — the API rejects ISO dates with an
+  opaque HTTP 400, so strings are validated **eagerly** via the new `InvalidDateError`),
+  `keyword`, `source_id` (default `"company"`; pass `None` for all sources — the API silently
+  ignores unrecognized values, which the service warns about), and `lang` (`en`/`th`).
+  Tz-aware timestamps, SessionManager/Incapsula bypass, and permissive typing for the three
+  never-observed alert fields (`viewClarification`/`marketAlertTypeId`/`percentPriceChange`)
+  so a future non-null value cannot break parsing. Without date filters the API returns the
+  latest-trading-day window (~150–200 items); no pagination observed, so keep windows modest.
+- **`InvalidDateError`** in `settfex.exceptions` (subclasses `ValueError`), re-exported from
+  the top-level `settfex` namespace, and the `SET_NEWS_SEARCH_ENDPOINT` constant.
+- Example notebook `examples/set/16_news.ipynb` and service doc
+  `docs/settfex/services/set/news.md`.
+
+### Fixed
+
+- **Docs: corrected the stale services inventory** in `CLAUDE.md`/`README.md` — the TFEX
+  underlying-price service (shipped in 0.3.0) was missing from the inventory, the TFEX
+  notebook list, and the notebook counts. Totals are now 19 services (16 SET + 3 TFEX) and
+  19 notebooks.
+
 ## [0.10.1] - 2026-07-18
 
 ### Fixed

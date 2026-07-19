@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 from loguru import logger
@@ -25,6 +25,7 @@ from settfex.services.set.stock.utils import Language, normalize_symbol
 from settfex.utils.data_fetcher import FetcherConfig
 
 if TYPE_CHECKING:
+    from settfex.services.set.news import NewsSearchResponse, NewsService
     from settfex.services.set.stock.profile_stock import StockProfile, StockProfileService
     from settfex.services.set.stock.shareholder import ShareholderData, ShareholderService
 
@@ -75,6 +76,7 @@ class Stock:
         self._latest_historical_trading_service: LatestHistoricalTradingService | None = None
         self._profile_service: StockProfileService | None = None
         self._shareholder_service: ShareholderService | None = None
+        self._news_service: NewsService | None = None
 
         logger.info(f"Stock instance created for symbol '{self.symbol}'")
 
@@ -287,6 +289,62 @@ class Stock:
         """
         logger.debug(f"Fetching shareholder data for {self.symbol} (lang={lang})")
         return await self.shareholder_service.fetch_shareholder_data(symbol=self.symbol, lang=lang)
+
+    @property
+    def news_service(self) -> NewsService:
+        """
+        Get or create news service instance.
+
+        Returns:
+            NewsService instance
+        """
+        if self._news_service is None:
+            from settfex.services.set.news import NewsService
+
+            self._news_service = NewsService(config=self.config)
+        return self._news_service
+
+    async def get_news(
+        self,
+        lang: Language = "en",
+        from_date: date | str | None = None,
+        to_date: date | str | None = None,
+        keyword: str | None = None,
+    ) -> NewsSearchResponse:
+        """
+        Fetch company news/disclosures for this stock.
+
+        Args:
+            lang: Language for headlines ('en' or 'th', default: 'en')
+            from_date: Optional window start — ``datetime.date``/``datetime`` or a
+                dd/MM/yyyy string (the SET news API rejects ISO dates); default:
+                latest trading day only
+            to_date: Optional window end (same formats as ``from_date``)
+            keyword: Optional headline keyword filter
+
+        Returns:
+            NewsSearchResponse with this stock's news items
+
+        Raises:
+            InvalidDateError: If a date string is not a valid dd/MM/yyyy date.
+            InvalidLanguageError: If the language is not recognized.
+            FetchError: On HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
+
+        Example:
+            >>> stock = Stock("CPALL")
+            >>> news = await stock.get_news()
+            >>> for item in news.news_info_list[:5]:
+            ...     print(f"{item.news_datetime:%Y-%m-%d %H:%M} {item.headline}")
+        """
+        logger.debug(f"Fetching news for {self.symbol} (lang={lang})")
+        return await self.news_service.fetch_news(
+            lang=lang,
+            symbol=self.symbol,
+            from_date=from_date,
+            to_date=to_date,
+            keyword=keyword,
+        )
 
     # Future service methods (placeholders for documentation)
     # async def get_financials(self, lang: Language = "en") -> FinancialsData:
