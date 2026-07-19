@@ -17,7 +17,7 @@ settfex/
 ├── settfex/                    # Main package
 │   ├── services/              # Business logic and API integrations
 │   │   ├── set/              # SET-specific services
-│   │   │   ├── constants.py, list.py, earnings_call.py
+│   │   │   ├── constants.py, list.py, earnings_call.py, news.py
 │   │   │   ├── index/        # Market index services: list, info (quotation),
 │   │   │   │                 #   composition (constituents), chart_quotation,
 │   │   │   │                 #   index.py (SetIndex facade), utils.py
@@ -26,12 +26,12 @@ settfex/
 │   │   │                     #   nvdr_holder, board_of_director, trading_stat,
 │   │   │                     #   price_performance, chart_quotation,
 │   │   │                     #   latest_historical_trading, financial/, stock.py, utils.py
-│   │   └── tfex/             # TFEX services: list.py, trading_statistics.py
+│   │   └── tfex/             # TFEX services: list.py, trading_statistics.py, underlying_price.py
 │   └── utils/                # http.py, data_fetcher.py, session_manager.py,
 │                             #   session_cache.py, logging.py
 ├── tests/                     # Mirror of settfex/ with test_ prefix
 ├── docs/                      # Service docs, guides, solutions
-├── examples/                  # 15 Jupyter notebooks (13 SET + 2 TFEX)
+├── examples/                  # 19 Jupyter notebooks (16 SET + 3 TFEX)
 ├── scripts/                   # Verification scripts per service
 ├── .github/                   # CI and agent instructions
 ├── pyproject.toml             # uv-based config
@@ -116,9 +116,9 @@ data = await get_highlight_data("CPALL")   # or convenience function
 all_stocks = await get_stock_list()        # no cookie params needed
 ```
 
-## Services Inventory (17 total)
+## Services Inventory (19 total)
 
-### SET Services (15)
+### SET Services (16)
 
 | # | Service | Module | Endpoint Pattern | Key Data |
 |---|---|---|---|---|
@@ -137,13 +137,15 @@ all_stocks = await get_stock_list()        # no cookie params needed
 | 13 | Chart Quotation / Latest Price | `stock/chart_quotation.py` | `/api/set/stock/{sym}/chart-quotation` | Intraday/historical per-minute series (price/volume/value/%chg, intermissions, prior close); **latest *traded* price relative to now** — `get_latest_price()` (→ `Quotation`), model `get_latest_quotation()`/`get_latest_price()` (→ float, `prior` fallback); skips null future/lunch/no-trade buckets; Asia/Bangkok tz-safe `as_of`; hyphen-safe symbols (`JAS-W4`) |
 | 14 | Latest Historical Trading | `stock/latest_historical_trading.py` | `/api/set/stock/{sym}/latest-historical-trading` | Latest trading-day summary: OHLCV, change/%change, and valuation metrics |
 | 15 | Market Index | `index/{list,info,composition,chart_quotation,index}.py` | `/api/set/index/list`, `/api/set/index/info/list`, `/api/set/index/{sym}/info`, `/api/set/index/{sym}/composition`, `/api/set/index/{sym}/chart-quotation` | 55-index directory (INDEX/INDUSTRY/SECTOR levels; mai industries use `-m` query symbols); page-header quotes (last/chg/%chg/OHLC/vol/value/marketStatus/tz-aware timestamp); constituents w/ full quote rows incl. bid/offer (string prices coerced); `SetIndex` facade + `get_index_latest_price()` (reuses stock ChartQuotation); index symbols keep casing (`sSET`, `AGRO-m`); `SET`/`mai` have no composition (404 w/ helpful error). |
+| 16 | News | `news.py` | `/api/set/news/search` | Company news/disclosures for **all stocks** in one call (default `sourceId=company`, latest-trading-day window); filters: `symbol`, `fromDate`/`toDate` (**dd/MM/yyyy only** — ISO → HTTP 400; validated eagerly via `InvalidDateError`), `keyword`, `source_id` (`None` = all sources; unrecognized values silently ignored by the API), en/th; helpers `count`/`filter_today()`/`filter_by_tag()`/`filter_by_symbol()`; `Stock.get_news()` accessor; no pagination — keep date windows modest |
 
-### TFEX Services (2)
+### TFEX Services (3)
 
 | # | Service | Module | Endpoint Pattern | Key Data |
 |---|---|---|---|---|
 | 1 | Series List | `list.py` | `/api/set/tfex/series/list` | Futures/options, 8 filter methods, contract details |
 | 2 | Trading Statistics | `trading_statistics.py` | `/api/set/tfex/series/{sym}/trading-statistics` | Settlement, margin (IM/MM), theoretical price, days to maturity |
+| 3 | Underlying Price | `underlying_price.py` | `/api/set/tfex/series/{sym}/underlying-price` | Underlying instrument price (SET50 index spot for index futures/options): last/prior/high/low, change, total volume/value, P/E, P/BV |
 
 ### Unified Stock Class (`stock/stock.py`)
 Single entry point for SET stock data — initialize with symbol, access all services via lazy-init properties:
@@ -153,6 +155,7 @@ highlight = await stock.get_highlight_data()
 profile = await stock.get_profile()
 financials = await stock.get_balance_sheet()
 latest = await stock.get_latest_price()    # latest traded price vs now
+news = await stock.get_news()              # company news/disclosures for this symbol
 # ... all stock services accessible
 ```
 
@@ -234,6 +237,8 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full, versioned release history — t
 - **No composition for whole-market indices:** `SET` and `mai` have no `/composition` endpoint (the API returns HTTP 404) — query a sub-index (e.g. `SET50`), a sector, or an industry instead. The service raises with a helpful message.
 - **Two distinct `chart_quotation.py` modules:** `services/set/stock/chart_quotation.py` (per-stock) and `services/set/index/chart_quotation.py` (per-index) are different files — don't conflate them.
 - **Company-profile management `startDate` can be null:** SET reports a vacant/undisclosed executive seat with `"startDate": null` and an empty `name` (e.g. `VIBE`) — `Management.start_date` is `datetime | None`; guard before calling `.strftime()` on it.
+- **News API date format (dd/MM/yyyy ONLY):** `fromDate`/`toDate` on `/api/set/news/search` reject ISO `yyyy-MM-dd` with an opaque HTTP 400. The news service converts `datetime.date`/`datetime` objects automatically and validates strings eagerly, raising `InvalidDateError` before any request is made.
+- **News API `sourceId` is not validated:** any value other than `company` (including empty) is silently ignored and returns ALL sources (a superset incl. TFEX rows and `set-releases` items). `source_id=None` is the intended all-sources switch; `"company"` is the only verified filter value — the service logs a warning for unverified values.
 
 ---
 

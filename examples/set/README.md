@@ -289,6 +289,23 @@ Complete, beginner-friendly tutorials for all SET (Stock Exchange of Thailand) s
 - Breadth/heatmap dashboards from constituent quotes
 - Index membership monitoring for rebalance events
 
+---
+
+### 16. SET News (`16_news.ipynb`)
+**What it does**: Company news/disclosures for ALL stocks (latest trading day or a date window), en/th
+
+**Learn how to**:
+- Fetch market-wide company news in one call
+- Filter by symbol, dd/MM/yyyy date window, and headline keyword
+- Use `filter_today` / `filter_by_tag` / `filter_by_symbol` helpers
+- Switch to the all-sources feed (`source_id=None`) and Thai headlines
+- Access per-stock news via `Stock("CPALL").get_news()`
+
+**Use cases**:
+- Portfolio disclosure monitoring and alerting
+- Earnings-season tracking via the `financial-statement` tag
+- Event-driven research joined onto price history
+
 ## Learning Path
 
 ### Beginners

@@ -24,6 +24,7 @@ __all__ = [
     "SymbolNotFoundError",
     "InvalidSymbolError",
     "InvalidLanguageError",
+    "InvalidDateError",
     "raise_for_status",
 ]
 
@@ -93,6 +94,10 @@ class InvalidSymbolError(ValueError):
 
 class InvalidLanguageError(ValueError):
     """A language string was not recognized (not ``en``/``th`` or an accepted alias)."""
+
+
+class InvalidDateError(ValueError):
+    """A date string was not in the format the target API accepts (dd/MM/yyyy for SET news)."""
 
 
 def raise_for_status(

@@ -17,6 +17,7 @@ from settfex.services.set.constants import (
     SET_INDEX_INFO_LIST_ENDPOINT,
     SET_INDEX_LIST_ENDPOINT,
     SET_LCP_BASE_URL,
+    SET_NEWS_SEARCH_ENDPOINT,
     SET_NVDR_HOLDER_ENDPOINT,
     SET_PRICE_PERFORMANCE_ENDPOINT,
     SET_STOCK_HIGHLIGHT_DATA_ENDPOINT,
@@ -67,6 +68,12 @@ from settfex.services.set.list import (
     StockSymbol,
     get_stock_list,
     suggest_symbol,
+)
+from settfex.services.set.news import (
+    NewsItem,
+    NewsSearchResponse,
+    NewsService,
+    get_news,
 )
 from settfex.services.set.stock import (
     Account,
@@ -146,6 +153,7 @@ __all__ = [
     "SET_EARNINGS_CALL_SEARCH_ENDPOINT",
     "SET_EARNINGS_CALL_DETAIL_ENDPOINT",
     "SET_EARNINGS_CALL_FILTER_ENDPOINT",
+    "SET_NEWS_SEARCH_ENDPOINT",
     # Stock List Service
     "StockListService",
     "StockListResponse",
@@ -187,6 +195,11 @@ __all__ = [
     "fetch_transcripts",
     "get_earnings_call_transcript",
     "fetch_youtube_transcript",
+    # News Service
+    "NewsService",
+    "NewsItem",
+    "NewsSearchResponse",
+    "get_news",
     # Stock Class and Services
     "Stock",
     "StockHighlightDataService",
