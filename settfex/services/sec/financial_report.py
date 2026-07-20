@@ -100,6 +100,71 @@ class SecDocument(BaseModel):
     model_config = ConfigDict(populate_by_name=True, str_strip_whitespace=True)
 
 
+def _coerce_category(value: DocumentCategory | str) -> DocumentCategory:
+    """Coerce a DocumentCategory or its string value into a DocumentCategory."""
+    return value if isinstance(value, DocumentCategory) else DocumentCategory(value)
+
+
+class SecDocumentList(list[SecDocument]):
+    """A ``list[SecDocument]`` with convenience helpers for years / categories / filtering.
+
+    It **is** a plain list — indexing, iteration, ``len()``, slicing and passing it to
+    ``download_sec_documents(...)`` all work unchanged. The extra methods make the common
+    "see which years exist → pick a subset → download them" flow a one-liner.
+    """
+
+    def categories(self) -> list[DocumentCategory]:
+        """Distinct categories present, in ``DocumentCategory`` enum order."""
+        present = {d.category for d in self}
+        return [c for c in DocumentCategory if c in present]
+
+    def available_years(self, category: DocumentCategory | str | None = None) -> list[int]:
+        """
+        Sorted-descending unique reporting years, optionally restricted to one category.
+
+        Documents without a year (``year is None``) are ignored.
+        """
+        cat = _coerce_category(category) if category is not None else None
+        years = {d.year for d in self if d.year is not None and (cat is None or d.category == cat)}
+        return sorted(years, reverse=True)
+
+    def years_by_category(self) -> dict[str, list[int]]:
+        """
+        Available years for each category present, keyed by the category **string value**
+        (e.g. ``"form_56_1"``) for clean printing; iterated in enum order.
+
+        Example:
+            >>> docs.years_by_category()
+            {'financial_statement': [2026, 2025, 2024], 'form_56_1': [2025, 2024, 2023]}
+        """
+        return {c.value: self.available_years(c) for c in self.categories()}
+
+    def filter(
+        self,
+        *,
+        category: DocumentCategory | str | None = None,
+        year: int | None = None,
+    ) -> SecDocumentList:
+        """Return a new ``SecDocumentList`` matching the given category and/or year (AND)."""
+        cat = _coerce_category(category) if category is not None else None
+        return SecDocumentList(
+            d
+            for d in self
+            if (cat is None or d.category == cat) and (year is None or d.year == year)
+        )
+
+    def summary(self) -> str:
+        """A ready-to-``print()`` block of the available years per category."""
+        by_cat = self.years_by_category()
+        if not by_cat:
+            return "(no documents)"
+        width = max(len(k) for k in by_cat)
+        return "\n".join(
+            f"{cat:<{width}} : {', '.join(str(y) for y in years) or '-'}"
+            for cat, years in by_cat.items()
+        )
+
+
 _COUNT_SUFFIX = re.compile(r"\s*\(\s*[\d,]+\s*record\(s\)\s*found\s*\)\s*$", re.IGNORECASE)
 
 
@@ -270,7 +335,7 @@ class FinancialReportService:
         to_date: date | str | None = None,
         lang: Language = "en",
         follow_view_more: bool = True,
-    ) -> list[SecDocument]:
+    ) -> SecDocumentList:
         """
         List documents for a resolved ``unique_id`` (10-digit SEC uniqueIDReference).
 
@@ -279,11 +344,14 @@ class FinancialReportService:
             company_name: Issuer name used as a fallback for rows lacking a Name cell (MD&A).
             types: One or more :class:`DocumentCategory` (or their string values); None = all 5.
             from_date / to_date: Window bounds — ``date``/``datetime`` or dd/mm/yyyy string.
+                Pass a **wide** window to see the full year history — without dates the SEC form
+                returns only a recent window.
             lang: 'en' or 'th'.
             follow_view_more: Follow ViewMore pages so truncated sections are returned in full.
 
         Returns:
-            List of :class:`SecDocument` for the requested categories.
+            A :class:`SecDocumentList` (a ``list[SecDocument]`` with ``years_by_category()`` /
+            ``available_years()`` / ``filter()`` / ``summary()`` helpers).
         """
         lang = normalize_language(lang)
         categories = _normalize_categories(types)
@@ -313,7 +381,7 @@ class FinancialReportService:
             )
         docs = [d for group in results for d in group]
         logger.info(f"Listed {len(docs)} SEC document(s) for uid={unique_id}")
-        return docs
+        return SecDocumentList(docs)
 
     async def fetch_documents_raw(
         self,
@@ -444,7 +512,7 @@ async def get_sec_documents(
     lang: Language = "en",
     follow_view_more: bool = True,
     config: FetcherConfig | None = None,
-) -> list[SecDocument]:
+) -> SecDocumentList:
     """
     Convenience: resolve a symbol/name and list its SEC disclosure documents (all 5 categories
     by default). This is the flat, one-call entry point (LLM tool-calling friendly).
@@ -452,18 +520,20 @@ async def get_sec_documents(
     Args:
         query: Symbol or company name (e.g. "CPALL").
         types: One or more :class:`DocumentCategory` (or string values); None = all.
-        from_date / to_date: Window bounds — ``date``/``datetime`` or dd/mm/yyyy string.
+        from_date / to_date: Window bounds — ``date``/``datetime`` or dd/mm/yyyy string. Pass a
+            **wide** window to see the full year history (default returns only a recent window).
         lang: 'en' or 'th'.
         follow_view_more: Follow ViewMore pages for complete large sections.
         config: Optional fetcher configuration.
 
     Returns:
-        List of :class:`SecDocument` (empty if the company cannot be resolved).
+        A :class:`SecDocumentList` (a list with ``years_by_category()`` / ``available_years()`` /
+        ``filter()`` / ``summary()`` helpers); empty if the company cannot be resolved.
     """
     company = await resolve_company(query, lang, config=config)
     if company is None:
         logger.warning(f"No SEC company matched query={query!r}; returning no documents")
-        return []
+        return SecDocumentList()
     service = FinancialReportService(config=config)
     return await service.fetch_documents(
         company.unique_id,

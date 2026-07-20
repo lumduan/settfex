@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-07-20
+
+### Added
+
+- **`SecDocumentList`** — the SEC listing calls (`get_sec_documents`,
+  `FinancialReportService.fetch_documents`, `SecCompany.list_documents`) now return a
+  `SecDocumentList`, a `list[SecDocument]` **subclass** (fully backward compatible — it is a
+  list) with convenience helpers so you can see what's available and download in bulk:
+  - `years_by_category() -> dict[str, list[int]]` and `available_years(category=None)` — the
+    available reporting years (newest first) per category / overall.
+  - `filter(category=None, year=None) -> SecDocumentList` — a subset (e.g.
+    `docs.filter(category="form_56_1")`), which composes directly with
+    `download_sec_documents(subset, dest_dir=…)` to **download all** of a category/year.
+  - `categories()` and `summary()` (a ready-to-`print()` block of years per category).
+  - Exported from `settfex.services.sec` and the top-level `settfex` namespace.
+  - Note: pass a **wide** `from_date`/`to_date` window to enumerate the full year history — the
+    default fetch returns only a recent window. MD&A rows carry a date, not a reporting year.
+
+### Documentation
+
+- The SEC service doc and example notebook (`examples/sec/01_financial_report.ipynb`) now show
+  listing the available years and downloading them all (or a filtered subset) — the
+  download-all path (`download_sec_documents` / `SecCompany.download_all`) is surfaced clearly.
+
 ## [0.12.0] - 2026-07-20
 
 ### Added

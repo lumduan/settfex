@@ -155,7 +155,7 @@ Host is **`market.sec.or.th`** (the Thai SEC IDISC system), NOT set.or.th — a 
 
 | # | Service | Module | Endpoint Pattern | Key Data |
 |---|---|---|---|---|
-| 1 | SEC Documents | `sec/{company,financial_report,download,sec}.py` | `POST /public/idisc/api/company/valuebyuniqueId`; `GET`/`POST /public/idisc/{lang}/FinancialReport/{FS\|R561\|R562\|KFR}`; `GET /public/idisc/{lang}/ViewMore/{slug}`; `GET /public/idisc/Download?FILEID=`; `GET /ipos/Common/IPOSGetFile.aspx?id=` | List + download **raw disclosure documents** for any issuer across 5 categories (`DocumentCategory`: financial_statement/form_56_1/form_56_2/key_financial_ratio/mda). Company resolver (`resolve_company` → 10-digit uniqueIDReference); listing replays the ASP.NET WebForms search (GET `__VIEWSTATE` → form POST → stdlib HTML-table parse), follows ViewMore for complete large sections; downloads return raw bytes (`DownloadedFile.save()`), concurrent `download_all`, soft-404 detection (dead links = HTML "file not found" under HTTP 200 → `FetchError`). `SecCompany("CPALL")` facade; `get_sec_documents()`/`download_sec_document(s)()`. dd/mm/yyyy dates. Stateless host (no SessionManager). |
+| 1 | SEC Documents | `sec/{company,financial_report,download,sec}.py` | `POST /public/idisc/api/company/valuebyuniqueId`; `GET`/`POST /public/idisc/{lang}/FinancialReport/{FS\|R561\|R562\|KFR}`; `GET /public/idisc/{lang}/ViewMore/{slug}`; `GET /public/idisc/Download?FILEID=`; `GET /ipos/Common/IPOSGetFile.aspx?id=` | List + download **raw disclosure documents** for any issuer across 5 categories (`DocumentCategory`: financial_statement/form_56_1/form_56_2/key_financial_ratio/mda). Company resolver (`resolve_company` → 10-digit uniqueIDReference); listing replays the ASP.NET WebForms search (GET `__VIEWSTATE` → form POST → stdlib HTML-table parse), follows ViewMore for complete large sections; downloads return raw bytes (`DownloadedFile.save()`), concurrent `download_all`, soft-404 detection (dead links = HTML "file not found" under HTTP 200 → `FetchError`). Listing returns a **`SecDocumentList`** (a `list[SecDocument]` subclass, backward compatible) with `years_by_category()`/`available_years()`/`filter(category=,year=)`/`categories()`/`summary()` helpers — pass a **wide** date window to see full year history. `SecCompany("CPALL")` facade; `get_sec_documents()`/`download_sec_document(s)()`. dd/mm/yyyy dates. Stateless host (no SessionManager). |
 
 ### Unified Stock Class (`stock/stock.py`)
 Single entry point for SET stock data — initialize with symbol, access all services via lazy-init properties:
@@ -182,9 +182,10 @@ latest = await index.get_latest_price()        # latest traded index value vs no
 Entry point for an issuer's SEC disclosure documents (host `market.sec.or.th`):
 ```python
 sec = SecCompany("CPALL")
-docs = await sec.list_documents(types="financial_statement", from_date="01/01/2025")
-file = await sec.download(docs[0], dest_dir="./out")   # DownloadedFile (raw bytes) + save
-files = await sec.download_all(docs, dest_dir="./out")  # concurrent
+docs = await sec.list_documents(from_date="01/01/2010", to_date="31/12/2026")  # wide = full history
+print(docs.summary())                       # available years per category
+subset = docs.filter(category="form_56_1")  # SecDocumentList subset
+files = await sec.download_all(subset, dest_dir="./out")  # concurrent; pass `docs` for everything
 ```
 
 ## API Design Principles

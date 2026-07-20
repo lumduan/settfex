@@ -22,6 +22,7 @@ from settfex.services.sec.financial_report import (
     DocumentCategory,
     FinancialReportService,
     SecDocument,
+    SecDocumentList,
 )
 from settfex.services.set.stock.utils import Language, normalize_language
 from settfex.utils.data_fetcher import FetcherConfig
@@ -84,7 +85,7 @@ class SecCompany:
         from_date: date | str | None = None,
         to_date: date | str | None = None,
         follow_view_more: bool = True,
-    ) -> list[SecDocument]:
+    ) -> SecDocumentList:
         """List this issuer's disclosure documents (all 5 categories by default)."""
         company = await self.resolve()
         return await self.report_service.fetch_documents(

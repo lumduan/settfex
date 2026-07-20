@@ -85,6 +85,51 @@ files = await download_sec_documents(docs, dest_dir="./out", max_concurrency=5, 
 A single financial-statement search returns the statement, KFR **and** MD&A sections together;
 the service maps requested categories to the minimal set of underlying queries automatically.
 
+## List available years, then download them all
+
+The listing calls (`get_sec_documents`, `FinancialReportService.fetch_documents`,
+`SecCompany.list_documents`) return a **`SecDocumentList`** — a plain `list[SecDocument]` (so it
+still indexes, iterates, and can be passed straight to `download_sec_documents(...)`) with a few
+helpers for exactly this:
+
+| Method | Returns |
+|---|---|
+| `years_by_category()` | `dict[str, list[int]]` — available years per category (newest first) |
+| `available_years(category=None)` | `list[int]` — years across all docs, or one category |
+| `filter(category=None, year=None)` | a new `SecDocumentList` (a subset) |
+| `categories()` | the distinct `DocumentCategory` values present |
+| `summary()` | a ready-to-`print()` block of years per category |
+
+> ⚠️ **Pass a wide date window to see the full history.** Without `from_date`/`to_date` the SEC
+> form returns only a recent window. Use e.g. `from_date="01/01/2010", to_date="31/12/2026"` to
+> enumerate every available year. (MD&A rows carry a *date*, not a reporting *year*, so they show
+> no years.)
+
+```python
+from settfex.services.sec import get_sec_documents, download_sec_documents
+
+# 1) List everything (wide window), then see which years exist per category
+docs = await get_sec_documents("CPALL", from_date="01/01/2010", to_date="31/12/2026")
+
+print(docs.summary())
+# financial_statement : 2026, 2025, 2024, 2023, 2022, 2021, 2020, ...
+# form_56_1           : 2025, 2024, 2023, 2022, 2021, 2020
+# form_56_2           : 2025, 2024, 2023, 2022, 2021, 2020, ...
+
+docs.years_by_category()          # -> {'financial_statement': [2026, 2025, ...], 'form_56_1': [...]}
+docs.available_years("form_56_1")  # -> [2025, 2024, 2023, 2022, 2021, 2020]
+
+# 2) Download them all — pass the whole list, or a filtered subset
+await download_sec_documents(docs, dest_dir="./out", max_concurrency=5)              # everything
+await download_sec_documents(docs.filter(category="form_56_1"), dest_dir="./out")    # just 56-1
+await download_sec_documents(docs.filter(category="financial_statement", year=2025),
+                             dest_dir="./out")                                       # one year
+```
+
+With the `SecCompany` facade, `await sec.download_all(docs, dest_dir="./out")` does the same.
+`download_all`/`download_sec_documents` run bounded-concurrent downloads and (by default) skip
+any dead links rather than failing the whole batch.
+
 ## Models
 
 ### `SecDocument`
@@ -143,7 +188,7 @@ failed item (e.g. a soft-404 dead link) is logged and skipped rather than failin
 ```python
 resolve_company(query, lang="en") -> CompanyMatch | None
 get_sec_documents(query, *, types=None, from_date=None, to_date=None,
-                  lang="en", follow_view_more=True) -> list[SecDocument]
+                  lang="en", follow_view_more=True) -> SecDocumentList
 download_sec_document(target, *, dest_dir=None) -> DownloadedFile
 download_sec_documents(targets, *, dest_dir=None, max_concurrency=5,
                        continue_on_error=True, progress=False) -> list[DownloadedFile]
