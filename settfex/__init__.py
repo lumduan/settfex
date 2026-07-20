@@ -35,7 +35,7 @@ Usage:
     >>> asyncio.run(main())
 """
 
-__version__ = "0.12.0"
+__version__ = "0.13.0"
 __author__ = "batt"
 __license__ = "MIT"
 
@@ -54,6 +54,7 @@ from settfex.services.sec import (
     DownloadedFile,
     SecCompany,
     SecDocument,
+    SecDocumentList,
     download_sec_document,
     download_sec_documents,
     get_sec_documents,
@@ -108,6 +109,7 @@ __all__ = [
     "download_sec_documents",
     "resolve_company",
     "SecDocument",
+    "SecDocumentList",
     "DocumentCategory",
     "DownloadedFile",
     # Data Models

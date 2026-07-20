@@ -9,6 +9,8 @@ from settfex.services.sec.company import CompanyMatch
 from settfex.services.sec.financial_report import (
     DocumentCategory,
     FinancialReportService,
+    SecDocument,
+    SecDocumentList,
     _format_sec_date,
     _normalize_categories,
     category_for_section,
@@ -278,6 +280,7 @@ class TestGetSecDocuments:
         ):
             _make_fetcher(cls, router)
             docs = await get_sec_documents("CPALL", types="form_56_1", follow_view_more=False)
+        assert isinstance(docs, SecDocumentList)  # helpers available on the result
         assert len(docs) == 2 and docs[0].category == DocumentCategory.FORM_56_1
 
     @pytest.mark.asyncio
@@ -289,4 +292,80 @@ class TestGetSecDocuments:
             new=AsyncMock(return_value=None),
         ):
             docs = await get_sec_documents("NOPE")
-        assert docs == []
+        assert docs == [] and isinstance(docs, SecDocumentList)
+
+
+def _doc(category: DocumentCategory, year: int | None, *, section: str = "S") -> SecDocument:
+    """Minimal SecDocument for SecDocumentList tests."""
+    return SecDocument(
+        company_name="CP ALL",
+        unique_id="0000003875",
+        category=category,
+        section=section,
+        year=year,
+        file_url=f"https://x/{category.value}_{year}.zip",
+        file_id=f"{category.value}_{year}.zip",
+        file_kind="zip",
+    )
+
+
+class TestSecDocumentList:
+    def _sample(self) -> SecDocumentList:
+        return SecDocumentList(
+            [
+                _doc(DocumentCategory.FINANCIAL_STATEMENT, 2026),
+                _doc(DocumentCategory.FINANCIAL_STATEMENT, 2025),
+                _doc(DocumentCategory.FINANCIAL_STATEMENT, 2025),  # duplicate year
+                _doc(DocumentCategory.FORM_56_1, 2024),
+                _doc(DocumentCategory.FORM_56_1, 2023),
+                _doc(DocumentCategory.MDA, None),  # MD&A rows have no reporting year
+            ]
+        )
+
+    def test_is_a_list(self) -> None:
+        docs = self._sample()
+        assert isinstance(docs, list) and len(docs) == 6
+
+    def test_categories_in_enum_order(self) -> None:
+        assert self._sample().categories() == [
+            DocumentCategory.FINANCIAL_STATEMENT,
+            DocumentCategory.FORM_56_1,
+            DocumentCategory.MDA,
+        ]
+
+    def test_available_years_all_sorted_desc_unique_no_none(self) -> None:
+        assert self._sample().available_years() == [2026, 2025, 2024, 2023]
+
+    def test_available_years_by_category_enum_or_str(self) -> None:
+        docs = self._sample()
+        assert docs.available_years(DocumentCategory.FINANCIAL_STATEMENT) == [2026, 2025]
+        assert docs.available_years("form_56_1") == [2024, 2023]
+        assert docs.available_years("mda") == []  # no year column
+
+    def test_years_by_category(self) -> None:
+        assert self._sample().years_by_category() == {
+            "financial_statement": [2026, 2025],
+            "form_56_1": [2024, 2023],
+            "mda": [],
+        }
+
+    def test_filter_by_category_returns_sec_document_list(self) -> None:
+        sub = self._sample().filter(category="form_56_1")
+        assert isinstance(sub, SecDocumentList) and len(sub) == 2
+        assert {d.category for d in sub} == {DocumentCategory.FORM_56_1}
+
+    def test_filter_by_year(self) -> None:
+        assert len(self._sample().filter(year=2025)) == 2
+
+    def test_filter_by_category_and_year(self) -> None:
+        sub = self._sample().filter(category=DocumentCategory.FINANCIAL_STATEMENT, year=2026)
+        assert len(sub) == 1
+
+    def test_summary_lists_years_per_category(self) -> None:
+        text = self._sample().summary()
+        assert "financial_statement : 2026, 2025" in text
+        assert "form_56_1" in text and "2024, 2023" in text
+        assert "mda" in text and " : -" in text
+
+    def test_empty_summary(self) -> None:
+        assert SecDocumentList().summary() == "(no documents)"
