@@ -12,7 +12,7 @@ the LLM tool-calling entry point) → `NewsService.fetch_news()` (validated Pyda
 `NewsService.fetch_news_raw()` (raw `dict` escape hatch). Also available per-stock as
 `Stock("CPALL").get_news()`.
 
-> ### ⚠️ Two API gotchas (live-verified 2026-07-19)
+> ### ⚠️ Three API gotchas (live-verified 2026-07-19/20)
 >
 > 1. **Dates are dd/MM/yyyy ONLY.** `fromDate`/`toDate` reject ISO `yyyy-MM-dd` with an
 >    opaque HTTP 400. The service converts `datetime.date`/`datetime` objects automatically
@@ -22,6 +22,12 @@ the LLM tool-calling entry point) → `NewsService.fetch_news()` (validated Pyda
 >    includes TFEX rows and `set-releases` items). `"company"` is the only verified filter
 >    value; pass `source_id=None` for the explicit all-sources behavior. Unverified values
 >    log a warning.
+> 3. **History is a rolling ~5-year window (1826 days).** The endpoint serves only the
+>    trailing **1826 days** (= 5 calendar years incl. the leap day). A `from_date` older than
+>    `today − 1826 days` is rejected with HTTP 400 — surfaced as `FetchError`, **not**
+>    `InvalidDateError`. The check is on the window's *start*, and the API does **not** clip
+>    to the allowed range: one day too old fails the whole request. The boundary is rolling
+>    (`today − 1826 days`, never a fixed calendar date). See [Historical news](#historical-news).
 
 ## Quick Start
 
@@ -112,7 +118,8 @@ Both take the same parameters:
 
 Without dates the API returns the **latest trading day** only (~150–200 items). No
 pagination has been observed — a 17-day window returned 2,804 items in one response — so
-keep windows modest.
+keep windows modest. History reaches back a **rolling ~5 years (1826 days)**; an older
+`from_date` raises `FetchError` (HTTP 400) — see gotcha #3 and [Historical news](#historical-news).
 
 ## Convenience Function
 
@@ -145,6 +152,35 @@ for item in news.news_info_list:
     print(f"{item.news_datetime:%Y-%m-%d}  {item.headline}")
 ```
 
+### Historical news
+
+Historical queries work for any window inside the **rolling ~5-year (1826-day)** limit. The
+check is on the window's *start* (`from_date`), and the API does **not** clip to the allowed
+range — a `from_date` even one day too old fails the whole request with HTTP 400 (raised as
+`FetchError`, *not* `InvalidDateError`). Keep windows modest (no pagination).
+
+```python
+from datetime import date, timedelta
+from settfex.exceptions import FetchError
+
+# A historical window ~1 year back (well inside the limit)
+to_d = date.today() - timedelta(days=365)
+from_d = to_d - timedelta(days=5)
+news = await get_news(from_date=from_d, to_date=to_d)
+print(f"{from_d} -> {to_d}: {news.count} items")
+
+# The boundary: today − 1826 days is the oldest servable date
+oldest_ok = date.today() - timedelta(days=1826)   # served (HTTP 200)
+too_old = date.today() - timedelta(days=1827)      # rejected (HTTP 400)
+try:
+    await get_news(from_date=too_old, to_date=too_old)
+except FetchError:
+    print(f"{too_old} is older than the 5-year window — rejected")
+```
+
+> The boundary is **rolling**: it advances one day each day, so `today − 1826 days` is always
+> the earliest servable `from_date` — not a fixed calendar date.
+
 ### Export to pandas
 
 ```python
@@ -171,6 +207,12 @@ except FetchError as exc:
     ...          # HTTP/transport failure; exc.status_code when available
 ```
 
+> **`InvalidDateError` vs `FetchError` for dates.** A *malformed* date string (e.g. ISO
+> `yyyy-MM-dd`) raises `InvalidDateError` locally, before any request. A *well-formed but
+> too-old* `from_date` (older than `today − 1826 days`) is rejected by the API with HTTP 400
+> and raised as `FetchError` — it is not caught locally. Catch both if you accept arbitrary
+> historical windows.
+
 `ResponseParseError` (a `ValueError`) is raised for malformed/non-finite JSON, and
 `SymbolNotFoundError` for an HTTP 404.
 
@@ -181,8 +223,9 @@ GET https://www.set.or.th/api/set/news/search?sourceId=company&lang={en|th}
     [&symbol={SYMBOL}] [&fromDate=dd/MM/yyyy] [&toDate=dd/MM/yyyy] [&keyword={TEXT}]
 ```
 
-Same host and Incapsula bot wall as the other SET services — `SessionManager` cookie
-warm-up is automatic (plain `curl` is blocked).
+`fromDate` must fall within the last **1826 days** (rolling ~5-year window); an older value
+returns HTTP 400. Same host and Incapsula bot wall as the other SET services —
+`SessionManager` cookie warm-up is automatic (plain `curl` is blocked).
 
 ## Related Services
 
