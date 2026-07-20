@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-07-20
+
+### Added
+
+- **SEC IDISC document services** (`settfex.services.sec`) — list and download the **raw
+  disclosure documents** companies file with the Thai SEC (`market.sec.or.th`), for any
+  SET/mai-listed issuer. Covers **five categories**: financial statements (the original
+  `FINANCIAL_STATEMENTS.XLSX` package), Form 56-1, Form 56-2, Key Financial Ratio, and MD&A.
+  - Three tiers: `get_sec_documents()` / `download_sec_document(s)()` (flat convenience, LLM
+    entry points) → `FinancialReportService.fetch_documents()` / `DocumentDownloadService`
+    (typed `SecDocument` / `DownloadedFile` models) → `fetch_documents_raw()` (raw parsed rows).
+  - Unified `SecCompany("CPALL")` facade; company resolver `resolve_company()` /
+    `search_companies()` (maps a symbol/name → SEC `uniqueIDReference`).
+  - Listing replays the ASP.NET WebForms search (GET fresh `__VIEWSTATE` tokens → form POST →
+    HTML-table parse via the stdlib `html.parser`, no new dependency) and follows the
+    "display all results" ViewMore pages so large sections are returned in full
+    (`follow_view_more=True`). Category filtering, `en`/`th`, and dd/mm/yyyy date windows
+    (`datetime.date`/`datetime` objects or strings; ISO strings raise `InvalidDateError`).
+  - Downloads return the raw bytes as `DownloadedFile` (with `.save(dest)`), with concurrent
+    `download_all()` (bounded, tolerant of per-item failures, optional `tqdm` progress).
+    Dead links are detected: the SEC host answers a missing file with an HTML "file not found"
+    page under HTTP 200, which raises `FetchError` instead of returning a garbage payload.
+  - Verified `market.sec.or.th` endpoints: `POST …/api/company/valuebyuniqueId`,
+    `GET`/`POST …/{lang}/FinancialReport/{FS|R561|R562|KFR}`, `GET …/{lang}/ViewMore/{slug}`,
+    `GET …/Download?FILEID=…`, `GET …/ipos/Common/IPOSGetFile.aspx?id=…`.
+- **`AsyncDataFetcher` extensions** (backward-compatible): form-encoded POST via a new `data=`
+  argument (alongside `json_body=`), and a `decode_text=False` flag to fetch binary payloads
+  (zip/xlsx/pdf) without the wasteful text decode. Both default to current behavior.
+- Example notebook `examples/sec/01_financial_report.ipynb` and service doc
+  `docs/settfex/services/sec/financial_report.md`.
+
 ## [0.11.0] - 2026-07-19
 
 ### Added

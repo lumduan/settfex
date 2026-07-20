@@ -180,6 +180,7 @@ class AsyncDataFetcher:
         *,
         method: str = "GET",
         json_body: Any | None = None,
+        data: Any | None = None,
     ) -> Any:
         """
         Make an HTTP request using either a persistent session or a standalone request.
@@ -192,7 +193,10 @@ class AsyncDataFetcher:
             url: URL to fetch
             headers: HTTP headers to include
             method: HTTP method, "GET" (default) or "POST"
-            json_body: JSON-serializable body for POST requests (ignored for GET)
+            json_body: JSON-serializable body for a JSON POST (ignored for GET)
+            data: Form body for an ``application/x-www-form-urlencoded`` POST — a dict of
+                fields or a pre-encoded string (ignored for GET). Takes precedence over
+                ``json_body`` when both are given (e.g. ASP.NET WebForms postbacks).
 
         Returns:
             Response object from curl_cffi
@@ -225,6 +229,16 @@ class AsyncDataFetcher:
 
             def do_request() -> Any:
                 if method == "POST":
+                    # Form-encoded body (data) takes precedence over JSON body; curl_cffi
+                    # sets the matching Content-Type automatically for whichever is used.
+                    if data is not None:
+                        return requests.post(
+                            url,
+                            data=data,
+                            headers=headers,
+                            timeout=self.config.timeout,
+                            impersonate=self.config.browser_impersonate,  # type: ignore
+                        )
                     return requests.post(
                         url,
                         json=json_body,
@@ -254,6 +268,8 @@ class AsyncDataFetcher:
         *,
         method: str = "GET",
         json_body: Any | None = None,
+        data: Any | None = None,
+        decode_text: bool = True,
     ) -> FetchResponse:
         """
         Fetch data from a URL asynchronously with proper Unicode handling.
@@ -269,7 +285,14 @@ class AsyncDataFetcher:
             headers: Optional custom headers (merged with defaults)
             method: HTTP method, "GET" (default) or "POST". POST requires
                 FetcherConfig(use_session=False).
-            json_body: JSON-serializable body for POST requests (ignored for GET)
+            json_body: JSON-serializable body for a JSON POST (ignored for GET)
+            data: Form body for an ``application/x-www-form-urlencoded`` POST — a dict of
+                fields or a pre-encoded string. Takes precedence over ``json_body``
+                (ignored for GET).
+            decode_text: When True (default) decode the body to ``FetchResponse.text``
+                (UTF-8, latin1 fallback). Set False for binary payloads (zip/xlsx/pdf) to
+                skip the wasteful decode — ``text`` is then ``""`` and the raw bytes are
+                available on ``FetchResponse.content``.
 
         Returns:
             FetchResponse with status, content, and metadata
@@ -312,21 +335,26 @@ class AsyncDataFetcher:
 
                 # Make request (either via persistent session or standalone)
                 response = await self._make_request(
-                    url, default_headers, method=method, json_body=json_body
+                    url, default_headers, method=method, json_body=json_body, data=data
                 )
 
                 elapsed = time.time() - start_time
 
-                # Decode content with UTF-8 for Thai/Unicode support
-                try:
-                    text = response.content.decode("utf-8")
-                except UnicodeDecodeError:
-                    # Fallback to latin1 if UTF-8 fails
-                    logger.warning(f"UTF-8 decode failed for {url}, trying latin1")
-                    text = response.content.decode("latin1")
-                    encoding = "latin1"
+                if decode_text:
+                    # Decode content with UTF-8 for Thai/Unicode support
+                    try:
+                        text = response.content.decode("utf-8")
+                    except UnicodeDecodeError:
+                        # Fallback to latin1 if UTF-8 fails
+                        logger.warning(f"UTF-8 decode failed for {url}, trying latin1")
+                        text = response.content.decode("latin1")
+                        encoding = "latin1"
+                    else:
+                        encoding = "utf-8"
                 else:
-                    encoding = "utf-8"
+                    # Binary payload (zip/xlsx/pdf): skip decode; use .content for bytes.
+                    text = ""
+                    encoding = "binary"
 
                 # Create response object
                 fetch_response = FetchResponse(

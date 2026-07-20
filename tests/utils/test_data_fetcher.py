@@ -520,3 +520,62 @@ class TestAsyncDataFetcherPost:
         assert result is mock_resp
         assert mock_requests.get.called
         assert mock_requests.post.called is False
+
+    @pytest.mark.asyncio
+    async def test_standalone_post_form_data(self) -> None:
+        """Standalone POST with data= issues a form-encoded curl_cffi POST (not JSON)."""
+        fetcher = AsyncDataFetcher(config=FetcherConfig(use_session=False))
+        form = {"__VIEWSTATE": "abc", "ctl00$CPH$btSearch": "Search"}
+        mock_resp = Mock(status_code=200)
+
+        with patch("settfex.utils.data_fetcher.requests") as mock_requests:
+            mock_requests.post.return_value = mock_resp
+            result = await fetcher._make_request(
+                "https://market.sec.or.th/x", {"Referer": "https://market.sec.or.th/x"},
+                method="POST", data=form,
+            )
+
+        assert result is mock_resp
+        assert mock_requests.post.called
+        kwargs = mock_requests.post.call_args.kwargs
+        assert kwargs["data"] == form
+        assert "json" not in kwargs  # form path must not send a JSON body
+
+    @pytest.mark.asyncio
+    async def test_fetch_forwards_data(self) -> None:
+        """fetch(method='POST', data=...) forwards the form body to _make_request."""
+        fetcher = AsyncDataFetcher()
+        form = {"a": "1"}
+        mock_response = Mock(status_code=200, content=b"ok", headers={}, url="https://x/y")
+
+        with patch.object(fetcher, "_make_request", return_value=mock_response) as mock:
+            await fetcher.fetch("https://x/y", method="POST", data=form)
+
+        assert mock.call_args.kwargs["data"] == form
+
+    @pytest.mark.asyncio
+    async def test_fetch_binary_skips_text_decode(self) -> None:
+        """decode_text=False returns raw bytes on .content and leaves .text empty."""
+        fetcher = AsyncDataFetcher()
+        raw = b"PK\x03\x04\x14\x00\x00\x08"  # zip magic + junk (invalid UTF-8)
+        mock_response = Mock(status_code=200, content=raw, headers={}, url="https://x/f.zip")
+
+        with patch.object(fetcher, "_make_request", return_value=mock_response):
+            resp = await fetcher.fetch("https://x/f.zip", decode_text=False)
+
+        assert resp.content == raw
+        assert resp.text == ""
+        assert resp.encoding == "binary"
+
+    @pytest.mark.asyncio
+    async def test_fetch_binary_bytes_would_break_text_decode(self) -> None:
+        """The same non-UTF-8 bytes with default decode_text still succeed (latin1 fallback)."""
+        fetcher = AsyncDataFetcher()
+        raw = b"\xff\xfe\x00\x01"  # not valid UTF-8
+        mock_response = Mock(status_code=200, content=raw, headers={}, url="https://x/f.bin")
+
+        with patch.object(fetcher, "_make_request", return_value=mock_response):
+            resp = await fetcher.fetch("https://x/f.bin")  # decode_text defaults True
+
+        assert resp.content == raw
+        assert resp.encoding == "latin1"
