@@ -7,12 +7,13 @@ import pytest
 
 from settfex.exceptions import FetchError
 from settfex.services.sec.download import (
+    DEFAULT_DOWNLOAD_TIMEOUT,
     DocumentDownloadService,
     DownloadedFile,
     _filename_from_disposition,
 )
 from settfex.services.sec.financial_report import DocumentCategory, SecDocument
-from settfex.utils.data_fetcher import FetchResponse
+from settfex.utils.data_fetcher import FetcherConfig, FetchResponse
 from tests.services.sec.fixtures import FILE_NOT_FOUND_HTML
 
 ZIP_BYTES = b"PK\x03\x04\x14\x00\x00\x08" + b"\x00" * 32
@@ -197,3 +198,117 @@ class TestDownloadAll:
                 await svc.download_all([bad], continue_on_error=False)
         finally:
             patch.stopall()
+
+
+class TestTimeoutConfig:
+    def test_default_download_timeout_is_180(self) -> None:
+        svc = DocumentDownloadService()
+        assert svc.config.timeout == DEFAULT_DOWNLOAD_TIMEOUT == 180
+        assert svc.config.use_session is False
+
+    def test_timeout_param_overrides(self) -> None:
+        assert DocumentDownloadService(timeout=250).config.timeout == 250
+
+    def test_passed_config_timeout_is_honored(self) -> None:
+        svc = DocumentDownloadService(config=FetcherConfig(timeout=45))
+        assert svc.config.timeout == 45  # explicit config respected (no 180 default)
+
+    def test_timeout_param_wins_over_config(self) -> None:
+        svc = DocumentDownloadService(config=FetcherConfig(timeout=45), timeout=300)
+        assert svc.config.timeout == 300
+
+
+class TestDedupeAndMemory:
+    @pytest.mark.asyncio
+    async def test_download_all_dedupes_by_url(self) -> None:
+        # Company + Consolidated rows share one zip -> same file_url.
+        url = "https://market.sec.or.th/public/idisc/Download?FILEID=dat/news/shared.zip"
+        company = _doc(url, "dat/news/shared.zip")
+        consolidated = _doc(url, "dat/news/shared.zip")
+
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
+            return _dl_resp(ZIP_BYTES, "application/zip", "shared.zip")
+
+        _, instance = _patch_download(router)
+        try:
+            svc = DocumentDownloadService()
+            got = await svc.download_all([company, consolidated])
+        finally:
+            patch.stopall()
+        assert len(got) == 1  # one result per unique URL
+        assert instance.fetch.await_count == 1  # downloaded once, not twice
+
+    @pytest.mark.asyncio
+    async def test_keep_bytes_default_drops_content_when_saving(self, tmp_path: Path) -> None:
+        doc = _doc("https://market.sec.or.th/public/idisc/Download?FILEID=a.zip", "a.zip")
+
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
+            return _dl_resp(ZIP_BYTES, "application/zip", "a.zip")
+
+        _patch_download(router)
+        try:
+            svc = DocumentDownloadService()
+            got = await svc.download_all([doc], dest_dir=tmp_path)
+        finally:
+            patch.stopall()
+        dl = got[0]
+        assert dl.content == b""  # bytes dropped to save memory
+        assert dl.size == len(ZIP_BYTES)  # real size still reported
+        assert dl.path == tmp_path / "a.zip" and dl.path.exists()  # on disk + path recorded
+
+    @pytest.mark.asyncio
+    async def test_keep_bytes_true_retains_content(self, tmp_path: Path) -> None:
+        doc = _doc("https://market.sec.or.th/public/idisc/Download?FILEID=a.zip", "a.zip")
+
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
+            return _dl_resp(ZIP_BYTES, "application/zip", "a.zip")
+
+        _patch_download(router)
+        try:
+            svc = DocumentDownloadService()
+            got = await svc.download_all([doc], dest_dir=tmp_path, keep_bytes=True)
+        finally:
+            patch.stopall()
+        assert got[0].content == ZIP_BYTES  # retained despite saving
+
+    @pytest.mark.asyncio
+    async def test_no_dest_dir_keeps_bytes_by_default(self) -> None:
+        doc = _doc("https://market.sec.or.th/public/idisc/Download?FILEID=a.zip", "a.zip")
+
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
+            return _dl_resp(ZIP_BYTES, "application/zip", "a.zip")
+
+        _patch_download(router)
+        try:
+            svc = DocumentDownloadService()
+            got = await svc.download_all([doc])  # no dest_dir -> must keep bytes
+        finally:
+            patch.stopall()
+        assert got[0].content == ZIP_BYTES and got[0].path is None
+
+    @pytest.mark.asyncio
+    async def test_single_download_records_path_and_keeps_bytes(self, tmp_path: Path) -> None:
+        from settfex.services.sec.download import download_sec_document
+
+        doc = _doc("https://market.sec.or.th/public/idisc/Download?FILEID=a.zip", "a.zip")
+
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
+            return _dl_resp(ZIP_BYTES, "application/zip", "a.zip")
+
+        _patch_download(router)
+        try:
+            dl = await download_sec_document(doc, dest_dir=tmp_path)
+        finally:
+            patch.stopall()
+        assert dl.content == ZIP_BYTES  # single download keeps bytes
+        assert dl.path == tmp_path / "a.zip" and dl.path.exists()

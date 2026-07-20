@@ -115,15 +115,17 @@ class SecCompany:
         targets: list[SecDocument | str],
         *,
         dest_dir: str | Path | None = None,
-        max_concurrency: int = 5,
+        max_concurrency: int = 3,
         continue_on_error: bool = True,
+        keep_bytes: bool | None = None,
         progress: bool = False,
     ) -> list[DownloadedFile]:
-        """Download many documents concurrently (optionally saving to ``dest_dir``)."""
+        """Download many documents concurrently (deduped by URL; optionally saved to disk)."""
         return await self.download_service.download_all(
             targets,
             dest_dir=dest_dir,
             max_concurrency=max_concurrency,
             continue_on_error=continue_on_error,
+            keep_bytes=keep_bytes,
             progress=progress,
         )
