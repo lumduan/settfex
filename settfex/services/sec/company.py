@@ -66,9 +66,7 @@ async def search_companies(
 
     logger.info(f"Resolving SEC company for query={query!r} (lang={lang})")
     async with AsyncDataFetcher(config=_stateless_config(config)) as fetcher:
-        data: Any = await fetcher.fetch_json(
-            url, headers=headers, method="POST", json_body=body
-        )
+        data: Any = await fetcher.fetch_json(url, headers=headers, method="POST", json_body=body)
 
     if not isinstance(data, list):
         logger.warning(f"Unexpected company-search payload type: {type(data).__name__}")

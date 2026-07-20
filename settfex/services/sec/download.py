@@ -61,9 +61,7 @@ class DownloadedFile(BaseModel):
 def _filename_from_disposition(disposition: str, fallback: str) -> str:
     """Extract a filename from a Content-Disposition header (handles both SEC variants)."""
     if disposition:
-        match = re.search(
-            r"filename\*?=(?:UTF-8'')?\"?([^\";]+)\"?", disposition, re.IGNORECASE
-        )
+        match = re.search(r"filename\*?=(?:UTF-8'')?\"?([^\";]+)\"?", disposition, re.IGNORECASE)
         if match:
             return unquote(match.group(1).strip().strip('"'))
         # IDISC returns the bare filename as the whole header value (no "filename=" key).
@@ -136,7 +134,7 @@ class DocumentDownloadService:
                 f"Failed to download {url}: HTTP {resp.status_code}", status_code=resp.status_code
             )
 
-        content_type = (resp.headers.get("Content-Type") or resp.headers.get("content-type") or "")
+        content_type = resp.headers.get("Content-Type") or resp.headers.get("content-type") or ""
         # A real document is a binary type; an HTML body means a soft error (e.g. dead FILEID).
         if "text/html" in content_type.lower():
             snippet = resp.content[:400].decode("utf-8", "replace")
@@ -145,9 +143,7 @@ class DocumentDownloadService:
             raise FetchError(f"Unexpected HTML response (not a document) downloading {url}")
 
         disposition = (
-            resp.headers.get("Content-Disposition")
-            or resp.headers.get("content-disposition")
-            or ""
+            resp.headers.get("Content-Disposition") or resp.headers.get("content-disposition") or ""
         )
         filename = _filename_from_disposition(disposition, _fallback_filename(url, document))
 

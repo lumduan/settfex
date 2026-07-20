@@ -531,8 +531,10 @@ class TestAsyncDataFetcherPost:
         with patch("settfex.utils.data_fetcher.requests") as mock_requests:
             mock_requests.post.return_value = mock_resp
             result = await fetcher._make_request(
-                "https://market.sec.or.th/x", {"Referer": "https://market.sec.or.th/x"},
-                method="POST", data=form,
+                "https://market.sec.or.th/x",
+                {"Referer": "https://market.sec.or.th/x"},
+                method="POST",
+                data=form,
             )
 
         assert result is mock_resp

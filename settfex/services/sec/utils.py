@@ -69,9 +69,7 @@ def extract_aspnet_tokens(html: str) -> dict[str, str]:
     """
     tokens: dict[str, str] = {}
     for field in SEC_ASPNET_TOKEN_FIELDS:
-        match = re.search(
-            rf'id="{re.escape(field)}"[^>]*value="([^"]*)"', html
-        )
+        match = re.search(rf'id="{re.escape(field)}"[^>]*value="([^"]*)"', html)
         tokens[field] = unescape(match.group(1)) if match else ""
     return tokens
 

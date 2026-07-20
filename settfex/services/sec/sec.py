@@ -1,8 +1,8 @@
 """Unified SEC facade — one entry point for an issuer's disclosure documents.
 
-    >>> sec = SecCompany("CPALL")
-    >>> docs = await sec.list_documents(types="financial_statement", from_date="01/01/2025")
-    >>> files = await sec.download_all(docs, dest_dir="./out")
+>>> sec = SecCompany("CPALL")
+>>> docs = await sec.list_documents(types="financial_statement", from_date="01/01/2025")
+>>> files = await sec.download_all(docs, dest_dir="./out")
 """
 
 from __future__ import annotations

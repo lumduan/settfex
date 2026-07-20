@@ -23,16 +23,24 @@ def _dl_resp(content: bytes, ctype: str, disposition: str | None = None, status:
     if disposition is not None:
         headers["Content-Disposition"] = disposition
     return FetchResponse(
-        status_code=status, content=content, text="", headers=headers,
-        url="https://market.sec.or.th/public/idisc/Download?FILEID=dat/news/x.zip", elapsed=0.01,
+        status_code=status,
+        content=content,
+        text="",
+        headers=headers,
+        url="https://market.sec.or.th/public/idisc/Download?FILEID=dat/news/x.zip",
+        elapsed=0.01,
     )
 
 
 def _doc(file_url: str, file_id: str) -> SecDocument:
     return SecDocument(
-        company_name="CP ALL", unique_id="0000003875",
-        category=DocumentCategory.FINANCIAL_STATEMENT, section="Financial Statements",
-        file_url=file_url, file_id=file_id, file_kind="zip",
+        company_name="CP ALL",
+        unique_id="0000003875",
+        category=DocumentCategory.FINANCIAL_STATEMENT,
+        section="Financial Statements",
+        file_url=file_url,
+        file_id=file_id,
+        file_kind="zip",
     )
 
 
@@ -90,8 +98,9 @@ class TestResolveUrl:
 class TestDownload:
     @pytest.mark.asyncio
     async def test_success_returns_bytes_and_filename(self) -> None:
-        async def router(url, headers=None, *, method="GET", json_body=None, data=None,
-                         decode_text=True):
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
             return _dl_resp(ZIP_BYTES, "application/zip", "myfile.zip")
 
         _patch_download(router)
@@ -106,8 +115,9 @@ class TestDownload:
 
     @pytest.mark.asyncio
     async def test_soft_404_raises(self) -> None:
-        async def router(url, headers=None, *, method="GET", json_body=None, data=None,
-                         decode_text=True):
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
             return _dl_resp(FILE_NOT_FOUND_HTML.encode("utf-8"), "text/html; charset=utf-8")
 
         _patch_download(router)
@@ -120,8 +130,9 @@ class TestDownload:
 
     @pytest.mark.asyncio
     async def test_http_error_raises(self) -> None:
-        async def router(url, headers=None, *, method="GET", json_body=None, data=None,
-                         decode_text=True):
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
             return _dl_resp(b"", "text/html", status=500)
 
         _patch_download(router)
@@ -134,8 +145,9 @@ class TestDownload:
 
     @pytest.mark.asyncio
     async def test_unexpected_html_raises(self) -> None:
-        async def router(url, headers=None, *, method="GET", json_body=None, data=None,
-                         decode_text=True):
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
             return _dl_resp(b"<html>login</html>", "text/html")
 
         _patch_download(router)
@@ -153,8 +165,9 @@ class TestDownloadAll:
         good = _doc("https://market.sec.or.th/public/idisc/Download?FILEID=ok.zip", "ok.zip")
         bad = _doc("https://market.sec.or.th/public/idisc/Download?FILEID=dead.zip", "dead.zip")
 
-        async def router(url, headers=None, *, method="GET", json_body=None, data=None,
-                         decode_text=True):
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
             if "dead.zip" in url:
                 return _dl_resp(FILE_NOT_FOUND_HTML.encode("utf-8"), "text/html")
             return _dl_resp(ZIP_BYTES, "application/zip", "ok.zip")
@@ -172,8 +185,9 @@ class TestDownloadAll:
     async def test_continue_on_error_false_propagates(self) -> None:
         bad = _doc("https://market.sec.or.th/public/idisc/Download?FILEID=dead.zip", "dead.zip")
 
-        async def router(url, headers=None, *, method="GET", json_body=None, data=None,
-                         decode_text=True):
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
             return _dl_resp(FILE_NOT_FOUND_HTML.encode("utf-8"), "text/html")
 
         _patch_download(router)

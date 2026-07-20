@@ -110,14 +110,16 @@ REPORT_PAGE_HTML = """
 """
 
 # The Thai soft-404 body served under HTTP 200 for a dead FILEID.
-FILE_NOT_FOUND_HTML = (
-    "ไม่พบไฟล์ที่ระบุ<br/><a href='javascript:history.back();'>ย้อนกลับ</a>"
-)
+FILE_NOT_FOUND_HTML = "ไม่พบไฟล์ที่ระบุ<br/><a href='javascript:history.back();'>ย้อนกลับ</a>"
 
 COMPANY_SEARCH_JSON = [
     {"Text": "CP ALL PUBLIC COMPANY LIMITED", "Value": "0000003875", "Flag": True},
 ]
 COMPANY_SEARCH_MULTI_JSON = [
-    {"Text": "PTT AROMATICS AND REFINING PUBLIC COMPANY LIMITED", "Value": "0000006634", "Flag": False},
+    {
+        "Text": "PTT AROMATICS AND REFINING PUBLIC COMPANY LIMITED",
+        "Value": "0000006634",
+        "Flag": False,
+    },
     {"Text": "PTT PUBLIC COMPANY LIMITED", "Value": "0000001111", "Flag": True},
 ]

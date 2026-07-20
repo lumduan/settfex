@@ -29,8 +29,12 @@ from tests.services.sec.fixtures import (
 
 def _resp(text: str, *, status: int = 200) -> FetchResponse:
     return FetchResponse(
-        status_code=status, content=text.encode("utf-8"), text=text, headers={},
-        url="https://market.sec.or.th/", elapsed=0.01,
+        status_code=status,
+        content=text.encode("utf-8"),
+        text=text,
+        headers={},
+        url="https://market.sec.or.th/",
+        elapsed=0.01,
     )
 
 
@@ -70,7 +74,9 @@ class TestRowToDocument:
     def test_financial_statement_row(self) -> None:
         rows = parse_report_tables(FS_SEARCH_HTML)
         fs = next(
-            d for r in rows if (d := row_to_document(r, "0000003875"))
+            d
+            for r in rows
+            if (d := row_to_document(r, "0000003875"))
             and d.category == DocumentCategory.FINANCIAL_STATEMENT
         )
         assert fs.year == 2026 and fs.statement_type == "Company" and fs.period == "Q1"
@@ -80,7 +86,8 @@ class TestRowToDocument:
     def test_mda_row_uses_company_fallback_and_title(self) -> None:
         rows = parse_report_tables(FS_SEARCH_HTML)
         mda = next(
-            d for r in rows
+            d
+            for r in rows
             if (d := row_to_document(r, "0000003875", company_name="CP ALL"))
             and d.category == DocumentCategory.MDA
         )
@@ -91,15 +98,18 @@ class TestRowToDocument:
     def test_ipos_row_maps_file_id(self) -> None:
         rows = parse_report_tables(FS_SEARCH_HTML)
         ipos = next(
-            d for r in rows if (d := row_to_document(r, "u"))
-            and d.file_id and d.file_id.startswith("ipos:")
+            d
+            for r in rows
+            if (d := row_to_document(r, "u")) and d.file_id and d.file_id.startswith("ipos:")
         )
         assert ipos.file_id == "ipos:726416"
 
     def test_data_not_found_row_returns_none(self) -> None:
         row = ReportRow(
             section="Finanacial Statements ( 0 record(s) found)",
-            headers=["Name", "Year"], cells=["Data not found"], href=None,
+            headers=["Name", "Year"],
+            cells=["Data not found"],
+            href=None,
         )
         assert row_to_document(row, "u") is None
 
@@ -136,8 +146,9 @@ class TestFinancialReportService:
     async def test_fetch_documents_filters_to_requested_category(self, monkeypatch) -> None:
         from unittest.mock import patch
 
-        async def router(url, headers=None, *, method="GET", json_body=None, data=None,
-                         decode_text=True):
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
             if method == "POST":
                 return _resp(FS_SEARCH_HTML)
             return _resp(REPORT_PAGE_HTML)
@@ -155,8 +166,9 @@ class TestFinancialReportService:
     async def test_fetch_documents_all_categories_from_fs(self) -> None:
         from unittest.mock import patch
 
-        async def router(url, headers=None, *, method="GET", json_body=None, data=None,
-                         decode_text=True):
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
             if method == "POST":
                 return _resp(FS_SEARCH_HTML)
             return _resp(REPORT_PAGE_HTML)
@@ -165,7 +177,8 @@ class TestFinancialReportService:
             _make_fetcher(cls, router)
             svc = FinancialReportService()
             docs = await svc.fetch_documents(
-                "u", types=["financial_statement", "key_financial_ratio", "mda"],
+                "u",
+                types=["financial_statement", "key_financial_ratio", "mda"],
                 follow_view_more=False,
             )
         cats = {d.category for d in docs}
@@ -179,8 +192,9 @@ class TestFinancialReportService:
     async def test_view_more_completes_truncated_section(self) -> None:
         from unittest.mock import patch
 
-        async def router(url, headers=None, *, method="GET", json_body=None, data=None,
-                         decode_text=True):
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
             if "ViewMore" in url:
                 return _resp(FS_VIEWMORE_HTML)
             if method == "POST":
@@ -206,8 +220,9 @@ class TestFinancialReportService:
 
         from settfex.exceptions import FetchError
 
-        async def router(url, headers=None, *, method="GET", json_body=None, data=None,
-                         decode_text=True):
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
             return _resp("<html>blocked</html>")  # no tokens
 
         with patch("settfex.services.sec.financial_report.AsyncDataFetcher") as cls:
@@ -220,8 +235,9 @@ class TestFinancialReportService:
     async def test_multiple_codes_for_mixed_categories(self) -> None:
         from unittest.mock import patch
 
-        async def router(url, headers=None, *, method="GET", json_body=None, data=None,
-                         decode_text=True):
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
             if method == "POST":
                 code = data["ctl00$CPH$ddlReportType"]
                 return _resp({"R561": FORM_56_1_HTML, "R562": FORM_56_2_HTML}[code])
@@ -234,7 +250,8 @@ class TestFinancialReportService:
                 "u", types=["form_56_1", "form_56_2"], follow_view_more=False
             )
         assert {d.category for d in docs} == {
-            DocumentCategory.FORM_56_1, DocumentCategory.FORM_56_2
+            DocumentCategory.FORM_56_1,
+            DocumentCategory.FORM_56_2,
         }
 
 
@@ -243,16 +260,22 @@ class TestGetSecDocuments:
     async def test_resolves_then_lists(self) -> None:
         from unittest.mock import AsyncMock, patch
 
-        async def router(url, headers=None, *, method="GET", json_body=None, data=None,
-                         decode_text=True):
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
             if method == "POST":
                 return _resp(FORM_56_1_HTML)
             return _resp(REPORT_PAGE_HTML)
 
-        with patch("settfex.services.sec.financial_report.resolve_company",
-                   new=AsyncMock(return_value=CompanyMatch(
-                       Text="CP ALL", Value="0000003875", Flag=True))), \
-             patch("settfex.services.sec.financial_report.AsyncDataFetcher") as cls:
+        with (
+            patch(
+                "settfex.services.sec.financial_report.resolve_company",
+                new=AsyncMock(
+                    return_value=CompanyMatch(Text="CP ALL", Value="0000003875", Flag=True)
+                ),
+            ),
+            patch("settfex.services.sec.financial_report.AsyncDataFetcher") as cls,
+        ):
             _make_fetcher(cls, router)
             docs = await get_sec_documents("CPALL", types="form_56_1", follow_view_more=False)
         assert len(docs) == 2 and docs[0].category == DocumentCategory.FORM_56_1
@@ -261,7 +284,9 @@ class TestGetSecDocuments:
     async def test_unresolved_company_returns_empty(self) -> None:
         from unittest.mock import AsyncMock, patch
 
-        with patch("settfex.services.sec.financial_report.resolve_company",
-                   new=AsyncMock(return_value=None)):
+        with patch(
+            "settfex.services.sec.financial_report.resolve_company",
+            new=AsyncMock(return_value=None),
+        ):
             docs = await get_sec_documents("NOPE")
         assert docs == []

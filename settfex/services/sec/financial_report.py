@@ -298,8 +298,15 @@ class FinancialReportService:
             results = await asyncio.gather(
                 *(
                     self._search_code(
-                        fetcher, code, unique_id, company_name, date_from, date_to,
-                        lang, follow_view_more, wanted,
+                        fetcher,
+                        code,
+                        unique_id,
+                        company_name,
+                        date_from,
+                        date_to,
+                        lang,
+                        follow_view_more,
+                        wanted,
                     )
                     for code in codes
                 )
@@ -325,9 +332,7 @@ class FinancialReportService:
         date_from = _format_sec_date(from_date, "from_date")
         date_to = _format_sec_date(to_date, "to_date")
         async with AsyncDataFetcher(config=self.config) as fetcher:
-            html = await self._run_search(
-                fetcher, code, unique_id, None, date_from, date_to, lang
-            )
+            html = await self._run_search(fetcher, code, unique_id, None, date_from, date_to, lang)
         return [dict(r) for r in parse_report_tables(html)]
 
     async def _run_search(
@@ -411,8 +416,10 @@ class FinancialReportService:
 
         if vm_targets:
             pages = await asyncio.gather(
-                *(fetcher.fetch(url, headers=build_sec_headers(referer=SEC_REFERER))
-                  for _, url in vm_targets)
+                *(
+                    fetcher.fetch(url, headers=build_sec_headers(referer=SEC_REFERER))
+                    for _, url in vm_targets
+                )
             )
             for (cat, _), page in zip(vm_targets, pages, strict=True):
                 replacements[cat] = [
