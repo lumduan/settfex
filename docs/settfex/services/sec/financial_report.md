@@ -120,15 +120,38 @@ docs.years_by_category()          # -> {'financial_statement': [2026, 2025, ...]
 docs.available_years("form_56_1")  # -> [2025, 2024, 2023, 2022, 2021, 2020]
 
 # 2) Download them all — pass the whole list, or a filtered subset
-await download_sec_documents(docs, dest_dir="./out", max_concurrency=5)              # everything
+await download_sec_documents(docs, dest_dir="./out")                                 # everything
 await download_sec_documents(docs.filter(category="form_56_1"), dest_dir="./out")    # just 56-1
 await download_sec_documents(docs.filter(category="financial_statement", year=2025),
                              dest_dir="./out")                                       # one year
 ```
 
 With the `SecCompany` facade, `await sec.download_all(docs, dest_dir="./out")` does the same.
-`download_all`/`download_sec_documents` run bounded-concurrent downloads and (by default) skip
-any dead links rather than failing the whole batch.
+`download_all`/`download_sec_documents` run bounded-concurrent downloads, **dedupe by URL**
+(a statement's Company & Consolidated rows share one zip — downloaded once), and (by default)
+skip dead links rather than failing the whole batch.
+
+### Tuning downloads (timeout & concurrency)
+
+Form 56‑1/56‑2 "One Reports" are large (**15–25 MB**). Downloads default to a **180 s** per-file
+timeout and **`max_concurrency=3`**; raise the timeout / lower the concurrency for big batches on
+a slow link:
+
+| Batch | `max_concurrency` | `timeout` |
+|---|---|---|
+| Form 56‑1 / 56‑2 (10–25 MB) | **1–2** | **180–300 s** |
+| Financial statements (~0.4–1 MB zips) | 3 (default) | 180 (default) |
+| Slow / shared connection, still timing out | **1** | **300** (max) |
+
+```python
+await download_sec_documents(docs.filter(category="form_56_1"),
+                             dest_dir="./out", max_concurrency=2, timeout=300)
+```
+
+**Memory:** when `dest_dir` is set, each returned `DownloadedFile` has its `content` emptied after
+the file is written (bytes live on disk; `size` and `path` remain) so a big batch doesn't sit in
+RAM. Pass `keep_bytes=True` to keep the bytes in memory too; omit `dest_dir` and the bytes are
+returned (the only way to get them).
 
 ## Models
 
@@ -159,8 +182,10 @@ the symbol's listed company).
 
 ### `DownloadedFile`
 
-`filename`, `content: bytes`, `content_type`, `size`, `file_url`, `document: SecDocument | None`,
-plus `.save(dest)` — writes to `dest/<filename>` if `dest` is a directory, else to `dest`.
+`filename`, `content: bytes` (empty if dropped after saving — see memory note above), `content_type`,
+`size` (always the real byte count), `file_url`, `path: Path | None` (set when saved),
+`document: SecDocument | None`, plus `.save(dest)` — writes to `dest/<filename>` if `dest` is a
+directory (else to `dest`) and records `.path`.
 
 ## Service classes
 
@@ -168,20 +193,22 @@ plus `.save(dest)` — writes to `dest/<filename>` if `dest` is a directory, els
 
 ```python
 fetch_documents(unique_id, *, company_name=None, types=None, from_date=None, to_date=None,
-                lang="en", follow_view_more=True) -> list[SecDocument]
+                lang="en", follow_view_more=True) -> SecDocumentList
 fetch_documents_raw(unique_id, *, code, from_date=None, to_date=None, lang="en") -> list[dict]
 ```
 
-### `DocumentDownloadService`
+### `DocumentDownloadService(config=None, *, timeout=None)`
 
 ```python
-download(target, *, referer=...) -> DownloadedFile          # target: SecDocument | URL | FILEID
-download_all(targets, *, dest_dir=None, max_concurrency=5,
-             continue_on_error=True, progress=False) -> list[DownloadedFile]
+download(target, *, fetcher=None, referer=...) -> DownloadedFile   # target: SecDocument|URL|FILEID
+download_all(targets, *, dest_dir=None, max_concurrency=3, continue_on_error=True,
+             keep_bytes=None, progress=False) -> list[DownloadedFile]
 ```
 
-`download_all` runs bounded-concurrent downloads; with `continue_on_error=True` (default) a
-failed item (e.g. a soft-404 dead link) is logged and skipped rather than failing the batch.
+`download_all` dedupes by URL, runs bounded-concurrent downloads (default `timeout=180 s` per
+file, set on the service), and with `continue_on_error=True` (default) logs and skips a failed
+item (e.g. a soft-404 dead link) rather than failing the batch. `keep_bytes` controls whether
+returned objects retain `content` (default: drop when saving to `dest_dir`).
 
 ## Convenience functions
 
@@ -189,9 +216,9 @@ failed item (e.g. a soft-404 dead link) is logged and skipped rather than failin
 resolve_company(query, lang="en") -> CompanyMatch | None
 get_sec_documents(query, *, types=None, from_date=None, to_date=None,
                   lang="en", follow_view_more=True) -> SecDocumentList
-download_sec_document(target, *, dest_dir=None) -> DownloadedFile
-download_sec_documents(targets, *, dest_dir=None, max_concurrency=5,
-                       continue_on_error=True, progress=False) -> list[DownloadedFile]
+download_sec_document(target, *, dest_dir=None, timeout=None) -> DownloadedFile
+download_sec_documents(targets, *, dest_dir=None, max_concurrency=3, continue_on_error=True,
+                       keep_bytes=None, timeout=None, progress=False) -> list[DownloadedFile]
 ```
 
 ## Unified facade — `SecCompany`

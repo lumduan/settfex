@@ -30,13 +30,19 @@ from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 
 
 class DownloadedFile(BaseModel):
-    """A downloaded SEC document: filename + raw bytes, with optional source metadata."""
+    """A downloaded SEC document: filename + raw bytes, with optional source metadata.
+
+    ``size`` is always the real byte count. When a bulk download saves to disk without keeping
+    bytes (see ``download_all(keep_bytes=...)``), ``content`` is emptied to save memory and
+    ``path`` records where the file was written.
+    """
 
     filename: str = Field(description="Filename (from Content-Disposition, or a sensible fallback)")
-    content: bytes = Field(description="Raw file bytes (e.g. a zip of the original XLSX/PDF)")
+    content: bytes = Field(description="Raw file bytes (empty if dropped after saving to disk)")
     content_type: str = Field(default="", description="Response Content-Type header")
-    size: int = Field(description="Number of bytes")
+    size: int = Field(description="Number of bytes downloaded (real size, even if content dropped)")
     file_url: str = Field(description="URL the bytes were fetched from")
+    path: Path | None = Field(default=None, description="On-disk path, if the file was saved")
     document: SecDocument | None = Field(
         default=None, description="The source SecDocument, when downloaded from a listing"
     )
@@ -47,13 +53,14 @@ class DownloadedFile(BaseModel):
         """
         Write the bytes to disk. If ``dest`` is a directory (existing or trailing-slash), the
         file is written as ``dest/<filename>``; otherwise ``dest`` is treated as the full path.
-        Parent directories are created. Returns the path written.
+        Parent directories are created. Records and returns the path written.
         """
         path = Path(dest)
         if path.is_dir() or str(dest).endswith(("/", "\\")):
             path = path / self.filename
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(self.content)
+        self.path = path
         logger.info(f"Saved {self.size} bytes -> {path}")
         return path
 
@@ -80,13 +87,37 @@ def _fallback_filename(file_url: str, document: SecDocument | None) -> str:
     return base or "sec_download"
 
 
+# SEC documents are large binaries (56-1/56-2 One Reports run 15-25 MB), so downloads default
+# to a much longer per-file timeout than the 30 s used for JSON/listing calls.
+DEFAULT_DOWNLOAD_TIMEOUT = 180
+
+
+def _effective_download_config(config: FetcherConfig | None, timeout: int | None) -> FetcherConfig:
+    """
+    Resolve the fetcher config for a download (stateless host).
+
+    Precedence: an explicit ``timeout`` wins; otherwise a caller-supplied ``config`` is honored
+    as-is; otherwise the document default (:data:`DEFAULT_DOWNLOAD_TIMEOUT`) applies instead of
+    the 30 s ``FetcherConfig`` default. ``use_session`` is always forced off.
+    """
+    if config is None:
+        base = FetcherConfig(timeout=timeout if timeout is not None else DEFAULT_DOWNLOAD_TIMEOUT)
+    elif timeout is not None:
+        base = config.model_copy(update={"timeout": timeout})
+    else:
+        base = config
+    return base.model_copy(update={"use_session": False})
+
+
 class DocumentDownloadService:
     """Download SEC documents to bytes (and optionally disk). Stateless host — no SessionManager."""
 
-    def __init__(self, config: FetcherConfig | None = None) -> None:
-        base = config or FetcherConfig()
-        self.config = base.model_copy(update={"use_session": False})
-        logger.info("DocumentDownloadService initialized (host=market.sec.or.th)")
+    def __init__(self, config: FetcherConfig | None = None, *, timeout: int | None = None) -> None:
+        self.config = _effective_download_config(config, timeout)
+        logger.info(
+            f"DocumentDownloadService initialized (host=market.sec.or.th, "
+            f"timeout={self.config.timeout}s)"
+        )
 
     @staticmethod
     def _resolve_url(target: SecDocument | str) -> tuple[str, SecDocument | None]:
@@ -162,27 +193,50 @@ class DocumentDownloadService:
         targets: list[SecDocument | str],
         *,
         dest_dir: str | Path | None = None,
-        max_concurrency: int = 5,
+        max_concurrency: int = 3,
         continue_on_error: bool = True,
+        keep_bytes: bool | None = None,
         progress: bool = False,
     ) -> list[DownloadedFile]:
         """
         Download many documents concurrently (bounded), optionally saving each to ``dest_dir``.
 
+        Duplicate targets that resolve to the **same URL** are downloaded once (a statement's
+        Company and Consolidated rows share one zip), so the result has one entry per unique file.
+
         Args:
-            targets: SecDocuments / URLs / FILEIDs to download.
-            dest_dir: If set, each file is also written here (created if needed).
-            max_concurrency: Max simultaneous downloads (default 5).
+            targets: SecDocuments / URLs / FILEIDs to download (deduped by resolved URL).
+            dest_dir: If set, each file is written here (created if needed).
+            max_concurrency: Max simultaneous downloads (default 3 — big files share bandwidth).
             continue_on_error: If True (default) a failed item is logged and skipped; if False
                 the first failure propagates.
+            keep_bytes: Whether to keep each file's bytes on the returned ``DownloadedFile``.
+                Default (``None``) keeps bytes only when NOT saving to disk; when ``dest_dir`` is
+                set the bytes are dropped after saving (``content=b""``, ``path`` set) to bound
+                memory. Pass ``True`` to always keep bytes, ``False`` to always drop them.
             progress: Show a tqdm progress bar if the optional ``progress`` extra is installed.
 
         Returns:
-            The successfully downloaded files (order not guaranteed under concurrency).
+            The successfully downloaded files (one per unique URL; order not guaranteed).
         """
+        # Dedupe by resolved URL, preserving first-seen order.
+        unique: list[SecDocument | str] = []
+        seen: set[str] = set()
+        for target in targets:
+            url, _ = self._resolve_url(target)
+            if url and url not in seen:
+                seen.add(url)
+                unique.append(target)
+        if len(unique) != len(targets):
+            logger.info(
+                f"download_all: {len(targets)} targets -> {len(unique)} unique files "
+                f"({len(targets) - len(unique)} duplicate(s) skipped)"
+            )
+
+        keep = keep_bytes if keep_bytes is not None else (dest_dir is None)
         semaphore = asyncio.Semaphore(max(1, max_concurrency))
         results: list[DownloadedFile] = []
-        bar = _make_progress_bar(len(targets)) if progress else None
+        bar = _make_progress_bar(len(unique)) if progress else None
 
         async with AsyncDataFetcher(config=self.config) as fetcher:
 
@@ -198,9 +252,11 @@ class DocumentDownloadService:
                         return None
                     if dest_dir is not None:
                         dl.save(dest_dir)
+                    if not keep:
+                        dl.content = b""  # bytes are on disk (or unwanted); free the memory
                     return dl
 
-            tasks = [asyncio.create_task(one(t)) for t in targets]
+            tasks = [asyncio.create_task(one(t)) for t in unique]
             for coro in asyncio.as_completed(tasks):
                 dl = await coro
                 if bar is not None:
@@ -210,7 +266,7 @@ class DocumentDownloadService:
 
         if bar is not None:
             bar.close()
-        logger.info(f"Downloaded {len(results)}/{len(targets)} document(s)")
+        logger.info(f"Downloaded {len(results)}/{len(unique)} document(s)")
         return results
 
 
@@ -228,6 +284,7 @@ async def download_sec_document(
     target: SecDocument | str,
     *,
     dest_dir: str | Path | None = None,
+    timeout: int | None = None,
     config: FetcherConfig | None = None,
 ) -> DownloadedFile:
     """
@@ -235,10 +292,12 @@ async def download_sec_document(
 
     Args:
         target: A :class:`SecDocument`, an absolute URL, or a bare FILEID path.
-        dest_dir: If set, also write the file here.
+        dest_dir: If set, also write the file here (``.path`` is recorded).
+        timeout: Per-file timeout in seconds (default 180 — documents are large). Bump for very
+            large files on a slow link (max 300).
         config: Optional fetcher configuration.
     """
-    service = DocumentDownloadService(config=config)
+    service = DocumentDownloadService(config=config, timeout=timeout)
     dl = await service.download(target)
     if dest_dir is not None:
         dl.save(dest_dir)
@@ -249,21 +308,25 @@ async def download_sec_documents(
     targets: list[SecDocument | str],
     *,
     dest_dir: str | Path | None = None,
-    max_concurrency: int = 5,
+    max_concurrency: int = 3,
     continue_on_error: bool = True,
+    keep_bytes: bool | None = None,
+    timeout: int | None = None,
     progress: bool = False,
     config: FetcherConfig | None = None,
 ) -> list[DownloadedFile]:
     """
     Convenience: download many SEC documents concurrently (optionally saving to ``dest_dir``).
 
-    See :meth:`DocumentDownloadService.download_all` for argument semantics.
+    Duplicate targets sharing a URL are downloaded once. ``timeout`` sets the per-file timeout
+    (default 180s). See :meth:`DocumentDownloadService.download_all` for the rest.
     """
-    service = DocumentDownloadService(config=config)
+    service = DocumentDownloadService(config=config, timeout=timeout)
     return await service.download_all(
         targets,
         dest_dir=dest_dir,
         max_concurrency=max_concurrency,
         continue_on_error=continue_on_error,
+        keep_bytes=keep_bytes,
         progress=progress,
     )

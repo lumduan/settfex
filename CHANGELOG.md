@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-07-20
+
+### Changed
+
+- **SEC downloads are now robust for large files by default.** Form 56‑1/56‑2 "One Reports" run
+  15–25 MB and were timing out under the 30 s default. The download path now:
+  - **Defaults to a 180 s per-file timeout** (`DEFAULT_DOWNLOAD_TIMEOUT`) instead of 30 s, with a
+    new `timeout=` parameter on `download_sec_document(s)` / `DocumentDownloadService` (an explicit
+    `timeout` wins; a caller-supplied `config` is otherwise honored; max 300 s).
+  - **Lowers the default `max_concurrency` from 5 → 3** for `download_all` /
+    `download_sec_documents` / `SecCompany.download_all` (large files share bandwidth, so fewer at
+    once finish more reliably).
+  - **Dedupes by URL:** a statement's *Company* and *Consolidated* rows point to the same zip, so
+    `download_all` now downloads each unique file once and returns one result per unique URL
+    (e.g. an 18‑year all‑category batch drops from 229 fetches to 153).
+- **`download_all` no longer holds every file's bytes in memory when saving to disk.** With
+  `dest_dir` set, each returned `DownloadedFile` has `content` emptied after the file is written
+  (bytes are on disk; `size` and the new `path` field remain), bounding memory on large batches.
+  New `keep_bytes` parameter overrides this (`True` = always keep, default keeps bytes only when
+  not saving). Single-file `download_sec_document` still returns the bytes.
+
+### Added
+
+- **`DownloadedFile.path`** — the on-disk `Path` a file was saved to (set by `.save()` and by
+  `download_all` when `dest_dir` is used).
+
 ## [0.13.0] - 2026-07-20
 
 ### Added
