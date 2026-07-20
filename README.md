@@ -100,6 +100,10 @@ Want to dig deeper? Check out our detailed guides:
 - **[TFEX Series List Service](docs/settfex/services/tfex/list.md)** - Get all futures and options series on TFEX
 - **[TFEX Trading Statistics Service](docs/settfex/services/tfex/trading_statistics.md)** - Trading statistics, settlement prices, and margin requirements
 
+### SEC Services (market.sec.or.th)
+
+- **[SEC Document Service](docs/settfex/services/sec/financial_report.md)** - List and download the raw disclosure documents filed with the Thai SEC (the original financial-statement Excel package, Form 56-1, Form 56-2, Key Financial Ratio, MD&A)
+
 ### Utilities
 
 - **[AsyncDataFetcher](docs/settfex/utils/data_fetcher.md)** - Low-level async HTTP client

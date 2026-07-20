@@ -35,7 +35,7 @@ Usage:
     >>> asyncio.run(main())
 """
 
-__version__ = "0.11.0"
+__version__ = "0.12.0"
 __author__ = "batt"
 __license__ = "MIT"
 
@@ -46,6 +46,18 @@ from settfex.exceptions import (
     InvalidLanguageError,
     InvalidSymbolError,
     SymbolNotFoundError,
+)
+
+# SEC IDISC document services (market.sec.or.th) — disclosure document retrieval
+from settfex.services.sec import (
+    DocumentCategory,
+    DownloadedFile,
+    SecCompany,
+    SecDocument,
+    download_sec_document,
+    download_sec_documents,
+    get_sec_documents,
+    resolve_company,
 )
 from settfex.services.set import (
     CompanyProfile,
@@ -89,6 +101,15 @@ __all__ = [
     "get_index_info",
     "get_index_composition",
     "get_news",
+    # SEC IDISC document services (market.sec.or.th)
+    "SecCompany",
+    "get_sec_documents",
+    "download_sec_document",
+    "download_sec_documents",
+    "resolve_company",
+    "SecDocument",
+    "DocumentCategory",
+    "DownloadedFile",
     # Data Models
     "StockListResponse",
     "StockHighlightData",

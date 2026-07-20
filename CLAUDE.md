@@ -26,12 +26,14 @@ settfex/
 │   │   │                     #   nvdr_holder, board_of_director, trading_stat,
 │   │   │                     #   price_performance, chart_quotation,
 │   │   │                     #   latest_historical_trading, financial/, stock.py, utils.py
-│   │   └── tfex/             # TFEX services: list.py, trading_statistics.py, underlying_price.py
+│   │   ├── tfex/             # TFEX services: list.py, trading_statistics.py, underlying_price.py
+│   │   └── sec/              # SEC IDISC (market.sec.or.th) document services: constants.py,
+│   │                         #   company.py, financial_report.py, download.py, sec.py, utils.py
 │   └── utils/                # http.py, data_fetcher.py, session_manager.py,
 │                             #   session_cache.py, logging.py
 ├── tests/                     # Mirror of settfex/ with test_ prefix
 ├── docs/                      # Service docs, guides, solutions
-├── examples/                  # 19 Jupyter notebooks (16 SET + 3 TFEX)
+├── examples/                  # 20 Jupyter notebooks (16 SET + 3 TFEX + 1 SEC)
 ├── scripts/                   # Verification scripts per service
 ├── .github/                   # CI and agent instructions
 ├── pyproject.toml             # uv-based config
@@ -116,7 +118,7 @@ data = await get_highlight_data("CPALL")   # or convenience function
 all_stocks = await get_stock_list()        # no cookie params needed
 ```
 
-## Services Inventory (19 total)
+## Services Inventory (20 total)
 
 ### SET Services (16)
 
@@ -147,6 +149,14 @@ all_stocks = await get_stock_list()        # no cookie params needed
 | 2 | Trading Statistics | `trading_statistics.py` | `/api/set/tfex/series/{sym}/trading-statistics` | Settlement, margin (IM/MM), theoretical price, days to maturity |
 | 3 | Underlying Price | `underlying_price.py` | `/api/set/tfex/series/{sym}/underlying-price` | Underlying instrument price (SET50 index spot for index futures/options): last/prior/high/low, change, total volume/value, P/E, P/BV |
 
+### SEC Services (1)
+
+Host is **`market.sec.or.th`** (the Thai SEC IDISC system), NOT set.or.th — a separate top-level package `services/sec/`.
+
+| # | Service | Module | Endpoint Pattern | Key Data |
+|---|---|---|---|---|
+| 1 | SEC Documents | `sec/{company,financial_report,download,sec}.py` | `POST /public/idisc/api/company/valuebyuniqueId`; `GET`/`POST /public/idisc/{lang}/FinancialReport/{FS\|R561\|R562\|KFR}`; `GET /public/idisc/{lang}/ViewMore/{slug}`; `GET /public/idisc/Download?FILEID=`; `GET /ipos/Common/IPOSGetFile.aspx?id=` | List + download **raw disclosure documents** for any issuer across 5 categories (`DocumentCategory`: financial_statement/form_56_1/form_56_2/key_financial_ratio/mda). Company resolver (`resolve_company` → 10-digit uniqueIDReference); listing replays the ASP.NET WebForms search (GET `__VIEWSTATE` → form POST → stdlib HTML-table parse), follows ViewMore for complete large sections; downloads return raw bytes (`DownloadedFile.save()`), concurrent `download_all`, soft-404 detection (dead links = HTML "file not found" under HTTP 200 → `FetchError`). `SecCompany("CPALL")` facade; `get_sec_documents()`/`download_sec_document(s)()`. dd/mm/yyyy dates. Stateless host (no SessionManager). |
+
 ### Unified Stock Class (`stock/stock.py`)
 Single entry point for SET stock data — initialize with symbol, access all services via lazy-init properties:
 ```python
@@ -166,6 +176,15 @@ index = SetIndex("SET50")
 info = await index.get_info()                  # last/chg/OHLC/vol/value/status
 constituents = await index.get_constituents()  # 50 stocks w/ quote rows
 latest = await index.get_latest_price()        # latest traded index value vs now
+```
+
+### Unified SecCompany Class (`sec/sec.py`)
+Entry point for an issuer's SEC disclosure documents (host `market.sec.or.th`):
+```python
+sec = SecCompany("CPALL")
+docs = await sec.list_documents(types="financial_statement", from_date="01/01/2025")
+file = await sec.download(docs[0], dest_dir="./out")   # DownloadedFile (raw bytes) + save
+files = await sec.download_all(docs, dest_dir="./out")  # concurrent
 ```
 
 ## API Design Principles
@@ -240,6 +259,10 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full, versioned release history — t
 - **News API date format (dd/MM/yyyy ONLY):** `fromDate`/`toDate` on `/api/set/news/search` reject ISO `yyyy-MM-dd` with an opaque HTTP 400. The news service converts `datetime.date`/`datetime` objects automatically and validates strings eagerly, raising `InvalidDateError` before any request is made.
 - **News API `sourceId` is not validated:** any value other than `company` (including empty) is silently ignored and returns ALL sources (a superset incl. TFEX rows and `set-releases` items). `source_id=None` is the intended all-sources switch; `"company"` is the only verified filter value — the service logs a warning for unverified values.
 - **News API history is a rolling ~5-year window (1826 days):** the `/api/set/news/search` endpoint serves only the trailing **1826 days** (= 5 calendar years incl. the leap day) — live-probed 2026-07-20: `from_date` = today−1826d works, today−1827d and older → **HTTP 400**. The check is on `from_date` (the window's *start*); if it predates the cutoff the whole request 400s (it does **not** clip to the allowed range). This surfaces as `FetchError`, **not** `InvalidDateError` (the latter is only for malformed dd/MM/yyyy strings). The boundary is rolling — always `today − 1826 days`.
+- **SEC service is a different host + HTML, not JSON:** `services/sec/` targets `market.sec.or.th` (Thai SEC IDISC), an ASP.NET WebForms app — NOT set.or.th. The document search has no JSON list endpoint; it is a form postback returning HTML tables that the service parses (stdlib `html.parser`). It reuses `AsyncDataFetcher` with `use_session=False` (stateless, like `earnings_call.py`); dates are **dd/mm/yyyy** (note: SET news is dd/MM/yyyy — same digits, but the SEC form is its own endpoint). Do not route SEC URLs through SessionManager (its auto-detect would mis-warm them as SET).
+- **SEC VIEWSTATE tokens are mandatory and must be fresh:** the search POST must echo `__VIEWSTATE`/`__VIEWSTATEGENERATOR`/`__EVENTVALIDATION` scraped from a fresh GET of the same page. Omitting them does **not** error — it silently returns a wrong, broader result set (43 vs 7 rows in testing). `FinancialReportService` always GETs tokens immediately before each POST; no cookie/session binding is needed (cross-request works).
+- **SEC downloads can be soft-404s (HTTP 200 + HTML):** a dead `Download?FILEID=` link returns an HTML page `ไม่พบไฟล์ที่ระบุ` ("file not found") under **HTTP 200**, notably for some recent `dat/annual/` (56-2) rows whose file actually lives under `dat/f56/`. `DocumentDownloadService.download` validates the content-type and raises `FetchError` instead of returning the garbage bytes; `download_all(..., continue_on_error=True)` skips such items.
+- **A SEC `FS` search returns three categories at once:** querying `ddlReportType=FS` returns financial statements **+** Key Financial Ratio **+** MD&A sections in one HTML response (each its own table); large sections truncate inline and expose a `ViewMore/{fs-norm|fs-kf|fs-mda}` link the listing follows (`follow_view_more=True`). MD&A rows use different columns (Date/Time/Heading/Link, no Name) — the mapper fills `company_name` from the resolved company as a fallback.
 
 ---
 
