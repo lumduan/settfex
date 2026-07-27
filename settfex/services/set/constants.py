@@ -25,6 +25,14 @@ SET_STOCK_LATEST_HISTORICAL_TRADING_ENDPOINT = "/api/set/stock/{symbol}/latest-h
 # dd/MM/yyyy ONLY (ISO dates -> HTTP 400).
 SET_NEWS_SEARCH_ENDPOINT = "/api/set/news/search"
 
+# Market holiday calendar. NOTE: this is the ONLY endpoint on the /api/cms/v1/ prefix — every other
+# www.set.or.th endpoint here lives under /api/set/. It takes ?lang= (like the stock and news
+# endpoints), NOT ?language= (the index endpoints). The API answers anything it does not like —
+# an unrecognized lang value, a missing lang, or a year it does not serve — with a bare HTTP 401
+# and an empty body, and it also returns 401 transiently on perfectly valid requests.
+# Only the CURRENT year is served (live-probed 2026-07-27: 2026 → 200, 2024/2025/2027/2028 → 401).
+SET_HOLIDAY_ENDPOINT = "/api/cms/v1/holidays/year/{year}"
+
 # Market index endpoints (note: the index API uses ?language=, not ?lang= like stock endpoints)
 SET_INDEX_LIST_ENDPOINT = "/api/set/index/list"
 SET_INDEX_INFO_LIST_ENDPOINT = "/api/set/index/info/list"

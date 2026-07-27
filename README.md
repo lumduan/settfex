@@ -39,7 +39,7 @@ This includes pandas, matplotlib, and jupyter notebook support.
 - [Stock List](examples/set/01_stock_list.ipynb) → [Highlight Data](examples/set/02_highlight_data.ipynb) → [Price Performance](examples/set/10_price_performance.ipynb) → [Financial Statements](examples/set/11_financial.ipynb)
 
 **Professional Trading :** Master all features for institutional use:
-- All 16 SET notebooks + TFEX notebooks (see below)
+- All 17 SET notebooks + TFEX notebooks (see below)
 
 ### 📊 SET Examples (Stock Exchange of Thailand)
 
@@ -61,6 +61,7 @@ All examples include beginner explanations, professional trading use cases, and 
 14. **[Latest Historical Trading](examples/set/14_latest_historical_trading.ipynb)** - Latest trading-day summary: OHLCV, P/E, P/BV, market cap
 15. **[Market Index](examples/set/15_market_index.ipynb)** - Index directory, SET50/SETESG quotations, constituents, and index membership per stock
 16. **[SET News](examples/set/16_news.ipynb)** - Company news/disclosures for all stocks: symbol/date/keyword filters, Thai headlines
+17. **[Market Holidays](examples/set/17_holiday.ipynb)** - Official market-closure calendar: is the market open, next holiday, long weekends
 
 ### 📈 TFEX Examples (Thailand Futures Exchange)
 
@@ -94,6 +95,7 @@ Want to dig deeper? Check out our detailed guides:
 - **[Earnings Call (Opportunity Day) Service](docs/settfex/services/set/earnings_call.md)** - OPPDAY earnings-call calendar with YouTube links, as models or a DataFrame
 - **[Market Index Service](docs/settfex/services/set/index.md)** - Index directory (SET50/SET100/sSET/SETESG/...), quotations, constituents, and latest index value
 - **[News Service](docs/settfex/services/set/news.md)** - Company news and disclosures for all stocks, with symbol/date/keyword filters
+- **[Market Holiday Service](docs/settfex/services/set/holiday.md)** - Official SET market-closure calendar for the year, in English or Thai
 
 ### TFEX Services
 
@@ -489,6 +491,40 @@ fin = news.filter_by_tag("financial-statement")
 ```
 
 **👉 [Learn more about the News Service](docs/settfex/services/set/news.md)**
+
+---
+
+#### 📅 Check Market Holidays
+
+The official SET market-closure calendar for the year, in English or Thai:
+
+```python
+from datetime import date
+from settfex.services.set import get_holidays
+
+# Defaults to the current year in Asia/Bangkok
+calendar = await get_holidays()
+print(f"{calendar.count} holidays in {calendar.year}")
+
+for holiday in calendar.holidays[:3]:
+    print(f"{holiday.holiday_date:%Y-%m-%d %a}  {holiday.description}")
+# 2026-01-01 Thu  New Year's Day
+# 2026-01-02 Fri  Additional special holiday
+# 2026-03-03 Tue  Makha Bucha Day
+
+calendar.is_holiday(date(2026, 1, 1))   # True
+calendar.next_holiday()                 # the next closure from today
+calendar.filter_by_month(4)             # Songkran cluster
+
+# Thai names
+thai = await get_holidays(lang="th")
+```
+
+> ⚠️ Two limits worth knowing: the API serves **only the current year**, and `is_holiday()` means
+> *"on SET's published holiday list"* — **weekends are not in the payload**, so combine it with a
+> weekday check to answer "is the market open?".
+
+**👉 [Learn more about the Market Holiday Service](docs/settfex/services/set/holiday.md)**
 
 ---
 

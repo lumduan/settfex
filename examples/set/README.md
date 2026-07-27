@@ -306,6 +306,26 @@ Complete, beginner-friendly tutorials for all SET (Stock Exchange of Thailand) s
 - Earnings-season tracking via the `financial-statement` tag
 - Event-driven research joined onto price history
 
+---
+
+### 17. Market Holidays (`17_holiday.ipynb`)
+**What it does**: The official SET market-closure calendar for the year, en/th
+
+**Learn how to**:
+- Fetch the calendar for the current year (resolved in Asia/Bangkok, not system-local time)
+- Ask `is_holiday()` / `get_holiday()` for any `date` or `datetime`
+- Find the next closure and spot long weekends with `next_holiday()` / `filter_by_month()`
+- Read Thai holiday names and SET's verbatim `*` footnote marker
+- Handle the endpoint's transient HTTP 401 with a more patient `FetcherConfig`
+
+**Use cases**:
+- Skipping closed days when iterating a date range for price or news queries
+- Validating a "latest trading day" result against the published calendar
+- Surfacing upcoming closures in a dashboard or trading UI
+
+> ⚠️ The API serves **only the current year**, and weekends are **not** in the payload — combine
+> `is_holiday()` with a weekday check to answer "is the market open?".
+
 ## Learning Path
 
 ### Beginners

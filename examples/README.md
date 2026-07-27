@@ -8,7 +8,7 @@ Comprehensive, beginner-friendly tutorials for the settfex library.
 
 **Location**: `examples/set/`
 
-Complete tutorial series covering all 11 SET services:
+Complete tutorial series covering all 17 SET services:
 
 1. **Stock List** - Market universe and symbol validation
 2. **Highlight Data** - Key metrics (P/E, P/B, market cap, dividends)
@@ -22,8 +22,13 @@ Complete tutorial series covering all 11 SET services:
 10. **Price Performance** - Stock vs sector vs market comparison
 11. **Financial Statements** - Balance sheet, income, cash flow
 12. **Earnings Call (Opportunity Day)** - OPPDAY calendar with YouTube links → DataFrame → CSV
+13. **Chart Quotation & Latest Price** - Intraday series and the latest traded price relative to now
+14. **Latest Historical Trading** - Latest trading-day summary (OHLCV, P/E, P/BV, market cap)
+15. **Market Index** - Index directory, quotations, constituents, index membership per stock
+16. **SET News** - Company news/disclosures for all stocks, with symbol/date/keyword filters
+17. **Market Holidays** - Official market-closure calendar: is the market open, next holiday
 
-**Total**: 12 notebooks + comprehensive guide
+**Total**: 17 notebooks + comprehensive guide
 
 ## Quick Start
 

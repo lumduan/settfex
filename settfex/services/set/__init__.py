@@ -11,6 +11,7 @@ from settfex.services.set.constants import (
     SET_FINANCIAL_BALANCE_SHEET_ENDPOINT,
     SET_FINANCIAL_CASH_FLOW_ENDPOINT,
     SET_FINANCIAL_INCOME_STATEMENT_ENDPOINT,
+    SET_HOLIDAY_ENDPOINT,
     SET_INDEX_CHART_QUOTATION_ENDPOINT,
     SET_INDEX_COMPOSITION_ENDPOINT,
     SET_INDEX_INFO_ENDPOINT,
@@ -38,6 +39,12 @@ from settfex.services.set.earnings_call import (
     get_earnings_call_transcript,
     get_earnings_calls,
     get_earnings_calls_dataframe,
+)
+from settfex.services.set.holiday import (
+    Holiday,
+    HolidayCalendar,
+    HolidayService,
+    get_holidays,
 )
 from settfex.services.set.index import (
     BidOffer,
@@ -154,6 +161,7 @@ __all__ = [
     "SET_EARNINGS_CALL_DETAIL_ENDPOINT",
     "SET_EARNINGS_CALL_FILTER_ENDPOINT",
     "SET_NEWS_SEARCH_ENDPOINT",
+    "SET_HOLIDAY_ENDPOINT",
     # Stock List Service
     "StockListService",
     "StockListResponse",
@@ -200,6 +208,11 @@ __all__ = [
     "NewsItem",
     "NewsSearchResponse",
     "get_news",
+    # Holiday Service
+    "HolidayService",
+    "Holiday",
+    "HolidayCalendar",
+    "get_holidays",
     # Stock Class and Services
     "Stock",
     "StockHighlightDataService",
