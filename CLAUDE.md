@@ -17,7 +17,7 @@ settfex/
 ├── settfex/                    # Main package
 │   ├── services/              # Business logic and API integrations
 │   │   ├── set/              # SET-specific services
-│   │   │   ├── constants.py, list.py, earnings_call.py, news.py
+│   │   │   ├── constants.py, list.py, earnings_call.py, news.py, holiday.py
 │   │   │   ├── index/        # Market index services: list, info (quotation),
 │   │   │   │                 #   composition (constituents), chart_quotation,
 │   │   │   │                 #   index.py (SetIndex facade), utils.py
@@ -33,7 +33,7 @@ settfex/
 │                             #   session_cache.py, logging.py
 ├── tests/                     # Mirror of settfex/ with test_ prefix
 ├── docs/                      # Service docs, guides, solutions
-├── examples/                  # 20 Jupyter notebooks (16 SET + 3 TFEX + 1 SEC)
+├── examples/                  # 21 Jupyter notebooks (17 SET + 3 TFEX + 1 SEC)
 ├── scripts/                   # Verification scripts per service
 ├── .github/                   # CI and agent instructions
 ├── pyproject.toml             # uv-based config
@@ -118,9 +118,9 @@ data = await get_highlight_data("CPALL")   # or convenience function
 all_stocks = await get_stock_list()        # no cookie params needed
 ```
 
-## Services Inventory (20 total)
+## Services Inventory (21 total)
 
-### SET Services (16)
+### SET Services (17)
 
 | # | Service | Module | Endpoint Pattern | Key Data |
 |---|---|---|---|---|
@@ -140,6 +140,7 @@ all_stocks = await get_stock_list()        # no cookie params needed
 | 14 | Latest Historical Trading | `stock/latest_historical_trading.py` | `/api/set/stock/{sym}/latest-historical-trading` | Latest trading-day summary: OHLCV, change/%change, and valuation metrics |
 | 15 | Market Index | `index/{list,info,composition,chart_quotation,index}.py` | `/api/set/index/list`, `/api/set/index/info/list`, `/api/set/index/{sym}/info`, `/api/set/index/{sym}/composition`, `/api/set/index/{sym}/chart-quotation` | 55-index directory (INDEX/INDUSTRY/SECTOR levels; mai industries use `-m` query symbols); page-header quotes (last/chg/%chg/OHLC/vol/value/marketStatus/tz-aware timestamp); constituents w/ full quote rows incl. bid/offer (string prices coerced); `SetIndex` facade + `get_index_latest_price()` (reuses stock ChartQuotation); index symbols keep casing (`sSET`, `AGRO-m`); `SET`/`mai` have no composition (404 w/ helpful error). |
 | 16 | News | `news.py` | `/api/set/news/search` | Company news/disclosures for **all stocks** in one call (default `sourceId=company`, latest-trading-day window); filters: `symbol`, `fromDate`/`toDate` (**dd/MM/yyyy only** — ISO → HTTP 400; validated eagerly via `InvalidDateError`), `keyword`, `source_id` (`None` = all sources; unrecognized values silently ignored by the API), en/th; helpers `count`/`filter_today()`/`filter_by_tag()`/`filter_by_symbol()`; `Stock.get_news()` accessor; no pagination — keep date windows modest |
+| 17 | Market Holidays | `holiday.py` | `/api/cms/v1/holidays/year/{year}` | Official SET market-closure calendar for a year (en/th): tz-aware `+07:00` dates + verbatim descriptions (trailing `" *"` = SET footnote, never stripped). `HolidayCalendar` container with `count`/`dates`/`is_holiday()`/`get_holiday()`/`filter_by_month()`/`next_holiday()`; `year=None` → current **Asia/Bangkok** year. **Only the current year is served** (2024/2025/2027/2028 → HTTP 401); 401 is the endpoint's *only* failure code and also fires transiently, so the service retries 401/403/429 via `FetcherConfig.max_retries`/`retry_delay`. Holidays only — **weekends are not in the payload** |
 
 ### TFEX Services (3)
 
@@ -263,6 +264,11 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full, versioned release history — t
 - **SEC service is a different host + HTML, not JSON:** `services/sec/` targets `market.sec.or.th` (Thai SEC IDISC), an ASP.NET WebForms app — NOT set.or.th. The document search has no JSON list endpoint; it is a form postback returning HTML tables that the service parses (stdlib `html.parser`). It reuses `AsyncDataFetcher` with `use_session=False` (stateless, like `earnings_call.py`); dates are **dd/mm/yyyy** (note: SET news is dd/MM/yyyy — same digits, but the SEC form is its own endpoint). Do not route SEC URLs through SessionManager (its auto-detect would mis-warm them as SET).
 - **SEC VIEWSTATE tokens are mandatory and must be fresh:** the search POST must echo `__VIEWSTATE`/`__VIEWSTATEGENERATOR`/`__EVENTVALIDATION` scraped from a fresh GET of the same page. Omitting them does **not** error — it silently returns a wrong, broader result set (43 vs 7 rows in testing). `FinancialReportService` always GETs tokens immediately before each POST; no cookie/session binding is needed (cross-request works).
 - **SEC downloads can be soft-404s (HTTP 200 + HTML):** a dead `Download?FILEID=` link returns an HTML page `ไม่พบไฟล์ที่ระบุ` ("file not found") under **HTTP 200**, notably for some recent `dat/annual/` (56-2) rows whose file actually lives under `dat/f56/`. `DocumentDownloadService.download` validates the content-type and raises `FetchError` instead of returning the garbage bytes; `download_all(..., continue_on_error=True)` skips such items.
+- **Holiday endpoint lives on a different path prefix:** `/api/cms/v1/holidays/year/{year}` is the **only** `/api/cms/v1/` endpoint in the package — everything else on `www.set.or.th` is under `/api/set/`. It takes `?lang=` (like stock/news), **not** `?language=` (like index).
+- **The holiday endpoint serves ONLY the current year:** live-probed 2026-07-27 — with 2026 returning HTTP 200 on every interleaved control request, **2024, 2025, 2027 and 2028 all returned HTTP 401**. There is no history and no next-year lookahead, so this endpoint alone cannot back a multi-year trading calendar or a backtest.
+- **HTTP 401 is the holiday endpoint's only failure code — and it is ambiguous:** an unrecognized `lang`, a missing `lang`, and an unserved year all return a bare `401` with an **empty body**, and so do valid requests *transiently*. Success degrades the harder you poll (~100% cold → ~35% after ~50 requests → ~12% after ~150), recovering on its own when left idle. `HolidayService` therefore retries 401/403/429 itself with exponential backoff (`FetcherConfig.max_retries`/`retry_delay`) — note `AsyncDataFetcher.fetch()` retries **exceptions only**, never a non-2xx status, so any other service is one flaky response away from a hard failure.
+- **`HolidayCalendar.is_holiday()` is not "is the market open":** the API returns published closures only, so weekends are absent and `is_holiday(saturday)` is `False`. It also expresses whole-day closures only — no field for partial sessions or altered hours. Weekend logic must live in the caller.
+- **Do not enable `str_strip_whitespace` on `Holiday`:** unlike every other SET model, it is deliberately off — a trailing `" *"` in a description is a SET footnote marker for additional special closures and must survive verbatim (a test guards this).
 - **A SEC `FS` search returns three categories at once:** querying `ddlReportType=FS` returns financial statements **+** Key Financial Ratio **+** MD&A sections in one HTML response (each its own table); large sections truncate inline and expose a `ViewMore/{fs-norm|fs-kf|fs-mda}` link the listing follows (`follow_view_more=True`). MD&A rows use different columns (Date/Time/Heading/Link, no Name) — the mapper fills `company_name` from the resolved company as a fallback.
 
 ---

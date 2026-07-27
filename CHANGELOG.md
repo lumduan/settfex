@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-07-27
+
+### Added
+
+- **SET Market Holiday service** (`settfex.services.set.holiday`) — the official SET market-closure
+  calendar for a year, in English or Thai, via `GET /api/cms/v1/holidays/year/{year}`. Follows the
+  standard three tiers: `get_holidays()` → `HolidayService.fetch_holidays()` →
+  `HolidayService.fetch_holidays_raw()`.
+  - **`Holiday`** — `holiday_date` (timezone-aware, always `+07:00`, `00:00:00` time component;
+    aliased from the API's `date` key) and `description`. Descriptions are preserved **verbatim**:
+    unlike every other SET model, `str_strip_whitespace` is deliberately **off**, because a
+    trailing `" *"` is a SET footnote marker for additional special closures.
+  - **`HolidayCalendar`** — container exposing `count`, `dates`, `is_holiday()`, `get_holiday()`,
+    `filter_by_month()` and `next_holiday()`. Query methods accept `date` or `datetime` (naive
+    datetimes are treated as Bangkok-local, aware ones converted) and do not depend on payload
+    ordering.
+  - `year` defaults to the current year in **Asia/Bangkok**, never system-local time. Client-side
+    validation (`MIN_YEAR` 1975 … `MAX_YEAR` 2100) is a typo guard only.
+  - New constant `SET_HOLIDAY_ENDPOINT`; `get_holidays` and `HolidayCalendar` are re-exported from
+    the top-level `settfex` package.
+  - Docs: `docs/settfex/services/set/holiday.md`; example: `examples/set/17_holiday.ipynb`.
+
+### Fixed
+
+- **The holiday service retries transient HTTP 401s** instead of failing the call. This endpoint
+  uses a bare `401` with an empty body as its *only* failure code — for an unrecognized `lang`, a
+  missing `lang`, an unserved year, **and** transiently on perfectly valid requests — while
+  `AsyncDataFetcher.fetch()` retries exceptions only and never a non-2xx status. `HolidayService`
+  therefore retries `401`/`403`/`429` with exponential backoff driven by the existing
+  `FetcherConfig.max_retries` / `retry_delay` knobs (no new API surface). On exhaustion the
+  `FetchError` message names both possible causes, since the API gives no way to tell them apart.
+
+### Documentation
+
+- Recorded three live-probed limits of the holiday endpoint (2026-07-27), in the module docstring,
+  the docs page and `CLAUDE.md` Known Gotchas:
+  - **Only the current year is served.** With 2026 returning 200 on every interleaved control
+    request, 2024, 2025, 2027 and 2028 all returned HTTP 401 — so this endpoint cannot supply
+    history for backtests or next year's calendar for year-boundary arithmetic.
+  - **Success rate degrades under polling** (~100% cold → ~35% after ~50 requests → ~12% after
+    ~150) and recovers on its own when left idle. Cache the result; holiday data is static.
+  - **`is_holiday()` answers "published holiday", not "market closed"** — weekends are absent from
+    the payload, and only whole-day closures are expressed (no partial sessions or altered hours).
+
 ## [0.14.0] - 2026-07-20
 
 ### Changed
