@@ -214,7 +214,7 @@ class TestFinancialReportService:
             )
         assert len(full) == 3  # ViewMore replaces the single truncated inline row
         assert len(trunc) == 1
-        assert all("full_" in d.file_id for d in full)
+        assert all(d.file_id and "full_" in d.file_id for d in full)
 
     @pytest.mark.asyncio
     async def test_missing_viewstate_raises(self) -> None:
@@ -273,7 +273,9 @@ class TestGetSecDocuments:
             patch(
                 "settfex.services.sec.financial_report.resolve_company",
                 new=AsyncMock(
-                    return_value=CompanyMatch(Text="CP ALL", Value="0000003875", Flag=True)
+                    return_value=CompanyMatch(
+                        company_name="CP ALL", unique_id="0000003875", is_primary=True
+                    )
                 ),
             ),
             patch("settfex.services.sec.financial_report.AsyncDataFetcher") as cls,
