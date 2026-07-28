@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`DocumentCategory` is now an `enum.StrEnum`** (was `class DocumentCategory(str, Enum)`).
+  The observable difference is string coercion: `str(cat)` and `f"{cat}"` now render the bare
+  value (`"financial_statement"`) instead of `"DocumentCategory.FINANCIAL_STATEMENT"`, and a
+  format spec such as `f"{cat:<25}"` is now honoured rather than silently ignored. **Everything
+  else is unchanged** — equality with the plain string, `.value`, `.name`, `repr()`,
+  `json.dumps()`, `isinstance(cat, str)`, `SecDocument.model_dump()` /
+  `model_dump(mode="json")` / `model_dump_json()`, and every `SecDocumentList` helper
+  (`categories()`, `available_years()`, `years_by_category()`, `filter()`, `summary()`) all
+  behave exactly as before; `summary()` output is byte-identical because
+  `years_by_category()` already keyed on `.value`.
+
+  If you interpolate a category into a string and depended on the old
+  `"DocumentCategory.FINANCIAL_STATEMENT"` form, use `repr(cat)` or `cat.name`. New tests in
+  `tests/services/sec/test_financial_report.py` pin this contract.
+
+  This unblocks ruff 0.15+, whose `UP042` rule rejects the `(str, Enum)` pattern.
+
 ### Fixed
 
 - **SEC downloads now accept a plain `list[SecDocument]`** — `DocumentDownloadService.download_all`,
