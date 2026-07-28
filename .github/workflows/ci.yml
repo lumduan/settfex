@@ -33,7 +33,9 @@ jobs:
       # setup-uv stopped publishing floating major tags at v8 — pin the exact version.
       - uses: astral-sh/setup-uv@v9.0.0
         with:
-          version: "latest"
+          # Pinned for reproducible builds — "latest" silently adopts whatever uv shipped
+          # that day. Dependabot does not bump action *inputs*, so bump this by hand.
+          version: "0.11.33"
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
@@ -58,7 +60,9 @@ jobs:
       # setup-uv stopped publishing floating major tags at v8 — pin the exact version.
       - uses: astral-sh/setup-uv@v9.0.0
         with:
-          version: "latest"
+          # Pinned for reproducible builds — "latest" silently adopts whatever uv shipped
+          # that day. Dependabot does not bump action *inputs*, so bump this by hand.
+          version: "0.11.33"
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
