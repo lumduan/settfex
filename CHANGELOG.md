@@ -38,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- The uv version used by CI is now pinned (`version: "0.11.33"` on all six
+  `astral-sh/setup-uv` steps) instead of `"latest"`, so a same-day uv release can no longer
+  change a build unreviewed — including `release.yml`, which builds the published artifact.
+  Dependabot bumps action refs but never action inputs, so this pin is maintained by hand.
 - `uv run mypy .` is green again across all 125 files (package, `tests/`, local `scripts/`). It had
   been failing on stale `CompanyMatch(...)` constructions in `tests/services/sec/` that predate the
   model's required `company_name` / `unique_id` fields, plus one `in` test against the optional
