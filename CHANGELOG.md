@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SecDocument.file_id`. The CI gate is narrower (`mypy settfex/`), so this never showed up there.
 - Dev-dependency bumps: mypy 1.18.2 → 2.3.0, matplotlib 3.10.6 → 3.11.1, notebook 7.4.7 → 7.6.0,
   tqdm 4.68.3 → 4.69.0 (lockfile only — no `pyproject.toml` constraint changes).
+- GitHub Actions bumped off the deprecated Node 20 runtime, which the runners had been
+  force-upgrading to Node 24: `actions/checkout` v4 → v7, `astral-sh/setup-uv` v5 → v9.0.0,
+  `codecov/codecov-action` v4 → v7, `actions/upload-artifact` v4 → v7,
+  `actions/download-artifact` v4 → v8, `softprops/action-gh-release` v2 → v3.
+  `pypa/gh-action-pypi-publish` stays on the rolling `release/v1` branch (upstream's
+  recommended pin). `setup-uv` is pinned to an exact version because it stopped publishing
+  floating major tags at v8 — `@v9` does not resolve.
 
 ## [0.15.0] - 2026-07-27
 
