@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import re
 from datetime import date, datetime
-from enum import Enum
+from enum import StrEnum
 from html import unescape
 from urllib.parse import urljoin
 
@@ -45,8 +45,13 @@ from settfex.services.set.stock.utils import Language, normalize_language
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 
 
-class DocumentCategory(str, Enum):
-    """The five disclosure-document categories exposed by the SEC IDISC search."""
+class DocumentCategory(StrEnum):
+    """The five disclosure-document categories exposed by the SEC IDISC search.
+
+    A :class:`enum.StrEnum`, so ``str(cat)`` and ``f"{cat}"`` render the bare value
+    (``"financial_statement"``) rather than ``"DocumentCategory.FINANCIAL_STATEMENT"``.
+    Equality with the plain string, ``.value`` and JSON serialization are unchanged.
+    """
 
     FINANCIAL_STATEMENT = "financial_statement"
     FORM_56_1 = "form_56_1"

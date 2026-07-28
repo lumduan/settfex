@@ -1,5 +1,6 @@
 """Tests for SEC financial-report models, the row->document mapper, and the listing service."""
 
+import json
 from datetime import date
 
 import pytest
@@ -49,6 +50,43 @@ def _make_fetcher(mock_cls, router):
     mock_cls.return_value.__aenter__.return_value = instance
     mock_cls.return_value.__aexit__.return_value = None
     return instance
+
+
+class TestDocumentCategoryIsStrEnum:
+    """`DocumentCategory` is a StrEnum — string coercion must yield the bare value.
+
+    It was `(str, Enum)` until ruff 0.15's UP042 forced the choice. The migration is
+    deliberate and these assertions pin the observable contract: `str()`/f-string give
+    the value, while equality, `.value` and JSON output are unchanged from before.
+    """
+
+    def test_str_coercion_gives_the_bare_value(self) -> None:
+        cat = DocumentCategory.FINANCIAL_STATEMENT
+        assert str(cat) == "financial_statement"
+        assert f"{cat}" == "financial_statement"
+        assert f"{cat:<25}" == "financial_statement".ljust(25)
+
+    def test_string_equality_and_value_unchanged(self) -> None:
+        cat = DocumentCategory.FORM_56_1
+        assert cat == "form_56_1"
+        assert cat.value == "form_56_1"
+        assert cat.name == "FORM_56_1"
+        assert isinstance(cat, str)
+        assert json.dumps({"c": cat}) == '{"c": "form_56_1"}'
+
+    def test_model_serialization_unchanged(self) -> None:
+        doc = SecDocument(
+            company_name="CP ALL",
+            unique_id="0000003875",
+            category=DocumentCategory.MDA,
+            section="MD&A",
+            file_url="https://example.invalid/x.zip",
+        )
+        assert doc.model_dump()["category"] is DocumentCategory.MDA
+        assert doc.model_dump(mode="json")["category"] == "mda"
+        assert SecDocument.model_validate_json(doc.model_dump_json()).category is (
+            DocumentCategory.MDA
+        )
 
 
 class TestCategoryForSection:
