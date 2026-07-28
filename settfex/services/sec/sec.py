@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
 
@@ -112,7 +113,7 @@ class SecCompany:
 
     async def download_all(
         self,
-        targets: list[SecDocument | str],
+        targets: Sequence[SecDocument | str],
         *,
         dest_dir: str | Path | None = None,
         max_concurrency: int = 3,

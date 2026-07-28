@@ -20,13 +20,16 @@ def _patch_company_fetcher(payload):
 
 class TestCompanyMatchModel:
     def test_aliases(self) -> None:
-        m = CompanyMatch(Text="CP ALL", Value="0000003875", Flag=True)
+        # Constructed by alias (as the API payload arrives) — model_validate rather than
+        # CompanyMatch(Text=...) so the alias path stays exercised AND type-checks: the
+        # pydantic mypy plugin types __init__ by field name, not by alias.
+        m = CompanyMatch.model_validate({"Text": "CP ALL", "Value": "0000003875", "Flag": True})
         assert m.company_name == "CP ALL"
         assert m.unique_id == "0000003875"
         assert m.is_primary is True
 
     def test_flag_defaults_false(self) -> None:
-        m = CompanyMatch(Text="X", Value="1")
+        m = CompanyMatch.model_validate({"Text": "X", "Value": "1"})
         assert m.is_primary is False
 
 

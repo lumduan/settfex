@@ -11,7 +11,9 @@ from settfex.services.sec.sec import SecCompany
 
 pytestmark = pytest.mark.asyncio
 
-_MATCH = CompanyMatch(Text="CP ALL PUBLIC COMPANY LIMITED", Value="0000003875", Flag=True)
+_MATCH = CompanyMatch(
+    company_name="CP ALL PUBLIC COMPANY LIMITED", unique_id="0000003875", is_primary=True
+)
 
 
 class TestResolve:

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **SEC downloads now accept a plain `list[SecDocument]`** — `DocumentDownloadService.download_all`,
+  `SecCompany.download_all` and `download_sec_documents` typed `targets` as
+  `list[SecDocument | str]`, which (because `list` is invariant) rejected the output of
+  `list_documents()` under a type checker — i.e. the documented
+  `docs = await sec.list_documents(...)` → `sec.download_all(docs)` flow was a type error for
+  every typed consumer, despite working fine at runtime. `targets` is now
+  `Sequence[SecDocument | str]`; the parameter only widens, so existing callers are unaffected.
+
+### Internal
+
+- `uv run mypy .` is green again across all 125 files (package, `tests/`, local `scripts/`). It had
+  been failing on stale `CompanyMatch(...)` constructions in `tests/services/sec/` that predate the
+  model's required `company_name` / `unique_id` fields, plus one `in` test against the optional
+  `SecDocument.file_id`. The CI gate is narrower (`mypy settfex/`), so this never showed up there.
+- Dev-dependency bumps: mypy 1.18.2 → 2.3.0, matplotlib 3.10.6 → 3.11.1, notebook 7.4.7 → 7.6.0,
+  tqdm 4.68.3 → 4.69.0 (lockfile only — no `pyproject.toml` constraint changes).
+
 ## [0.15.0] - 2026-07-27
 
 ### Added

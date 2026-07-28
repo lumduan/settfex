@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
@@ -190,7 +191,7 @@ class DocumentDownloadService:
 
     async def download_all(
         self,
-        targets: list[SecDocument | str],
+        targets: Sequence[SecDocument | str],
         *,
         dest_dir: str | Path | None = None,
         max_concurrency: int = 3,
@@ -205,7 +206,9 @@ class DocumentDownloadService:
         Company and Consolidated rows share one zip), so the result has one entry per unique file.
 
         Args:
-            targets: SecDocuments / URLs / FILEIDs to download (deduped by resolved URL).
+            targets: SecDocuments / URLs / FILEIDs to download (deduped by resolved URL). Any
+                sequence is accepted, so a ``SecDocumentList`` / ``list[SecDocument]`` straight
+                from :meth:`list_documents` can be passed as-is.
             dest_dir: If set, each file is written here (created if needed).
             max_concurrency: Max simultaneous downloads (default 3 — big files share bandwidth).
             continue_on_error: If True (default) a failed item is logged and skipped; if False
@@ -305,7 +308,7 @@ async def download_sec_document(
 
 
 async def download_sec_documents(
-    targets: list[SecDocument | str],
+    targets: Sequence[SecDocument | str],
     *,
     dest_dir: str | Path | None = None,
     max_concurrency: int = 3,
