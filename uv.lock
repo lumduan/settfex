@@ -1121,6 +1121,19 @@ wheels = [
 ]
 
 [[package]]
+name = "jupyter-builder"
+version = "1.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jupyter-core" },
+    { name = "traitlets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c3/61/47f7ae054f5cd3983c10e1d65a6eb7fcd4b87ebb1056e190ef7d63ff4f19/jupyter_builder-1.1.1.tar.gz", hash = "sha256:1a13977912b08deda77fce2c803940131c27cf77a27ed64b9ffca25aa0ed7e6c", size = 971667, upload-time = "2026-07-17T13:14:47.761Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/83/cc/f6a12de1c890ea5dd2816c5c76d5ac6d3ed52db3c37f78691328207d13b9/jupyter_builder-1.1.1-py3-none-any.whl", hash = "sha256:f9c14bc55c0488a073f62af12d468936fcf9ecb7e9dd802f6f9c33de46ad70db", size = 913264, upload-time = "2026-07-17T13:14:45.857Z" },
+]
+
+[[package]]
 name = "jupyter-client"
 version = "8.6.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1202,7 +1215,7 @@ wheels = [
 
 [[package]]
 name = "jupyter-server"
-version = "2.17.0"
+version = "2.20.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -1225,9 +1238,9 @@ dependencies = [
     { name = "traitlets" },
     { name = "websocket-client" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5b/ac/e040ec363d7b6b1f11304cc9f209dac4517ece5d5e01821366b924a64a50/jupyter_server-2.17.0.tar.gz", hash = "sha256:c38ea898566964c888b4772ae1ed58eca84592e88251d2cfc4d171f81f7e99d5", size = 731949, upload-time = "2025-08-21T14:42:54.042Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6b/dc/db3a582633170186f8c8b31298d7eb26ad0eb031a1f53476c258b64eed05/jupyter_server-2.20.0.tar.gz", hash = "sha256:b5778ba337d8015a3dc2b80803ecdd5ac18d3797fddf61a50ea5fb472b4ebe14", size = 756523, upload-time = "2026-06-17T12:09:09.435Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/92/80/a24767e6ca280f5a49525d987bf3e4d7552bf67c8be07e8ccf20271f8568/jupyter_server-2.17.0-py3-none-any.whl", hash = "sha256:e8cb9c7db4251f51ed307e329b81b72ccf2056ff82d50524debde1ee1870e13f", size = 388221, upload-time = "2025-08-21T14:42:52.034Z" },
+    { url = "https://files.pythonhosted.org/packages/f3/71/8c002223e873a870f5c41dc69b0a7c922301123e4a31d5d01ecb700aef77/jupyter_server-2.20.0-py3-none-any.whl", hash = "sha256:c3b67c93c471e947c18b5026f04f21614218adb706df8f48227d3ee8e0a7cdcc", size = 393143, upload-time = "2026-06-17T12:09:07.234Z" },
 ]
 
 [[package]]
@@ -1245,26 +1258,26 @@ wheels = [
 
 [[package]]
 name = "jupyterlab"
-version = "4.4.9"
+version = "4.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-lru" },
     { name = "httpx" },
     { name = "ipykernel" },
     { name = "jinja2" },
+    { name = "jupyter-builder" },
     { name = "jupyter-core" },
     { name = "jupyter-lsp" },
     { name = "jupyter-server" },
     { name = "jupyterlab-server" },
     { name = "notebook-shim" },
     { name = "packaging" },
-    { name = "setuptools" },
     { name = "tornado" },
     { name = "traitlets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/45/b2/7dad2d0049a904d17c070226a4f78f81905f93bfe09503722d210ccf9335/jupyterlab-4.4.9.tar.gz", hash = "sha256:ea55aca8269909016d5fde2dc09b97128bc931230183fe7e2920ede5154ad9c2", size = 22966654, upload-time = "2025-09-26T17:28:20.158Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bc/2a/d6af53bfd45a43a5bfe7e40ba47ee7a8921a807daf4bb708e3a295bbb54d/jupyterlab-4.6.1.tar.gz", hash = "sha256:75315982ed28427edaa62bb85eadb5105e4043a757643c910efd787fe6ed0837", size = 28179125, upload-time = "2026-06-29T12:48:45.402Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1f/fd/ac0979ebd1b1975c266c99b96930b0a66609c3f6e5d76979ca6eb3073896/jupyterlab-4.4.9-py3-none-any.whl", hash = "sha256:394c902827350c017430a8370b9f40c03c098773084bc53930145c146d3d2cb2", size = 12292552, upload-time = "2025-09-26T17:28:15.663Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/81/90ac6cc31d248e83a0d1eab343a5e6e68bc783d3f74fbe61640f42a61da4/jupyterlab-4.6.1-py3-none-any.whl", hash = "sha256:85a58546c831f3dce6cf919468c26874c9065e99c42279fb4abb8e1b552a98bb", size = 17164660, upload-time = "2026-06-29T12:48:41.21Z" },
 ]
 
 [[package]]
@@ -1278,7 +1291,7 @@ wheels = [
 
 [[package]]
 name = "jupyterlab-server"
-version = "2.27.3"
+version = "2.28.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "babel" },
@@ -1289,9 +1302,9 @@ dependencies = [
     { name = "packaging" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0a/c9/a883ce65eb27905ce77ace410d83587c82ea64dc85a48d1f7ed52bcfa68d/jupyterlab_server-2.27.3.tar.gz", hash = "sha256:eb36caca59e74471988f0ae25c77945610b887f777255aa21f8065def9e51ed4", size = 76173, upload-time = "2024-07-16T17:02:04.149Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d6/2c/90153f189e421e93c4bb4f9e3f59802a1f01abd2ac5cf40b152d7f735232/jupyterlab_server-2.28.0.tar.gz", hash = "sha256:35baa81898b15f93573e2deca50d11ac0ae407ebb688299d3a5213265033712c", size = 76996, upload-time = "2025-10-22T13:59:18.37Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/54/09/2032e7d15c544a0e3cd831c51d77a8ca57f7555b2e1b2922142eddb02a84/jupyterlab_server-2.27.3-py3-none-any.whl", hash = "sha256:e697488f66c3db49df675158a77b3b017520d772c6e1548c7d9bcc5df7944ee4", size = 59700, upload-time = "2024-07-16T17:02:01.115Z" },
+    { url = "https://files.pythonhosted.org/packages/e0/07/a000fe835f76b7e1143242ab1122e6362ef1c03f23f83a045c38859c2ae0/jupyterlab_server-2.28.0-py3-none-any.whl", hash = "sha256:e4355b148fdcf34d312bbbc80f22467d6d20460e8b8736bf235577dd18506968", size = 59830, upload-time = "2025-10-22T13:59:16.767Z" },
 ]
 
 [[package]]
@@ -1853,18 +1866,19 @@ wheels = [
 
 [[package]]
 name = "notebook"
-version = "7.4.7"
+version = "7.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "jupyter-builder" },
     { name = "jupyter-server" },
     { name = "jupyterlab" },
     { name = "jupyterlab-server" },
     { name = "notebook-shim" },
     { name = "tornado" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/04/09/f6f64ba156842ef68d3ea763fa171a2f7e7224f200a15dd4af5b83c34756/notebook-7.4.7.tar.gz", hash = "sha256:3f0a04027dfcee8a876de48fba13ab77ec8c12f72f848a222ed7f5081b9e342a", size = 13937702, upload-time = "2025-09-27T08:00:22.536Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0d/44/d5c65783f490298473bb1c05722e05ee2256231389559c2c5ae0a3e5d975/notebook-7.6.0.tar.gz", hash = "sha256:ea13e79e601bf273074895fdfb17dd3f2da916d3c045e0b9c47d18b16ab62481", size = 5497344, upload-time = "2026-06-18T16:18:55.202Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6c/d7/06d13087e20388926e7423d2489e728d2e59f2453039cdb0574a7c070e76/notebook-7.4.7-py3-none-any.whl", hash = "sha256:362b7c95527f7dd3c4c84d410b782872fd9c734fb2524c11dd92758527b6eda6", size = 14342894, upload-time = "2025-09-27T08:00:18.496Z" },
+    { url = "https://files.pythonhosted.org/packages/93/d1/e617c40db57ff40e75f43a7d4d1c305e3a54c053ab5cb0534a6c314664f9/notebook-7.6.0-py3-none-any.whl", hash = "sha256:98aa2811b54ac191321d5dfce12ca700f8a511a33a26e4de2fa106a357c43d6a", size = 5544575, upload-time = "2026-06-18T16:18:52.551Z" },
 ]
 
 [[package]]
@@ -3023,15 +3037,6 @@ dev = [
     { name = "tqdm", specifier = ">=4.66.0" },
     { name = "twine", specifier = ">=5.0.0" },
     { name = "youtube-transcript-api", specifier = ">=1.0.0" },
-]
-
-[[package]]
-name = "setuptools"
-version = "80.9.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/18/5d/3bf57dcd21979b887f014ea83c24ae194cfcd12b9e0fda66b957c69d1fca/setuptools-80.9.0.tar.gz", hash = "sha256:f36b47402ecde768dbfafc46e8e4207b4360c654f1f3bb84475f0a28628fb19c", size = 1319958, upload-time = "2025-05-27T00:56:51.443Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a3/dc/17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/setuptools-80.9.0-py3-none-any.whl", hash = "sha256:062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922", size = 1201486, upload-time = "2025-05-27T00:56:49.664Z" },
 ]
 
 [[package]]
