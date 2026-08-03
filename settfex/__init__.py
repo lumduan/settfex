@@ -35,7 +35,7 @@ Usage:
     >>> asyncio.run(main())
 """
 
-__version__ = "0.15.0"
+__version__ = "0.16.0"
 __author__ = "batt"
 __license__ = "MIT"
 
@@ -61,7 +61,10 @@ from settfex.services.sec import (
     resolve_company,
 )
 from settfex.services.set import (
+    AssetType,
     CompanyProfile,
+    DrIndicativePrice,
+    DrProfile,
     HolidayCalendar,
     IndexCompositionResponse,
     IndexInfo,
@@ -74,6 +77,8 @@ from settfex.services.set import (
     StockListResponse,
     StockProfile,
     get_company_profile,
+    get_dr_indicative_price,
+    get_dr_profile,
     get_highlight_data,
     get_holidays,
     get_index_composition,
@@ -105,6 +110,8 @@ __all__ = [
     "get_index_composition",
     "get_news",
     "get_holidays",
+    "get_dr_profile",
+    "get_dr_indicative_price",
     # SEC IDISC document services (market.sec.or.th)
     "SecCompany",
     "get_sec_documents",
@@ -120,6 +127,9 @@ __all__ = [
     "StockHighlightData",
     "StockProfile",
     "CompanyProfile",
+    "AssetType",
+    "DrProfile",
+    "DrIndicativePrice",
     "IndexListResponse",
     "IndexInfo",
     "IndexCompositionResponse",

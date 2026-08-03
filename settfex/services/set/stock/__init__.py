@@ -18,6 +18,13 @@ from settfex.services.set.stock.corporate_action import (
     CorporateActionService,
     get_corporate_actions,
 )
+from settfex.services.set.stock.dr_indicative_price import (
+    DrIndicativePrice,
+    DrIndicativePriceService,
+    DrIndicativeQuotation,
+    TradingViewQuote,
+    get_dr_indicative_price,
+)
 from settfex.services.set.stock.financial import (
     Account,
     BalanceSheet,
@@ -53,6 +60,13 @@ from settfex.services.set.stock.profile_company import (
     CompanyProfile,
     CompanyProfileService,
     get_company_profile,
+)
+from settfex.services.set.stock.profile_dr import (
+    DrProfile,
+    DrProfileService,
+    IndicativePriceExpression,
+    get_dr_profile,
+    parse_indicative_price_expression,
 )
 from settfex.services.set.stock.profile_stock import (
     StockProfile,
@@ -102,6 +116,18 @@ __all__ = [
     "CompanyProfileService",
     "CompanyProfile",
     "get_company_profile",
+    # DR Profile Service
+    "DrProfileService",
+    "DrProfile",
+    "IndicativePriceExpression",
+    "parse_indicative_price_expression",
+    "get_dr_profile",
+    # DR Indicative Price Service (TradingView)
+    "DrIndicativePriceService",
+    "DrIndicativePrice",
+    "DrIndicativeQuotation",
+    "TradingViewQuote",
+    "get_dr_indicative_price",
     # Corporate Action Service
     "CorporateActionService",
     "CorporateAction",

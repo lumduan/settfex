@@ -39,7 +39,7 @@ This includes pandas, matplotlib, and jupyter notebook support.
 - [Stock List](examples/set/01_stock_list.ipynb) → [Highlight Data](examples/set/02_highlight_data.ipynb) → [Price Performance](examples/set/10_price_performance.ipynb) → [Financial Statements](examples/set/11_financial.ipynb)
 
 **Professional Trading :** Master all features for institutional use:
-- All 17 SET notebooks + TFEX notebooks (see below)
+- All 18 SET notebooks + TFEX notebooks (see below)
 
 ### 📊 SET Examples (Stock Exchange of Thailand)
 
@@ -62,6 +62,7 @@ All examples include beginner explanations, professional trading use cases, and 
 15. **[Market Index](examples/set/15_market_index.ipynb)** - Index directory, SET50/SETESG quotations, constituents, and index membership per stock
 16. **[SET News](examples/set/16_news.ipynb)** - Company news/disclosures for all stocks: symbol/date/keyword filters, Thai headlines
 17. **[Market Holidays](examples/set/17_holiday.ipynb)** - Official market-closure calendar: is the market open, next holiday, long weekends
+18. **[Asset Types & Depositary Receipts](examples/set/18_dr_and_asset_type.ipynb)** - Tell stocks/ETFs/DRs/DWs apart, DR profiles, and TradingView indicative prices
 
 ### 📈 TFEX Examples (Thailand Futures Exchange)
 
@@ -90,12 +91,14 @@ Want to dig deeper? Check out our detailed guides:
 - **[Trading Statistics Service](docs/settfex/services/set/trading_stat.md)** - Historical trading performance and metrics
 - **[Price Performance Service](docs/settfex/services/set/price_performance.md)** - Stock, sector, and market price performance comparison
 - **[Financial Service](docs/settfex/services/set/financial.md)** - Balance sheet, income statement, and cash flow data
-- **[Chart Quotation Service](docs/settfex/services/set/chart_quotation.md)** - Intraday/historical price chart series, plus the latest *traded* price relative to now
+- **[Chart Quotation Service](docs/settfex/services/set/chart_quotation.md)** - Intraday/historical price chart series, plus the latest *traded* price relative to now (DRs answer with the indicative price — see below)
 - **[Latest Historical Trading Service](docs/settfex/services/set/latest_historical_trading.md)** - Latest trading day summary with OHLCV and valuation metrics
 - **[Earnings Call (Opportunity Day) Service](docs/settfex/services/set/earnings_call.md)** - OPPDAY earnings-call calendar with YouTube links, as models or a DataFrame
 - **[Market Index Service](docs/settfex/services/set/index.md)** - Index directory (SET50/SET100/sSET/SETESG/...), quotations, constituents, and latest index value
 - **[News Service](docs/settfex/services/set/news.md)** - Company news and disclosures for all stocks, with symbol/date/keyword filters
 - **[Market Holiday Service](docs/settfex/services/set/holiday.md)** - Official SET market-closure calendar for the year, in English or Thai
+- **[DR Profile Service](docs/settfex/services/set/profile_dr.md)** - Depositary Receipt details: issuer, underlying, conversion ratio, and the TradingView "Indicative Price" link
+- **[DR Indicative Price Service](docs/settfex/services/set/dr_indicative_price.md)** - A DR's fair value in THB (underlying × FX ÷ ratio) from TradingView
 
 ### TFEX Services
 
@@ -132,6 +135,10 @@ mai_stocks = stock_list.filter_by_market("mai")
 # Index memberships are included by default
 print(stock_list.get_symbol("CPALL").indices)   # ['SET50', 'SET100', 'SETESG', ...]
 set50_members = stock_list.filter_by_index("SET50")
+
+# Filter by asset type (stock, ETF, DR, DW, warrant, ...)
+drs = stock_list.filter_by_asset_type("dr")     # GOOG80, MICRON01, ...
+etfs = stock_list.filter_by_asset_type("etf")
 ```
 
 **👉 [Learn more about Stock Lists](docs/settfex/services/set/list.md)**
@@ -370,13 +377,50 @@ if quote:
 # Or work with the full series — intraday (1-minute) or historical (daily)
 chart = await get_chart_quotation("CPALL", period="1D")
 print(f"Prior close: {chart.prior}, data points: {len(chart.quotations)}")
-print(f"Latest: {chart.quotations[-1].close:.2f} THB")
+print(f"Latest price (with prior fallback): {chart.get_latest_price()}")
 
 chart_1y = await get_chart_quotation("CPALL", period="1Y")
 print(f"1Y data points: {len(chart_1y.quotations)}")
 ```
 
+> **Depositary Receipts differ:** `Stock("GOOG80").get_latest_price()` returns the TradingView
+> **indicative** price instead of SET chart data (see the next section). The top-level
+> `get_latest_price()` function shown here is always SET chart data.
+
 **👉 [Learn more about Chart Quotation & Latest Price](docs/settfex/services/set/chart_quotation.md)**
+
+---
+
+#### 🌏 Get Asset Types & Depositary Receipt Prices
+
+SET lists more than common stocks — ETFs, DRs, DWs, warrants, preferred shares and unit trusts all
+share the same APIs. Find out what a symbol actually *is*, and price DRs against their underlying:
+
+```python
+from settfex.services.set import AssetType, Stock, get_dr_indicative_price
+
+# What kind of instrument is this?
+await Stock("CPALL").get_asset_type()      # AssetType.STOCK              ('stock')
+await Stock("1DIV").get_asset_type()       # AssetType.ETF                ('etf')
+await Stock("GOOG80").get_asset_type()     # AssetType.DEPOSITARY_RECEIPT ('dr')
+
+# DRs: issuer/underlying details + the "Indicative Price" TradingView chart
+dr = Stock("GOOG80")
+profile = await dr.get_dr_profile()
+print(profile.underlying, profile.conversion_ratio)   # GOOG  "2,000 : 1"
+print(await dr.get_tradingview_url())                 # https://th.tradingview.com/chart/?symbol=...
+
+# Fair value in THB = underlying price × FX ÷ conversion ratio (live from TradingView)
+price = await get_dr_indicative_price("GOOG80")
+print(f"{price.indicative_price:.2f} THB "
+      f"({price.underlying.close} {price.underlying.currency} × {price.fx.close} ÷ {price.ratio:.0f})")
+
+# ...and get_latest_price() uses it automatically for DRs
+quote = await dr.get_latest_price()                   # DrIndicativeQuotation
+quote = await dr.get_latest_price(prefer_dr_indicative=False)  # SET traded price instead
+```
+
+**👉 [Learn more about DR Profiles](docs/settfex/services/set/profile_dr.md)** · **[DR Indicative Price](docs/settfex/services/set/dr_indicative_price.md)**
 
 ---
 

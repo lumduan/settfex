@@ -7,8 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-08-03
+
+### Added
+
+- **Asset-type classification** — new `AssetType` StrEnum (`stock`, `stock_foreign`,
+  `preferred_stock`, `preferred_stock_foreign`, `warrant`, `dw`, `etf`, `unit_trust`, `dr`,
+  `unknown`) mapping SET's `securityType` codes (`S/F/P/Q/W/V/L/U/X`, live-probed
+  2026-08-03), exposed as `StockProfile.asset_type` and `StockSymbol.asset_type` properties,
+  a `StockListResponse.filter_by_asset_type()` helper (accepts the enum, its value, or a raw
+  SET code), and a cached `Stock.get_asset_type()` accessor. Unrecognized codes degrade to
+  `AssetType.UNKNOWN` (never raises). There is deliberately no `BOND` member — bonds do not
+  appear in SET's stock APIs at all.
+- **DR profile service** (`stock/profile_dr.py`) — `GET /api/set/dr/{symbol}/profile` for
+  Depositary Receipts (GOOG80, MICRON01, …): issuer/underlying details, verbatim conversion
+  ratio, DRx `fractionalTrade` flag, and the TradingView **"Indicative Price"** link
+  (`indicativePriceSymbol` expression + `indicativePriceUrl`). `DrProfile.indicative_expression`
+  parses the expression and recovers it from the URL's `symbol` query param when the symbol
+  field is null (observed for HERMES80/BYDCOM80/NDX01). New `Stock.get_dr_profile()` (cached
+  per language) and `Stock.get_tradingview_url()` (`None` for non-DRs). Non-DR symbols get
+  HTTP 404 `Invalid DR` → `SymbolNotFoundError` without a "did you mean?" suggestion (the
+  endpoint 404s for valid non-DR symbols, so a suggestion would echo the symbol back).
+- **DR indicative price from TradingView** (`stock/dr_indicative_price.py`) — evaluates the
+  DR's fair-value expression (`underlying × FX ÷ ratio`, in THB) with ONE batch
+  `POST scanner.tradingview.com/global/scan` for all legs. The `close` column is the last
+  price (~15-min delayed for exchange legs, streaming for FX); the host is stateless and is
+  never routed through SessionManager. New models `TradingViewQuote`, `DrIndicativePrice`
+  (legs, ratio, `is_delayed`, aware-Bangkok `as_of`) and `DrIndicativeQuotation` (a
+  `Quotation` subclass carrying `.indicative` provenance); `get_dr_indicative_price()`
+  convenience and `Stock.get_indicative_price()`.
+
 ### Changed
 
+- **`Stock.get_latest_price()` is now DR-aware** — for DR symbols it returns the TradingView
+  indicative price as a `DrIndicativeQuotation` (its `price` is the fair value; `volume`,
+  `value`, `change`, `percent_change` are `None` since nothing traded), falling back to SET
+  chart data on any TradingView failure. Non-DR symbols are unchanged (first call per `Stock`
+  instance adds one cached DR-profile probe). Opt out per call with
+  `prefer_dr_indicative=False`; passing an explicit `as_of` always uses the SET chart path
+  (TradingView cannot answer historical instants).
 - **`DocumentCategory` is now an `enum.StrEnum`** (was `class DocumentCategory(str, Enum)`).
   The observable difference is string coercion: `str(cat)` and `f"{cat}"` now render the bare
   value (`"financial_statement"`) instead of `"DocumentCategory.FINANCIAL_STATEMENT"`, and a
@@ -28,6 +65,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A non-DR symbol no longer logs an `ERROR` on its first `get_latest_price()`** — the DR probe
+  behind the auto-switch asks `/api/set/dr/{symbol}/profile`, which answers every non-DR symbol
+  with HTTP 404. That 404 is routine control flow ("not a DR"), so it is now logged at `debug`;
+  other non-2xx statuses still log at `error`. Without this, every ordinary stock cried wolf in
+  the logs once per `Stock` instance.
 - **SEC downloads now accept a plain `list[SecDocument]`** — `DocumentDownloadService.download_all`,
   `SecCompany.download_all` and `download_sec_documents` typed `targets` as
   `list[SecDocument | str]`, which (because `list` is invariant) rejected the output of
@@ -55,6 +97,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `pypa/gh-action-pypi-publish` stays on the rolling `release/v1` branch (upstream's
   recommended pin). `setup-uv` is pinned to an exact version because it stopped publishing
   floating major tags at v8 — `@v9` does not resolve.
+
+### Documentation
+
+- New service docs `docs/settfex/services/set/profile_dr.md` and `dr_indicative_price.md`, plus a
+  new executed example notebook `examples/set/18_dr_and_asset_type.ipynb` (asset-type
+  classification, DR profiles, the TradingView URL, and the indicative-price arithmetic).
+  README, `examples/README.md`, `examples/set/README.md` and `13_chart_quotation.ipynb` now cover
+  the new services and the DR behavior of `Stock.get_latest_price()`.
+- Corrected two pre-existing doc errors found while auditing: the README chart-quotation snippet
+  called `Quotation.close`, which does not exist (the field is `price`), and `CLAUDE.md` advertised
+  `stock.get_balance_sheet()`, a method the `Stock` class has never had.
 
 ## [0.15.0] - 2026-07-27
 

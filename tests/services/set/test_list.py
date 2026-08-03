@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+from settfex.services.set.asset_type import AssetType
 from settfex.services.set.index.composition import IndexCompositionResponse
 from settfex.services.set.index.list import IndexListResponse, IndexSymbol
 from settfex.services.set.list import (
@@ -16,14 +17,16 @@ from settfex.services.set.list import (
 from settfex.utils.data_fetcher import FetcherConfig
 
 
-def _stock(symbol: str, market: str = "SET", industry: str = "SERVICE") -> dict[str, Any]:
+def _stock(
+    symbol: str, market: str = "SET", industry: str = "SERVICE", security_type: str = "S"
+) -> dict[str, Any]:
     """Build one realistic securitySymbols row."""
     return {
         "symbol": symbol,
         "nameTH": f"{symbol} (TH)",
         "nameEN": f"{symbol} (EN)",
         "market": market,
-        "securityType": "S",
+        "securityType": security_type,
         "typeSequence": 1,
         "industry": industry,
         "sector": "COMM",
@@ -160,6 +163,47 @@ class TestStockListResponse:
 
     def test_filter_by_index_unknown_returns_empty(self, response):
         assert response.filter_by_index("SETHD") == []
+
+
+class TestAssetTypeFiltering:
+    """StockSymbol.asset_type and StockListResponse.filter_by_asset_type."""
+
+    @pytest.fixture
+    def response(self) -> StockListResponse:
+        return StockListResponse.model_validate(
+            {
+                "securitySymbols": [
+                    _stock("CPALL"),
+                    _stock("GOOG80", security_type="X"),
+                    _stock("MICRON01", security_type="X"),
+                    _stock("1DIV", security_type="L"),
+                    _stock("AAV01C2609T", security_type="V"),
+                ]
+            }
+        )
+
+    def test_stock_symbol_asset_type_property(self, response):
+        goog = response.get_symbol("GOOG80")
+        cpall = response.get_symbol("CPALL")
+        assert goog is not None and cpall is not None
+        assert goog.asset_type is AssetType.DEPOSITARY_RECEIPT
+        assert cpall.asset_type is AssetType.STOCK
+
+    def test_filter_by_asset_type_enum(self, response):
+        drs = response.filter_by_asset_type(AssetType.DEPOSITARY_RECEIPT)
+        assert [s.symbol for s in drs] == ["GOOG80", "MICRON01"]
+
+    def test_filter_by_asset_type_value_string_case_insensitive(self, response):
+        assert [s.symbol for s in response.filter_by_asset_type("DR")] == ["GOOG80", "MICRON01"]
+        assert [s.symbol for s in response.filter_by_asset_type("etf")] == ["1DIV"]
+
+    def test_filter_by_asset_type_raw_set_code(self, response):
+        assert [s.symbol for s in response.filter_by_asset_type("X")] == ["GOOG80", "MICRON01"]
+        assert [s.symbol for s in response.filter_by_asset_type("V")] == ["AAV01C2609T"]
+
+    def test_filter_by_asset_type_unknown_raises_value_error(self, response):
+        with pytest.raises(ValueError, match="Unknown asset type"):
+            response.filter_by_asset_type("bond")
 
 
 @pytest.mark.asyncio

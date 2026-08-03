@@ -196,6 +196,13 @@ Pydantic model representing stock profile data.
 | `fiscal_year_end` | `str \| None` | Fiscal year end (DD/MM) |
 | `account_form` | `str \| None` | Accounting form type |
 
+> **Derived property — `profile.asset_type`:** maps the `security_type` code to a friendly
+> `AssetType` StrEnum (`stock`/`stock_foreign`/`preferred_stock`/`preferred_stock_foreign`/
+> `warrant`/`dw`/`etf`/`unit_trust`/`dr`; unrecognized → `unknown`). `Stock.get_asset_type()`
+> uses exactly this, fetching the profile once and caching the result on the instance.
+> Classify by **code**, never by `security_type_name` — the API's own display name for `Q`
+> carries a typo ("Prefered Foreign Stocks").
+
 ### `StockProfileService`
 
 Service class for fetching stock profile data.

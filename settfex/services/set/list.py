@@ -8,6 +8,7 @@ from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
 from settfex.exceptions import register_symbol_suggester
+from settfex.services.set.asset_type import SECURITY_TYPE_TO_ASSET_TYPE, AssetType
 from settfex.services.set.constants import SET_BASE_URL, SET_STOCK_LIST_ENDPOINT
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.parsing import validate_or_raise
@@ -46,6 +47,11 @@ class StockSymbol(BaseModel):
         populate_by_name=True,  # Allow both field name and alias
         str_strip_whitespace=True,  # Strip whitespace from strings
     )
+
+    @property
+    def asset_type(self) -> AssetType:
+        """Asset type derived from ``security_type`` (e.g. ``"X"`` → depositary receipt)."""
+        return AssetType.from_security_type(self.security_type)
 
 
 class StockListResponse(BaseModel):
@@ -103,6 +109,43 @@ class StockListResponse(BaseModel):
         """
         target = index.strip().upper()
         return [s for s in self.security_symbols if any(ix.upper() == target for ix in s.indices)]
+
+    def filter_by_asset_type(self, asset_type: AssetType | str) -> list[StockSymbol]:
+        """
+        Filter securities by asset type (stock, ETF, DR, DW, warrant, ...).
+
+        Args:
+            asset_type: An :class:`AssetType`, its value (e.g. ``'dr'``, ``'etf'`` —
+                case-insensitive), or a raw SET ``securityType`` code (e.g. ``'X'``)
+
+        Returns:
+            List of stock symbols of the specified asset type
+
+        Raises:
+            ValueError: If the value matches neither an AssetType nor a SET securityType code.
+
+        Example:
+            >>> stock_list = await get_stock_list(include_indices=False)
+            >>> drs = stock_list.filter_by_asset_type(AssetType.DEPOSITARY_RECEIPT)
+            >>> etfs = stock_list.filter_by_asset_type("etf")
+        """
+        if isinstance(asset_type, AssetType):
+            target = asset_type
+        else:
+            text = asset_type.strip()
+            try:
+                target = AssetType(text.lower())
+            except ValueError:
+                code_match = SECURITY_TYPE_TO_ASSET_TYPE.get(text.upper())
+                if code_match is None:
+                    valid_values = ", ".join(t.value for t in AssetType)
+                    valid_codes = ", ".join(SECURITY_TYPE_TO_ASSET_TYPE)
+                    raise ValueError(
+                        f"Unknown asset type {asset_type!r}; expected one of: {valid_values} "
+                        f"(or a SET securityType code: {valid_codes})"
+                    ) from None
+                target = code_match
+        return [s for s in self.security_symbols if s.asset_type is target]
 
     def get_symbol(self, symbol: str) -> StockSymbol | None:
         """

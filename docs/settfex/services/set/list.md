@@ -9,7 +9,8 @@ The Stock List Service provides async methods to fetch the complete list of stoc
 - **Async-First Design**: Built on `AsyncDataFetcher` for optimal performance
 - **Full Type Safety**: Complete Pydantic models with runtime validation
 - **Thai/Unicode Support**: Proper handling of Thai company names
-- **Filtering Capabilities**: Filter stocks by market, industry, index membership, or lookup by symbol
+- **Filtering Capabilities**: Filter stocks by market, industry, index membership, or asset type
+  (stock/ETF/DR/DW/warrant/...), or look up by symbol
 - **Index Memberships**: Each stock lists its headline sub-index memberships (SET50, SET100,
   sSET, SETESG, ...) by default — see `include_indices`
 - **Browser Impersonation**: Bypasses bot detection using realistic browser headers
@@ -118,6 +119,11 @@ Model representing individual stock information.
 - `indices: list[str]` - Market index memberships (e.g. `['SET50', 'SET100', 'SETESG']`);
   populated when fetching with `include_indices=True` (the default), empty otherwise
 
+**Derived property:**
+- `asset_type: AssetType` - `security_type` mapped to a friendly type
+  (`stock`/`stock_foreign`/`preferred_stock`/`preferred_stock_foreign`/`warrant`/`dw`/`etf`/
+  `unit_trust`/`dr`; unrecognized codes → `unknown`)
+
 **Example:**
 ```python
 stock = stock_list.get_symbol("PTT")
@@ -127,6 +133,7 @@ print(f"Thai: {stock.name_th}")
 print(f"Market: {stock.market}")
 print(f"Industry: {stock.industry}")
 print(f"Indices: {stock.indices}")
+print(f"Asset type: {stock.asset_type}")   # 'stock'
 ```
 
 #### StockListResponse
@@ -189,6 +196,29 @@ empty and this returns nothing.
 ```python
 set50_stocks = response.filter_by_index("SET50")    # 50 stocks
 esg_stocks = response.filter_by_index("SETESG")
+```
+
+##### `filter_by_asset_type(asset_type: AssetType | str) -> list[StockSymbol]`
+
+Filter securities by asset type (stock, ETF, DR, DW, warrant, preferred, unit trust). Each
+`StockSymbol` also exposes an `asset_type` property derived from its `security_type` code
+(`S`/`F`/`P`/`Q`/`W`/`V`/`L`/`U`/`X` → `AssetType`; unrecognized codes → `AssetType.UNKNOWN`).
+There is no `BOND` type — bonds do not appear in SET's stock APIs at all.
+
+**Parameters:**
+- `asset_type` - An `AssetType`, its value (e.g. `"dr"`, `"etf"` — case-insensitive), or a
+  raw SET `securityType` code (e.g. `"X"`). Unknown values raise `ValueError`.
+
+**Returns:**
+- `list[StockSymbol]` - Securities of the specified asset type
+
+**Example:**
+```python
+from settfex.services.set import AssetType
+
+drs = response.filter_by_asset_type(AssetType.DEPOSITARY_RECEIPT)   # GOOG80, MICRON01, ...
+etfs = response.filter_by_asset_type("etf")                         # 1DIV, ...
+dws = response.filter_by_asset_type("V")                            # raw SET code works too
 ```
 
 ##### `get_symbol(symbol: str) -> StockSymbol | None`
@@ -669,6 +699,7 @@ enrichment is skipped) with a warning; the stock list itself is never affected. 
 ## See Also
 
 - [Market Index Service](index.md) - Index directory, quotations, and constituents
+- [DR Profile Service](profile_dr.md) - Depositary Receipt details for the `dr` asset type
 - [AsyncDataFetcher](../../utils/data_fetcher.md) - Underlying HTTP client
 - [Logging Utilities](../../utils/logging.md) - Logging configuration
 - [FetcherConfig](../../utils/data_fetcher.md#fetcherconfig) - Configuration options
