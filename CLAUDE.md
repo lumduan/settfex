@@ -17,7 +17,8 @@ settfex/
 ├── settfex/                    # Main package
 │   ├── services/              # Business logic and API integrations
 │   │   ├── set/              # SET-specific services
-│   │   │   ├── constants.py, list.py, earnings_call.py, news.py, holiday.py
+│   │   │   ├── constants.py, list.py, earnings_call.py, news.py, holiday.py,
+│   │   │   │   asset_type.py (AssetType StrEnum ← securityType codes)
 │   │   │   ├── index/        # Market index services: list, info (quotation),
 │   │   │   │                 #   composition (constituents), chart_quotation,
 │   │   │   │                 #   index.py (SetIndex facade), utils.py
@@ -25,7 +26,9 @@ settfex/
 │   │   │                     #   profile_company, corporate_action, shareholder,
 │   │   │                     #   nvdr_holder, board_of_director, trading_stat,
 │   │   │                     #   price_performance, chart_quotation,
-│   │   │                     #   latest_historical_trading, financial/, stock.py, utils.py
+│   │   │                     #   latest_historical_trading, profile_dr,
+│   │   │                     #   dr_indicative_price (TradingView), financial/,
+│   │   │                     #   stock.py, utils.py
 │   │   ├── tfex/             # TFEX services: list.py, trading_statistics.py, underlying_price.py
 │   │   └── sec/              # SEC IDISC (market.sec.or.th) document services: constants.py,
 │   │                         #   company.py, financial_report.py, download.py, sec.py, utils.py
@@ -118,9 +121,9 @@ data = await get_highlight_data("CPALL")   # or convenience function
 all_stocks = await get_stock_list()        # no cookie params needed
 ```
 
-## Services Inventory (21 total)
+## Services Inventory (23 total)
 
-### SET Services (17)
+### SET Services (19)
 
 | # | Service | Module | Endpoint Pattern | Key Data |
 |---|---|---|---|---|
@@ -141,6 +144,13 @@ all_stocks = await get_stock_list()        # no cookie params needed
 | 15 | Market Index | `index/{list,info,composition,chart_quotation,index}.py` | `/api/set/index/list`, `/api/set/index/info/list`, `/api/set/index/{sym}/info`, `/api/set/index/{sym}/composition`, `/api/set/index/{sym}/chart-quotation` | 55-index directory (INDEX/INDUSTRY/SECTOR levels; mai industries use `-m` query symbols); page-header quotes (last/chg/%chg/OHLC/vol/value/marketStatus/tz-aware timestamp); constituents w/ full quote rows incl. bid/offer (string prices coerced); `SetIndex` facade + `get_index_latest_price()` (reuses stock ChartQuotation); index symbols keep casing (`sSET`, `AGRO-m`); `SET`/`mai` have no composition (404 w/ helpful error). |
 | 16 | News | `news.py` | `/api/set/news/search` | Company news/disclosures for **all stocks** in one call (default `sourceId=company`, latest-trading-day window); filters: `symbol`, `fromDate`/`toDate` (**dd/MM/yyyy only** — ISO → HTTP 400; validated eagerly via `InvalidDateError`), `keyword`, `source_id` (`None` = all sources; unrecognized values silently ignored by the API), en/th; helpers `count`/`filter_today()`/`filter_by_tag()`/`filter_by_symbol()`; `Stock.get_news()` accessor; no pagination — keep date windows modest |
 | 17 | Market Holidays | `holiday.py` | `/api/cms/v1/holidays/year/{year}` | Official SET market-closure calendar for a year (en/th): tz-aware `+07:00` dates + verbatim descriptions (trailing `" *"` = SET footnote, never stripped). `HolidayCalendar` container with `count`/`dates`/`is_holiday()`/`get_holiday()`/`filter_by_month()`/`next_holiday()`; `year=None` → current **Asia/Bangkok** year. **Only the current year is served** (2024/2025/2027/2028 → HTTP 401); 401 is the endpoint's *only* failure code and also fires transiently, so the service retries 401/403/429 via `FetcherConfig.max_retries`/`retry_delay`. Holidays only — **weekends are not in the payload** |
+
+| 18 | DR Profile | `stock/profile_dr.py` | `/api/set/dr/{sym}/profile` | Depositary Receipt details: issuer, underlying (symbol/name/exchange/url), conversion ratio (verbatim `"2,000 : 1"`), `fractionalTrade` (DRx), trading session, and the **TradingView "Indicative Price" link** — `indicativePriceSymbol` expression (e.g. `NASDAQ:GOOG*FX_IDC:USDTHB/2000.0`; sometimes null) + `indicativePriceUrl` (always present; expression recoverable from its `symbol` query param via `DrProfile.indicative_expression`). Non-DR symbols → 404 `Invalid DR` → `SymbolNotFoundError` w/ **no** suggestion. `Stock.get_dr_profile()` (cached per lang) / `get_tradingview_url()` (None for non-DR) |
+| 19 | DR Indicative Price | `stock/dr_indicative_price.py` | `POST scanner.tradingview.com/global/scan` (stateless foreign host) | DR fair value in THB: evaluates the expression (`product of leg closes ÷ ratio`) with ONE batch scan for all legs; `close` column = last price (~15-min delayed for exchange legs, streaming FX); `DrIndicativePrice` (legs/ratio/`is_delayed`/aware-Bangkok `as_of`) + `DrIndicativeQuotation` (a `Quotation` subclass, `volume=None`); **`Stock.get_latest_price()` auto-returns this for DRs** (opt-out `prefer_dr_indicative=False`; explicit `as_of` forces SET path; any failure falls back to SET chart data); `get_dr_indicative_price()` |
+
+### AssetType classification (`asset_type.py`)
+
+`AssetType` StrEnum + `AssetType.from_security_type(code)` map SET's `securityType` codes to friendly types (live-probed 2026-08-03): `S`→stock (930), `F`→stock_foreign (864), `P`→preferred_stock (8), `Q`→preferred_stock_foreign (8), `W`→warrant (85), `V`→dw (1651), `L`→etf (13), `U`→unit_trust (2), `X`→dr (493); anything else → `unknown` (never raises). Exposed as `StockProfile.asset_type` / `StockSymbol.asset_type` properties, `StockListResponse.filter_by_asset_type()`, and `Stock.get_asset_type()` (one profile fetch, cached per instance). **No `BOND` member** — bonds do not appear in SET's stock APIs.
 
 ### TFEX Services (3)
 
@@ -164,11 +174,17 @@ Single entry point for SET stock data — initialize with symbol, access all ser
 stock = Stock("CPALL")
 highlight = await stock.get_highlight_data()
 profile = await stock.get_profile()
-financials = await stock.get_balance_sheet()
-latest = await stock.get_latest_price()    # latest traded price vs now
+latest = await stock.get_latest_price()    # latest traded price vs now (DRs: TradingView indicative)
 news = await stock.get_news()              # company news/disclosures for this symbol
-# ... all stock services accessible
+asset = await stock.get_asset_type()       # AssetType: stock/etf/dr/dw/warrant/... (cached)
+# DR symbols only (e.g. Stock("GOOG80")):
+dr = await stock.get_dr_profile()          # issuer/underlying/ratio + TradingView link (cached)
+url = await stock.get_tradingview_url()    # "Indicative Price" chart URL (None for non-DR)
+ind = await stock.get_indicative_price()   # underlying x FX / ratio via TradingView
 ```
+Not every service has a `Stock` accessor yet — financial statements, trading stats, price
+performance, corporate actions, NVDR holders and the board list are reached through their
+module-level `get_*()` functions (e.g. `await get_balance_sheet("CPALL")`).
 
 ### Unified SetIndex Class (`index/index.py`)
 Same pattern for market indices:
@@ -273,6 +289,11 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full, versioned release history — t
 - **`DocumentCategory` is a `StrEnum`, deliberately — do not "restore" `(str, Enum)`:** ruff 0.15+ rejects the `(str, Enum)` pattern via `UP042`. As a `StrEnum`, `str(cat)` / `f"{cat}"` give the bare value (`"financial_statement"`), **not** `"DocumentCategory.FINANCIAL_STATEMENT"` — use `cat.name` or `repr(cat)` if you need the qualified form. Equality with the plain string, `.value`, JSON output and all `SecDocumentList` helpers are unaffected (tests guard this). Note `years_by_category()` keys on `.value` on purpose, which is why `summary()` never depended on the enum's `__str__`.
 - **The uv version in CI is pinned by hand — Dependabot will not bump it:** all six `astral-sh/setup-uv` steps pass `version: "0.11.33"` instead of `"latest"`, so a uv release cannot silently change a build (this matters most in `release.yml`, which builds the published artifact). Dependabot's `github-actions` ecosystem bumps the *action ref*, never an action *input*, so this pin only moves when someone edits it. Note pinning does **not** make setup-uv network-free: on a GitHub-hosted runner uv is not in the tool cache, so `getArtifact` still fetches `raw.githubusercontent.com/astral-sh/versions` for the download URL — a fetch that has been observed to fail transiently. Re-run the job when it does.
 - **Ruff 0.16+ formats Python code blocks inside Markdown by default:** upgrading the pinned ruff past 0.16.0 will want to reformat ~32 `.md` files (`CLAUDE.md`, `docs/`, `.github/instructions/`), collapsing the intentionally column-aligned inline comments in the code samples. Decide deliberately: either accept the churn or set `extend-exclude = ["*.md"]` under `[tool.ruff]`. The pin is currently below that (0.13.2).
+- **Classify asset types by `securityType` CODE, never by `securityTypeName`:** the API's own display name for code `Q` carries a typo ("Prefered Foreign Stocks"), and names are localizable. `AssetType.from_security_type()` maps codes case-insensitively and returns `UNKNOWN` for anything new (never raises). There is deliberately no `AssetType.BOND` — bonds appear nowhere in SET's stock APIs (no `/api/set/bond/list`, none in the stock list; live-probed 2026-08-03).
+- **The DR-profile endpoint 404s for perfectly valid non-DR symbols:** `/api/set/dr/{sym}/profile` answers ANY non-DR (even `CPALL`) with HTTP 404 `{"message":"Invalid DR"}` — so the service raises `SymbolNotFoundError` with `suggest=False`; letting the symbol suggester run would produce the absurd "'CPALL' not found — did you mean 'CPALL'?". A 404 here means "not a DR", not "unknown symbol".
+- **`indicativePriceSymbol` is sometimes null while `indicativePriceUrl` is not:** several DRs (HERMES80, BYDCOM80, NDX01 in live probes) return `indicativePriceSymbol: null` but still carry the full expression URL-encoded in `indicativePriceUrl`'s `symbol` query param. `DrProfile.indicative_expression` recovers it from the URL automatically — don't treat a null symbol field as "no expression".
+- **TradingView scanner is a stateless foreign host — and `lp` is a websocket-only column:** never route `scanner.tradingview.com` through SessionManager (auto-detect would mis-warm it as SET, and the batch scan is a POST, which persistent sessions don't support) — `DrIndicativePriceService` forces `use_session=False` for TV calls only. Over plain HTTP request the `close` column for the last price (~15-min delayed for exchange legs, `update_mode: delayed_streaming_900`; FX_IDC legs stream); `lp`/`lp_time`/`last_price` come back null. Unknown tickers return HTTP 200 with the row simply missing (the service raises `FetchError` for missing rows). Remember `AsyncDataFetcher.fetch()` retries exceptions only — the service checks the status explicitly.
+- **`Stock.get_latest_price()` is DR-aware by default:** for DRs it returns a `DrIndicativeQuotation` (TradingView indicative price; `volume`/`change` are `None` — it's a fair value, not a SET trade) and falls back to SET chart data on ANY TradingView failure. The switch only applies when `as_of is None` (TV can't answer historical instants); opt out per-call with `prefer_dr_indicative=False`. DR-ness is detected by one cached DR-profile probe per `Stock` instance (a 404 marks non-DR permanently for that instance; transient errors are never cached). Indicative vs SET-close divergence is EXPECTED (probe: 5.94 indicative vs 5.75 SET close after a US-session move) — not a bug.
 
 ---
 

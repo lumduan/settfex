@@ -1,10 +1,12 @@
 """SET (Stock Exchange of Thailand) services."""
 
+from settfex.services.set.asset_type import SECURITY_TYPE_TO_ASSET_TYPE, AssetType
 from settfex.services.set.constants import (
     SET_BASE_URL,
     SET_BOARD_OF_DIRECTOR_ENDPOINT,
     SET_COMPANY_PROFILE_ENDPOINT,
     SET_CORPORATE_ACTION_ENDPOINT,
+    SET_DR_PROFILE_ENDPOINT,
     SET_EARNINGS_CALL_DETAIL_ENDPOINT,
     SET_EARNINGS_CALL_FILTER_ENDPOINT,
     SET_EARNINGS_CALL_SEARCH_ENDPOINT,
@@ -26,6 +28,8 @@ from settfex.services.set.constants import (
     SET_STOCK_PROFILE_ENDPOINT,
     SET_STOCK_SHAREHOLDER_ENDPOINT,
     SET_TRADING_STAT_ENDPOINT,
+    TRADINGVIEW_SCAN_ENDPOINT,
+    TRADINGVIEW_SCANNER_BASE_URL,
 )
 from settfex.services.set.earnings_call import (
     EarningsCallDetail,
@@ -94,9 +98,15 @@ from settfex.services.set.stock import (
     CorporateAction,
     CorporateActionService,
     Director,
+    DrIndicativePrice,
+    DrIndicativePriceService,
+    DrIndicativeQuotation,
+    DrProfile,
+    DrProfileService,
     FinancialService,
     FinancialStatement,
     IncomeStatement,
+    IndicativePriceExpression,
     Intermission,
     Language,
     LatestHistoricalTrading,
@@ -115,12 +125,15 @@ from settfex.services.set.stock import (
     StockProfileService,
     TradingStat,
     TradingStatService,
+    TradingViewQuote,
     get_balance_sheet,
     get_board_of_directors,
     get_cash_flow,
     get_chart_quotation,
     get_company_profile,
     get_corporate_actions,
+    get_dr_indicative_price,
+    get_dr_profile,
     get_highlight_data,
     get_income_statement,
     get_latest_historical_trading,
@@ -132,6 +145,7 @@ from settfex.services.set.stock import (
     get_trading_stats,
     normalize_language,
     normalize_symbol,
+    parse_indicative_price_expression,
 )
 from settfex.utils.youtube_transcript import fetch_youtube_transcript
 
@@ -162,6 +176,12 @@ __all__ = [
     "SET_EARNINGS_CALL_FILTER_ENDPOINT",
     "SET_NEWS_SEARCH_ENDPOINT",
     "SET_HOLIDAY_ENDPOINT",
+    "SET_DR_PROFILE_ENDPOINT",
+    "TRADINGVIEW_SCANNER_BASE_URL",
+    "TRADINGVIEW_SCAN_ENDPOINT",
+    # Asset Type Classification
+    "AssetType",
+    "SECURITY_TYPE_TO_ASSET_TYPE",
     # Stock List Service
     "StockListService",
     "StockListResponse",
@@ -224,6 +244,16 @@ __all__ = [
     "CompanyProfileService",
     "CompanyProfile",
     "get_company_profile",
+    "DrProfileService",
+    "DrProfile",
+    "IndicativePriceExpression",
+    "parse_indicative_price_expression",
+    "get_dr_profile",
+    "DrIndicativePriceService",
+    "DrIndicativePrice",
+    "DrIndicativeQuotation",
+    "TradingViewQuote",
+    "get_dr_indicative_price",
     "CorporateActionService",
     "CorporateAction",
     "get_corporate_actions",

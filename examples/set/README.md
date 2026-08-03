@@ -326,6 +326,29 @@ Complete, beginner-friendly tutorials for all SET (Stock Exchange of Thailand) s
 > ⚠️ The API serves **only the current year**, and weekends are **not** in the payload — combine
 > `is_holiday()` with a weekday check to answer "is the market open?".
 
+---
+
+### 18. Asset Types & Depositary Receipts (`18_dr_and_asset_type.ipynb`)
+**What it does**: Tells SET instruments apart (stock / ETF / DR / DW / warrant / preferred / unit
+trust) and prices Depositary Receipts against their underlying via TradingView
+
+**Learn how to**:
+- Classify any symbol with `Stock.get_asset_type()` and the `AssetType` enum
+- Count and filter the whole universe by type with `filter_by_asset_type()`
+- Read a DR's issuer, underlying, exchange and conversion ratio from `get_dr_profile()`
+- Get the SET "Indicative Price" TradingView chart URL with `get_tradingview_url()`
+- Compute a DR's THB fair value (underlying × FX ÷ ratio) with `get_dr_indicative_price()`
+- Understand why `Stock.get_latest_price()` returns the indicative price for DRs, and how to
+  opt out with `prefer_dr_indicative=False`
+
+**Use cases**:
+- Excluding DWs/DRs (or isolating them) when building a tradable stock universe
+- Spotting the arbitrage gap between a DR's SET price and its underlying's fair value
+- Valuing DR positions outside SET hours, while the underlying market is still trading
+
+> ⚠️ The indicative price is ~15 minutes delayed for the underlying exchange leg and keeps moving
+> while SET is closed — divergence from the DR's own SET close is expected, not an error.
+
 ## Learning Path
 
 ### Beginners

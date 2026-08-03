@@ -15,6 +15,9 @@ Endpoint: `GET /api/set/stock/{symbol}/chart-quotation?period=1D&accumulated=fal
 - **Intraday + historical** — `period` of `1D`, `5D`, `1M`, `3M`, `6M`, `1Y`, `3Y`, `5Y`, `MAX`.
 - **Latest traded price vs. now** — `get_latest_price()` returns the most recent quotation that
   actually traded (non-null `volume`), skipping future / lunch-break / no-trade buckets.
+  (`Stock.get_latest_price()` answers **DR** symbols with the TradingView indicative price
+  instead — see [dr_indicative_price.md](dr_indicative_price.md); the top-level
+  `get_latest_price()` function in this module is always SET chart data.)
 - **Timezone-correct** — quotation timestamps are tz-aware (`+07:00`); `as_of` inputs (naive or any
   zone) are normalized to Asia/Bangkok before comparison.
 - **Hyphen-safe symbols** — warrant symbols like `JAS-W4` are preserved (only upper-cased/trimmed).
@@ -55,6 +58,12 @@ stock = Stock("CPALL")
 data = await stock.get_chart_quotation(period="1D")    # full ChartQuotation series
 latest = await stock.get_latest_price()                # latest traded Quotation (or None)
 ```
+
+> **DR symbols behave differently:** for Depositary Receipts (e.g. `GOOG80`),
+> `Stock.get_latest_price()` returns the **TradingView indicative price** (a
+> `DrIndicativeQuotation` — `volume` is `None`) instead of SET chart data, falling back to
+> the SET path on any failure. Opt out with `prefer_dr_indicative=False`. See
+> [dr_indicative_price.md](dr_indicative_price.md).
 
 ### Using the convenience function
 

@@ -7,6 +7,7 @@ from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
 from settfex.exceptions import InvalidSymbolError, raise_for_status
+from settfex.services.set.asset_type import AssetType
 from settfex.services.set.constants import SET_BASE_URL, SET_STOCK_PROFILE_ENDPOINT
 from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
@@ -93,6 +94,11 @@ class StockProfile(BaseModel):
         populate_by_name=True,  # Allow both field name and alias
         str_strip_whitespace=True,  # Strip whitespace from strings
     )
+
+    @property
+    def asset_type(self) -> AssetType:
+        """Asset type derived from ``security_type`` (e.g. ``"X"`` → depositary receipt)."""
+        return AssetType.from_security_type(self.security_type)
 
 
 class StockProfileService:

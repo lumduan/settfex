@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
+from settfex.exceptions import SymbolNotFoundError
+from settfex.services.set.asset_type import AssetType
 from settfex.services.set.stock.chart_quotation import (
     ChartQuotation,
     ChartQuotationService,
@@ -21,11 +23,16 @@ from settfex.services.set.stock.latest_historical_trading import (
     LatestHistoricalTrading,
     LatestHistoricalTradingService,
 )
-from settfex.services.set.stock.utils import Language, normalize_symbol
+from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import FetcherConfig
 
 if TYPE_CHECKING:
     from settfex.services.set.news import NewsSearchResponse, NewsService
+    from settfex.services.set.stock.dr_indicative_price import (
+        DrIndicativePrice,
+        DrIndicativePriceService,
+    )
+    from settfex.services.set.stock.profile_dr import DrProfile, DrProfileService
     from settfex.services.set.stock.profile_stock import StockProfile, StockProfileService
     from settfex.services.set.stock.shareholder import ShareholderData, ShareholderService
 
@@ -77,6 +84,15 @@ class Stock:
         self._profile_service: StockProfileService | None = None
         self._shareholder_service: ShareholderService | None = None
         self._news_service: NewsService | None = None
+        self._dr_profile_service: DrProfileService | None = None
+        self._dr_indicative_price_service: DrIndicativePriceService | None = None
+
+        # Instance caches (static per listing; a new Stock instance starts clean).
+        self._asset_type: AssetType | None = None
+        self._dr_profiles: dict[str, DrProfile] = {}
+        # Tri-state: None = not probed yet, True/False = known (a DR-profile 404 means
+        # "not a DR" — the endpoint 404s for every non-DR symbol, even valid ones).
+        self._is_dr: bool | None = None
 
         logger.info(f"Stock instance created for symbol '{self.symbol}'")
 
@@ -157,32 +173,83 @@ class Stock:
         period: PeriodType = "1D",
         accumulated: bool = False,
         as_of: datetime | None = None,
+        prefer_dr_indicative: bool = True,
     ) -> Quotation | None:
         """
-        Fetch the latest *traded* quotation for this stock relative to ``as_of``.
+        Fetch the latest price quotation for this symbol relative to ``as_of``.
 
-        Returns the most recent quotation with a non-null volume at or before ``as_of`` (default:
-        now in Asia/Bangkok), excluding the pre-populated future/no-trade buckets. Returns None if
-        nothing has traded yet.
+        For regular symbols this returns the most recent SET quotation with a non-null volume
+        at or before ``as_of`` (default: now in Asia/Bangkok), excluding the pre-populated
+        future/no-trade buckets — or None if nothing has traded yet.
+
+        For **DR symbols** (e.g. GOOG80) this returns the TradingView **indicative price**
+        instead — ``underlying x FX / conversion ratio`` in THB, the same number behind the
+        "Indicative Price" menu on SET's DR pages. It keeps moving while SET is closed
+        (underlying markets trade on their own hours; exchange legs are ~15-min delayed).
+        The result is then a :class:`DrIndicativeQuotation` — a ``Quotation`` subclass whose
+        ``price`` is the indicative price, whose ``volume``/``value``/``change``/
+        ``percent_change`` are ``None`` (it is a fair value, not a SET trade), and whose
+        ``.indicative`` field carries the full computation (legs, ratio, delay flags). Any
+        failure on the TradingView path falls back gracefully to the SET chart data.
+
+        The DR path is skipped when ``prefer_dr_indicative=False`` or when an explicit
+        ``as_of`` is given (TradingView serves only "now" — it cannot answer a historical
+        instant); ``period``/``accumulated`` only affect the SET chart path.
 
         Args:
             period: Time period — one of '1D','5D','1M','3M','6M','1Y','3Y','5Y','MAX'
             accumulated: Whether to return accumulated volume/value (default: False)
             as_of: Reference instant; naive values are treated as Asia/Bangkok local time.
-                Defaults to now in Asia/Bangkok.
+                Defaults to now in Asia/Bangkok. Passing a value forces the SET chart path.
+            prefer_dr_indicative: Use the TradingView indicative price for DRs (default:
+                True). Pass False to always return the SET traded quotation.
 
         Returns:
-            The latest traded Quotation, or None if nothing has traded by ``as_of``
+            The latest Quotation (a DrIndicativeQuotation for DRs on the indicative path),
+            or None if nothing has traded by ``as_of``
 
         Example:
             >>> stock = Stock("CPALL")
             >>> q = await stock.get_latest_price()
             >>> if q:
             ...     print(f"{q.local_datetime}: {q.price} (vol {q.volume})")
+            >>>
+            >>> dr = Stock("GOOG80")
+            >>> q = await dr.get_latest_price()          # TradingView indicative price
+            >>> q = await dr.get_latest_price(prefer_dr_indicative=False)  # SET traded price
         """
+        if prefer_dr_indicative and as_of is None:
+            quotation = await self._get_dr_indicative_quotation()
+            if quotation is not None:
+                return quotation
+
         logger.debug(f"Fetching latest price for {self.symbol} period={period}")
         data = await self.get_chart_quotation(period=period, accumulated=accumulated)
         return data.get_latest_quotation(as_of)
+
+    async def _get_dr_indicative_quotation(self) -> Quotation | None:
+        """DR auto-switch for :meth:`get_latest_price` — the only place with fallback logic.
+
+        Returns the TradingView indicative price as a quotation, or ``None`` meaning "use the
+        SET chart path": the symbol is a known non-DR (cached after one 404 probe per
+        instance), or the indicative computation failed (any error → graceful fallback;
+        DR-ness is never cached off a transient failure).
+        """
+        if self._is_dr is False:
+            return None
+        try:
+            indicative = await self.get_indicative_price()
+        except SymbolNotFoundError:
+            # get_dr_profile already cached self._is_dr = False for this instance.
+            logger.debug(f"{self.symbol} is not a DR; using SET chart data for latest price")
+            return None
+        except Exception as exc:
+            logger.warning(
+                f"DR indicative price unavailable for {self.symbol}; "
+                f"falling back to SET chart data: {exc}"
+            )
+            return None
+        return indicative.to_quotation()
 
     @property
     def latest_historical_trading_service(self) -> LatestHistoricalTradingService:
@@ -248,6 +315,163 @@ class Stock:
         """
         logger.debug(f"Fetching profile for {self.symbol} (lang={lang})")
         return await self.profile_service.fetch_profile(symbol=self.symbol, lang=lang)
+
+    async def get_asset_type(self, refresh: bool = False) -> AssetType:
+        """
+        Classify this symbol's asset type (stock, ETF, DR, DW, warrant, ...).
+
+        Derived from the stock profile's ``securityType`` code and cached on the instance —
+        the first call fetches the profile once; later calls are network-free. Note there is
+        no ``BOND`` type: bonds do not appear in SET's stock APIs at all.
+
+        Args:
+            refresh: Refetch the profile instead of using the cached classification
+
+        Returns:
+            AssetType (``AssetType.UNKNOWN`` when SET serves an unrecognized code)
+
+        Raises:
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
+
+        Example:
+            >>> stock = Stock("GOOG80")
+            >>> asset_type = await stock.get_asset_type()
+            >>> print(asset_type)                      # 'dr' (StrEnum renders the bare value)
+            >>> asset_type is AssetType.DEPOSITARY_RECEIPT
+            True
+        """
+        if self._asset_type is None or refresh:
+            profile = await self.get_profile()
+            self._asset_type = profile.asset_type
+        return self._asset_type
+
+    @property
+    def dr_profile_service(self) -> DrProfileService:
+        """
+        Get or create DR profile service instance.
+
+        Returns:
+            DrProfileService instance
+        """
+        if self._dr_profile_service is None:
+            from settfex.services.set.stock.profile_dr import DrProfileService
+
+            self._dr_profile_service = DrProfileService(config=self.config)
+        return self._dr_profile_service
+
+    async def get_dr_profile(self, lang: Language = "en", refresh: bool = False) -> DrProfile:
+        """
+        Fetch the DR (Depositary Receipt) profile for this symbol.
+
+        Includes issuer/underlying details, the conversion ratio, and the TradingView
+        "Indicative Price" link. Cached per language on the instance (the ratio and
+        expression are static per listing).
+
+        Args:
+            lang: Language for response ('en' or 'th', default: 'en')
+            refresh: Refetch instead of using the per-language cache
+
+        Returns:
+            DrProfile for this symbol
+
+        Raises:
+            InvalidLanguageError: If the language is not recognized.
+            SymbolNotFoundError: If this symbol is not a DR — the endpoint answers every
+                non-DR symbol (even valid listed ones) with HTTP 404 ``{"message":
+                "Invalid DR"}``, so no "did you mean?" suggestion is attached.
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
+
+        Example:
+            >>> stock = Stock("GOOG80")
+            >>> dr = await stock.get_dr_profile()
+            >>> print(f"{dr.underlying} @ {dr.underlying_exchange}, ratio {dr.conversion_ratio}")
+        """
+        lang_key = normalize_language(lang)
+        cached = self._dr_profiles.get(lang_key)
+        if cached is not None and not refresh:
+            return cached
+
+        logger.debug(f"Fetching DR profile for {self.symbol} (lang={lang_key})")
+        try:
+            profile = await self.dr_profile_service.fetch_dr_profile(
+                symbol=self.symbol, lang=lang_key
+            )
+        except SymbolNotFoundError:
+            self._is_dr = False
+            raise
+        self._is_dr = True
+        self._dr_profiles[lang_key] = profile
+        return profile
+
+    async def get_tradingview_url(self) -> str | None:
+        """
+        Get the TradingView "Indicative Price" chart URL for this symbol (DRs only).
+
+        This is the link behind the "Indicative Price" menu on SET's DR pages, e.g.
+        ``https://th.tradingview.com/chart/?symbol=NASDAQ%3AGOOG*FX_IDC%3AUSDTHB%2F2000.0``
+        for GOOG80.
+
+        Returns:
+            The TradingView chart URL, or ``None`` when this symbol is not a DR (other
+            failures propagate).
+
+        Example:
+            >>> stock = Stock("GOOG80")
+            >>> url = await stock.get_tradingview_url()
+            >>> print(url)
+        """
+        try:
+            profile = await self.get_dr_profile()
+        except SymbolNotFoundError:
+            logger.debug(f"{self.symbol} is not a DR; no TradingView indicative URL")
+            return None
+        return profile.tradingview_url
+
+    @property
+    def dr_indicative_price_service(self) -> DrIndicativePriceService:
+        """
+        Get or create DR indicative price service instance.
+
+        Returns:
+            DrIndicativePriceService instance
+        """
+        if self._dr_indicative_price_service is None:
+            from settfex.services.set.stock.dr_indicative_price import DrIndicativePriceService
+
+            self._dr_indicative_price_service = DrIndicativePriceService(config=self.config)
+        return self._dr_indicative_price_service
+
+    async def get_indicative_price(self) -> DrIndicativePrice:
+        """
+        Compute this DR's indicative price (underlying x FX / ratio) from TradingView.
+
+        Fetches the legs of SET's indicative-price expression from TradingView's scanner in
+        one batch request and evaluates it. Exchange legs are ~15-minute delayed; the value
+        moves while SET is closed, so it routinely diverges from the DR's own last traded
+        price on SET.
+
+        Returns:
+            DrIndicativePrice with the THB fair value, per-leg quotes, and provenance
+
+        Raises:
+            SymbolNotFoundError: If this symbol is not a DR.
+            FetchError: When no usable expression exists, a leg quote is missing/null, or on
+                HTTP/transport failures.
+            ResponseParseError: If a response cannot be parsed.
+
+        Example:
+            >>> stock = Stock("GOOG80")
+            >>> price = await stock.get_indicative_price()
+            >>> print(f"{price.indicative_price:.2f} THB (delayed={price.is_delayed})")
+        """
+        profile = await self.get_dr_profile()
+        logger.debug(f"Computing indicative price for {self.symbol}")
+        return await self.dr_indicative_price_service.fetch_indicative_price(
+            self.symbol, profile=profile
+        )
 
     @property
     def shareholder_service(self) -> ShareholderService:
