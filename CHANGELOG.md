@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-08-10
+
+### Added
+
+- **ThaiBMA government bond yield curve services** (`settfex/services/thaibma/`) — the library's
+  first fixed-income data and its fourth host (`www.thaibma.or.th`, the Thai Bond Market
+  Association). Covers the fitted par curve, the bond quotes behind it, and daily history back to
+  **1999-09-15**:
+  - `GET /yieldcurve/gov[/{date}]` → `YieldCurveService.fetch_curve()` / `get_government_yield_curve()`
+    returning a `YieldCurve` of `CurvePoint` (the standard tenor grid, 1M/3M/6M then whole years)
+    plus `BondQuote` rows (yield, day-on-day change, maturity, benchmark/synthetic flags).
+    Helpers: `yield_at()`, `interpolate()`, `slope_bps()` (the 2s10s in one call), `to_dict()`,
+    `benchmarks`/`bills`/`bonds`, `quote()`, `to_dataframe()`.
+  - **Bulk-year history at one request per year** — `GET /yieldcurve/getintpttm?year=` (the
+    constant-maturity matrix) and `GET /yieldcurve/getbyyear?year=` (the per-bond matrix) via
+    `YieldCurveHistoryService.fetch_history()` / `get_yield_curve_history()` /
+    `get_bond_yield_history()`. The full 27-year record is **28 requests** rather than the ~6,600
+    a per-day loop would cost; these routes are undocumented and appear only in the ThaiBMA
+    website's own JavaScript. Returns a `YieldCurveHistory` whose `rows` carry per-year dynamic
+    columns and whose `columns` is the ordered union, with `series()`, `slice()`,
+    `columns_by_year()`, `coverage()`, `to_long()` and `to_dataframe(layout="wide"|"long")`.
+  - `GET /yieldcurve/avail` + `/availyear` → `YieldCurveAvailabilityService` /
+    `get_yield_curve_availability()`, which also clamps history spans so a year ThaiBMA does not
+    serve is reported in `unavailable_years` instead of silently vanishing.
+  - `ThaiBMA` facade (`get_yield_curve()`, `get_history()`, `get_bond_history()`,
+    `get_availability()`) with lazily-constructed, cached services.
+- **`StaleDataError`** (a `FetchError` subclass, in `settfex/exceptions.py`) — raised when an API
+  answers HTTP 200 with data for a **different date** than was requested. ThaiBMA's curve endpoint
+  never 404s on a date: a weekend, a Thai public holiday, or **any future date** silently returns
+  the most recent earlier curve. Every `YieldCurve` therefore carries `requested_date`, `as_of`
+  and the Pydantic **computed fields** `is_rolled_back` / `rollback_days` (so the audit trail
+  survives `model_dump()`), and `on_rollback` selects `"warn"` (default), `"raise"` or `"allow"`.
+- Docs at `docs/settfex/services/thaibma/yield_curve.md`, a runnable
+  `examples/thaibma/01_government_yield_curve.ipynb`, and a live verification script.
+
+### Notes
+
+Five API behaviours are documented in CLAUDE.md's Known Gotchas, all live-verified 2026-08-10:
+the silent roll-back; `yield_percent` in **percent** while `change_bps` is in **basis points**
+(proved by differencing consecutive business days); a body of literal `null` for pre-1999-09-15
+dates; malformed dates failing two different silent ways (`2026-8-10` → HTML 404, `2026-02-30` →
+HTTP 200 with the *latest* curve, both neutralized client-side); and `IsBenchmark`/`IsSynthetic`
+never being backfilled before 2013/2014.
+
 ## [0.16.0] - 2026-08-03
 
 ### Added

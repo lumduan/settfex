@@ -35,7 +35,7 @@ Usage:
     >>> asyncio.run(main())
 """
 
-__version__ = "0.16.0"
+__version__ = "0.17.0"
 __author__ = "batt"
 __license__ = "MIT"
 
@@ -45,6 +45,7 @@ from settfex.exceptions import (
     InvalidDateError,
     InvalidLanguageError,
     InvalidSymbolError,
+    StaleDataError,
     SymbolNotFoundError,
 )
 
@@ -89,6 +90,20 @@ from settfex.services.set import (
     get_stock_list,
 )
 
+# ThaiBMA government bond yield curve services (www.thaibma.or.th) — Thai fixed income
+from settfex.services.thaibma import (
+    BondQuote,
+    CurvePoint,
+    ThaiBMA,
+    YieldCurve,
+    YieldCurveAvailability,
+    YieldCurveHistory,
+    get_bond_yield_history,
+    get_government_yield_curve,
+    get_yield_curve_availability,
+    get_yield_curve_history,
+)
+
 # Utility exports
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.logging import setup_logger
@@ -122,6 +137,17 @@ __all__ = [
     "SecDocumentList",
     "DocumentCategory",
     "DownloadedFile",
+    # ThaiBMA government bond yield curve (www.thaibma.or.th)
+    "ThaiBMA",
+    "get_government_yield_curve",
+    "get_yield_curve_history",
+    "get_bond_yield_history",
+    "get_yield_curve_availability",
+    "YieldCurve",
+    "YieldCurveHistory",
+    "YieldCurveAvailability",
+    "CurvePoint",
+    "BondQuote",
     # Data Models
     "StockListResponse",
     "StockHighlightData",
@@ -142,6 +168,7 @@ __all__ = [
     # Exceptions
     "FetchError",
     "SymbolNotFoundError",
+    "StaleDataError",
     "InvalidSymbolError",
     "InvalidLanguageError",
     "InvalidDateError",

@@ -17,11 +17,13 @@ Example:
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import date
 from typing import NoReturn
 
 __all__ = [
     "FetchError",
     "SymbolNotFoundError",
+    "StaleDataError",
     "InvalidSymbolError",
     "InvalidLanguageError",
     "InvalidDateError",
@@ -86,6 +88,32 @@ class SymbolNotFoundError(FetchError):
         if suggestion:
             message = f"{message} — did you mean '{suggestion}'?"
         super().__init__(message, status_code=status_code, symbol=symbol)
+
+
+class StaleDataError(FetchError):
+    """An API answered HTTP 200 with data for a **different date** than was requested.
+
+    ThaiBMA's yield-curve endpoint rolls back silently: a weekend, a Thai public holiday, or any
+    **future** date all return the most recent curve on or before the request, with HTTP 200 and
+    no signal of the substitution. Raised only when the caller opts in with ``on_rollback="raise"``
+    — the default is to warn and set :attr:`~settfex.services.thaibma.YieldCurve.is_rolled_back`.
+
+    Subclasses :class:`FetchError` because the input was valid and the *response* was not, so
+    existing ``except FetchError`` handlers keep working.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        requested_date: date | None = None,
+        as_of: date | None = None,
+        rollback_days: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.requested_date = requested_date
+        self.as_of = as_of
+        self.rollback_days = rollback_days
 
 
 class InvalidSymbolError(ValueError):

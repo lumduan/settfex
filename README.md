@@ -109,6 +109,10 @@ Want to dig deeper? Check out our detailed guides:
 
 - **[SEC Document Service](docs/settfex/services/sec/financial_report.md)** - List and download the raw disclosure documents filed with the Thai SEC (the original financial-statement Excel package, Form 56-1, Form 56-2, Key Financial Ratio, MD&A)
 
+### ThaiBMA Services (www.thaibma.or.th)
+
+- **[Government Bond Yield Curve](docs/settfex/services/thaibma/yield_curve.md)** - The official Thai government bond yield curve for any date back to 1999, the bond quotes behind it, and daily history at **one request per year** (the whole 27-year record in 28 requests)
+
 ### Utilities
 
 - **[AsyncDataFetcher](docs/settfex/utils/data_fetcher.md)** - Low-level async HTTP client
@@ -618,6 +622,43 @@ print(f"Can trade {max_contracts} contracts with {capital:,.0f} THB")
 ```
 
 **👉 [Learn more about TFEX Trading Statistics](docs/settfex/services/tfex/trading_statistics.md)**
+
+---
+
+### ThaiBMA (Thai Bond Market Association)
+
+#### 🏦 Get the Government Bond Yield Curve
+
+The official Thai risk-free curve — for today, for any date back to 1999, or as daily history.
+
+```python
+from settfex.services.thaibma import ThaiBMA, get_government_yield_curve
+
+curve = await get_government_yield_curve()       # the latest published curve
+print(f"as of {curve.as_of}: 10Y = {curve.yield_at('10Y')}%")
+print(f"2s10s slope: {curve.slope_bps('2Y', '10Y'):.1f} bp")
+print(curve.interpolate(7.5))                    # linear between grid points
+
+# The endpoint NEVER 404s on a date — a weekend, a holiday, or a future date
+# silently returns an earlier curve. settfex always tells you when that happened:
+saturday = await ThaiBMA().get_yield_curve("2026-08-08")
+print(saturday.is_rolled_back, saturday.as_of, saturday.rollback_days)  # True 2026-08-07 1
+```
+
+History costs **one request per year**, not one per business day — the whole 27-year record is
+28 requests instead of ~6,600:
+
+```python
+from settfex.services.thaibma import get_yield_curve_history
+
+history = await get_yield_curve_history("2020-01-01")    # 7 requests
+print(history.count, len(history.columns))               # 1608 business days x 54 tenors
+
+df = history.to_dataframe()                              # requires: pip install "settfex[dataframe]"
+df["10Y"].plot(title="Thai 10Y government yield")
+```
+
+**👉 [Learn more about the ThaiBMA Yield Curve](docs/settfex/services/thaibma/yield_curve.md)**
 
 ---
 

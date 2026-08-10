@@ -30,13 +30,16 @@ settfex/
 │   │   │                     #   dr_indicative_price (TradingView), financial/,
 │   │   │                     #   stock.py, utils.py
 │   │   ├── tfex/             # TFEX services: list.py, trading_statistics.py, underlying_price.py
-│   │   └── sec/              # SEC IDISC (market.sec.or.th) document services: constants.py,
-│   │                         #   company.py, financial_report.py, download.py, sec.py, utils.py
+│   │   ├── sec/              # SEC IDISC (market.sec.or.th) document services: constants.py,
+│   │   │                     #   company.py, financial_report.py, download.py, sec.py, utils.py
+│   │   └── thaibma/          # ThaiBMA (www.thaibma.or.th) government bond yield curve:
+│   │                         #   constants.py, utils.py, yield_curve.py, history.py,
+│   │                         #   availability.py, thaibma.py
 │   └── utils/                # http.py, data_fetcher.py, session_manager.py,
 │                             #   session_cache.py, logging.py
 ├── tests/                     # Mirror of settfex/ with test_ prefix
 ├── docs/                      # Service docs, guides, solutions
-├── examples/                  # 22 Jupyter notebooks (18 SET + 3 TFEX + 1 SEC)
+├── examples/                  # 23 Jupyter notebooks (18 SET + 3 TFEX + 1 SEC + 1 ThaiBMA)
 ├── scripts/                   # Verification scripts per service
 ├── .github/                   # CI and agent instructions
 ├── pyproject.toml             # uv-based config
@@ -121,7 +124,7 @@ data = await get_highlight_data("CPALL")   # or convenience function
 all_stocks = await get_stock_list()        # no cookie params needed
 ```
 
-## Services Inventory (23 total)
+## Services Inventory (24 total)
 
 ### SET Services (19)
 
@@ -167,6 +170,23 @@ Host is **`market.sec.or.th`** (the Thai SEC IDISC system), NOT set.or.th — a 
 | # | Service | Module | Endpoint Pattern | Key Data |
 |---|---|---|---|---|
 | 1 | SEC Documents | `sec/{company,financial_report,download,sec}.py` | `POST /public/idisc/api/company/valuebyuniqueId`; `GET`/`POST /public/idisc/{lang}/FinancialReport/{FS\|R561\|R562\|KFR}`; `GET /public/idisc/{lang}/ViewMore/{slug}`; `GET /public/idisc/Download?FILEID=`; `GET /ipos/Common/IPOSGetFile.aspx?id=` | List + download **raw disclosure documents** for any issuer across 5 categories (`DocumentCategory`: financial_statement/form_56_1/form_56_2/key_financial_ratio/mda). Company resolver (`resolve_company` → 10-digit uniqueIDReference); listing replays the ASP.NET WebForms search (GET `__VIEWSTATE` → form POST → stdlib HTML-table parse), follows ViewMore for complete large sections; downloads return raw bytes (`DownloadedFile.save()`), concurrent `download_all`, soft-404 detection (dead links = HTML "file not found" under HTTP 200 → `FetchError`). Listing returns a **`SecDocumentList`** (a `list[SecDocument]` subclass, backward compatible) with `years_by_category()`/`available_years()`/`filter(category=,year=)`/`categories()`/`summary()` helpers — pass a **wide** date window to see full year history. `SecCompany("CPALL")` facade; `get_sec_documents()`/`download_sec_document(s)()`. dd/mm/yyyy dates. Stateless host (no SessionManager). |
+
+### ThaiBMA Services (1)
+
+Host is **`www.thaibma.or.th`** (the Thai Bond Market Association) — a stateless JSON API, a fourth top-level package `services/thaibma/`. The library's only fixed-income data.
+
+| # | Service | Module | Endpoint Pattern | Key Data |
+|---|---|---|---|---|
+| 1 | Government Bond Yield Curve | `thaibma/{yield_curve,history,availability,thaibma}.py` | `GET /yieldcurve/gov[/{YYYY-MM-DD}]`; `GET /yieldcurve/getintpttm?year=`; `GET /yieldcurve/getbyyear?year=`; `GET /yieldcurve/avail`; `GET /yieldcurve/availyear` | The **official Thai government yield curve** back to **1999-09-15**. Point-in-time: `YieldCurve` = fitted `CurvePoint` grid (1M/3M/6M then whole years, `X` in years / `Y` in **percent**) + `BondQuote` rows (yield, `change_bps`, maturity, `GroupOrder` 1=T-Bill/2=bond, benchmark/synthetic flags); helpers `yield_at()`, `interpolate()` (never extrapolates), `slope_bps()`, `to_dict()`, `benchmarks`/`bills`/`bonds`, `quote()`, `to_dataframe()`. **History is one request per YEAR** (the full 27-year record = 28 requests, not ~6,600): `getintpttm` = constant-maturity matrix (reproduces `Curve` exactly), `getbyyear` = per-bond matrix (a *superset* of the daily `Stat` panel — also carries ILB/LBA issues); `YieldCurveHistory` carries per-year dynamic columns + their ordered union, with `series()`/`slice()`/`columns_by_year()`/`coverage()`/`to_long()`/`to_dataframe(layout=)`. Roll-back-aware: `requested_date` + `as_of` + computed `is_rolled_back`/`rollback_days`, `on_rollback="warn"|"raise"|"allow"` (`"raise"` → `StaleDataError`). `ThaiBMA` facade; `get_government_yield_curve()` / `get_yield_curve_history()` / `get_bond_yield_history()` / `get_yield_curve_availability()`. Stateless host (no SessionManager); no `lang` (the payload has no language dimension). |
+
+### Unified ThaiBMA Class (`thaibma/thaibma.py`)
+```python
+tbma = ThaiBMA()
+curve = await tbma.get_yield_curve()                 # latest; or a date, or on_rollback="raise"
+history = await tbma.get_history("2020-01-01")       # 7 requests -> ~1,600 days x 54 tenors
+bonds = await tbma.get_bond_history("2026-01-01")    # columns are bond symbols
+avail = await tbma.get_availability()                # 1999-09-15 .. today, 28 years
+```
 
 ### Unified Stock Class (`stock/stock.py`)
 Single entry point for SET stock data — initialize with symbol, access all services via lazy-init properties:
@@ -293,6 +313,14 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full, versioned release history — t
 - **The DR-profile endpoint 404s for perfectly valid non-DR symbols:** `/api/set/dr/{sym}/profile` answers ANY non-DR (even `CPALL`) with HTTP 404 `{"message":"Invalid DR"}` — so the service raises `SymbolNotFoundError` with `suggest=False`; letting the symbol suggester run would produce the absurd "'CPALL' not found — did you mean 'CPALL'?". A 404 here means "not a DR", not "unknown symbol".
 - **`indicativePriceSymbol` is sometimes null while `indicativePriceUrl` is not:** several DRs (HERMES80, BYDCOM80, NDX01 in live probes) return `indicativePriceSymbol: null` but still carry the full expression URL-encoded in `indicativePriceUrl`'s `symbol` query param. `DrProfile.indicative_expression` recovers it from the URL automatically — don't treat a null symbol field as "no expression".
 - **TradingView scanner is a stateless foreign host — and `lp` is a websocket-only column:** never route `scanner.tradingview.com` through SessionManager (auto-detect would mis-warm it as SET, and the batch scan is a POST, which persistent sessions don't support) — `DrIndicativePriceService` forces `use_session=False` for TV calls only. Over plain HTTP request the `close` column for the last price (~15-min delayed for exchange legs, `update_mode: delayed_streaming_900`; FX_IDC legs stream); `lp`/`lp_time`/`last_price` come back null. Unknown tickers return HTTP 200 with the row simply missing (the service raises `FetchError` for missing rows). Remember `AsyncDataFetcher.fetch()` retries exceptions only — the service checks the status explicitly.
+- **ThaiBMA's curve endpoint NEVER 404s on a date — it rolls back silently:** `/yieldcurve/gov/{date}` serves the most recent curve *on or before* the request. A weekend returns Friday's curve, a Thai holiday the previous business day's, and **any future date returns today's** (`2030-01-01` → `Asof 2026-08-10`) — all HTTP 200, no marker. `YieldCurve` therefore always carries `requested_date` **and** `as_of` plus the Pydantic **computed fields** `is_rolled_back`/`rollback_days` (computed, so the audit trail survives `model_dump()` into Parquet). `on_rollback` is `"warn"` (default) / `"raise"` (→ `StaleDataError`) / `"allow"`. `"warn"` is the default deliberately: `"raise"` would break every weekend of a date-range loop and train people into bare `except`, while `"allow"` exists so an intentional calendar-day walk does not emit ~100 warnings a year. `rollback_days` is the diagnostic — 1-4 = weekend/holiday, a large value = you asked for the future.
+- **ThaiBMA mixes units in one row — `Yield` is PERCENT, `Change` is BASIS POINTS:** proved by differencing consecutive business days (a `-0.005534%` move is published as `Change: -0.5534`). Modelled as `yield_percent` / `change_bps` so the unit rides in the identifier, with `change_percent` as the safe-to-add derived form; a test pins the relationship against two real days. `Spread` is deliberately named just `spread` — ThaiBMA states the unit but what it is a spread *to* was never verified, and a wrong unit baked into a name is worse than an unqualified one.
+- **Two nullable fields in the ThaiBMA `Stat` payload, and the second is easy to miss:** `MaturityDate` is null on the four synthetic T-BILL rows (expected), and **`Change` is null for every row on 1999-09-15** — the first curve ever published has no prior business day to difference against. Every other date in 27 years has both populated. A `float` (non-optional) `change_bps` blows up on exactly one date in the entire history.
+- **ThaiBMA yield history is ONE REQUEST PER YEAR — never loop over days:** `getintpttm?year=` and `getbyyear?year=` each return a whole calendar year of business-day rows, so the full 1999→2026 record is **28 requests** versus ~6,600 for a per-day walk. Neither route is linked from any API index or documentation — they appear only in the site's own JS (`/EN/Market/YieldCurve/scripts/government-page.js`). `fetch_curves(dates)` exists only for the per-date `Stat` block (benchmark flags, spreads, per-bond changes), which has no bulk endpoint. `start_date` defaults to **1 Jan of the end year**, not 1999, so a bare `fetch_history()` cannot trigger a full-history pull by accident.
+- **ThaiBMA history matrices are WIDE with per-year dynamic columns, and absent ≠ null:** tenors went 14 in 1999 (`1Y`..`14Y`, **no sub-year tenors at all**) → 20 in 2005 → 54 in 2026 (`1M`..`51Y`); bond symbols differ every year. Fixed Pydantic fields are impossible — each `HistoryRow` holds only its own year's columns in `values`, and the ordered union lives on the container. `HistoryRow.has(col)` distinguishes "that year never had the column" from "present but not quoted that day"; `to_dataframe()` flattens both to `NaN`, so use `columns_by_year()` when the difference matters. Note `YieldCurveHistory.row_for()` deliberately does **not** roll back — a Saturday returns `None`.
+- **ThaiBMA's classification flags were never backfilled:** `IsBenchmark` is all-false before **2013** and `IsSynthetic` all-false before **2014** (probed: 2012-01-04 → 0/0, 2013-01-04 → 8/0, 2014-01-06 → 5/17). A backtest filtering history on `is_benchmark` gets **an empty set for the first ~14 years** rather than an error. `IsPlot` was `True` on every row in every era sampled, so it is not a useful filter either.
+- **ThaiBMA fails malformed input in two different SILENT ways, plus a `null` body:** `2026-8-10` (unpadded) → an **HTML** 404 page; `2026-02-30` (well-formed but impossible) → HTTP 200 with the **latest** curve; a date before 1999-09-15 → HTTP 200 with a body of literal `null` (not `{}`, not 404); `getbyyear` with an out-of-range year → `[]`, with a non-numeric year → HTTP 400. `normalize_curve_date()` makes the first two unreachable (it re-emits every date zero-padded and rejects impossible days during `date` construction, before any request). Because error bodies are sometimes ASP.NET JSON and sometimes HTML, **never parse a non-2xx body** — the status is the only trustworthy signal.
+- **No bulk history for ThaiBMA's zero-coupon curve — and it is deliberately not implemented:** `/yieldcurve/zero/{date}` exists and returns a byte-identical `{"Curve","Stat"}` envelope (coverage starts 2001-07-02), but `getzerobyyear` 404s. `fetch_history()` therefore takes **no** curve-type argument on purpose: accepting one and silently returning government data would be the worst possible outcome. The US Treasury curve and the corporate industry-spread curves on the same controller are out of scope (not Thai / not government); all are recorded in `docs/settfex/services/thaibma/yield_curve.md` so nobody re-discovers them.
 - **`Stock.get_latest_price()` is DR-aware by default:** for DRs it returns a `DrIndicativeQuotation` (TradingView indicative price; `volume`/`change` are `None` — it's a fair value, not a SET trade) and falls back to SET chart data on ANY TradingView failure. The switch only applies when `as_of is None` (TV can't answer historical instants); opt out per-call with `prefer_dr_indicative=False`. DR-ness is detected by one cached DR-profile probe per `Stock` instance (a 404 marks non-DR permanently for that instance; transient errors are never cached). Indicative vs SET-close divergence is EXPECTED (probe: 5.94 indicative vs 5.75 SET close after a US-session move) — not a bug.
 
 ---
