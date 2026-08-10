@@ -31,6 +31,16 @@ Complete tutorial series covering the SET services:
 
 **Total**: 18 notebooks + comprehensive guide
 
+### ThaiBMA (Thai Bond Market Association) Examples
+
+**Location**: `examples/thaibma/`
+
+1. **Government Bond Yield Curve** - The official Thai risk-free curve: latest and historical
+   curves, the silent roll-back trap, percent vs basis points, daily history at one request per
+   year (1999→today), term-structure and 2s10s plots, and the per-bond matrix
+
+**Total**: 1 notebook
+
 ## Quick Start
 
 ### 1. Install Dependencies
