@@ -28,6 +28,11 @@ from settfex.utils.data_fetcher import FetcherConfig
 
 if TYPE_CHECKING:
     from settfex.services.set.news import NewsSearchResponse, NewsService
+    from settfex.services.set.stock.analyst_consensus import (
+        AnalystConsensus,
+        AnalystConsensusService,
+        ConsensusOverallResponse,
+    )
     from settfex.services.set.stock.dr_indicative_price import (
         DrIndicativePrice,
         DrIndicativePriceService,
@@ -86,9 +91,12 @@ class Stock:
         self._news_service: NewsService | None = None
         self._dr_profile_service: DrProfileService | None = None
         self._dr_indicative_price_service: DrIndicativePriceService | None = None
+        self._analyst_consensus_service: AnalystConsensusService | None = None
 
         # Instance caches (static per listing; a new Stock instance starts clean).
         self._asset_type: AssetType | None = None
+        # Analyst consensus moves at most once a day, so one fetch per instance is plenty.
+        self._analyst_consensus: AnalystConsensus | None = None
         self._dr_profiles: dict[str, DrProfile] = {}
         # Tri-state: None = not probed yet, True/False = known (a DR-profile 404 means
         # "not a DR" — the endpoint 404s for every non-DR symbol, even valid ones).
@@ -346,6 +354,85 @@ class Stock:
             profile = await self.get_profile()
             self._asset_type = profile.asset_type
         return self._asset_type
+
+    @property
+    def analyst_consensus_service(self) -> AnalystConsensusService:
+        """
+        Get or create analyst consensus service instance.
+
+        Returns:
+            AnalystConsensusService instance
+        """
+        if self._analyst_consensus_service is None:
+            from settfex.services.set.stock.analyst_consensus import AnalystConsensusService
+
+            self._analyst_consensus_service = AnalystConsensusService(config=self.config)
+        return self._analyst_consensus_service
+
+    async def get_analyst_consensus(self, refresh: bool = False) -> AnalystConsensus:
+        """
+        Fetch the IAA analyst-consensus table for this symbol (from settrade.com).
+
+        Cached on the instance — the underlying data changes at most once a day.
+
+        There is deliberately no ``lang`` argument: the endpoint has no language dimension
+        (``?lang=`` is ignored) and ``recommend`` is broker-supplied English free text.
+
+        Args:
+            refresh: Refetch instead of using the instance cache
+
+        Returns:
+            AnalystConsensus with average/median/high/low aggregates, one row per covering
+            broker, and each broker's research PDF URL. ``stats_to_dataframe()`` and
+            ``to_dataframe()`` give the two pandas views.
+
+        Raises:
+            FetchError: If settrade has no consensus record for this symbol — it answers with
+                HTTP 500 rather than 404, and does so for DRs, warrants and valid SET common
+                stocks with no IAA coverage alike. Also on other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
+
+        Example:
+            >>> stock = Stock("GULF")
+            >>> data = await stock.get_analyst_consensus()
+            >>> print(f"{data.count} brokers, median target {data.median.target_price}")
+            >>> brokers_df = data.to_dataframe()
+        """
+        if self._analyst_consensus is not None and not refresh:
+            return self._analyst_consensus
+
+        logger.debug(f"Fetching analyst consensus for {self.symbol}")
+        consensus = await self.analyst_consensus_service.fetch_analyst_consensus(symbol=self.symbol)
+        self._analyst_consensus = consensus
+        return consensus
+
+    async def get_consensus_overall(self, lang: Language = "en") -> ConsensusOverallResponse:
+        """
+        Fetch the buy/hold/sell consensus summary for this symbol (from settrade.com).
+
+        Not cached: the row carries a live ``last_price``.
+
+        Args:
+            lang: Language for response ('en' or 'th', default: 'en')
+
+        Returns:
+            ConsensusOverallResponse holding one row for this symbol — or ZERO rows when
+            settrade does not know it, which it reports as HTTP 200 with an empty list rather
+            than an error. Check ``count``, or use ``.get(symbol)`` which returns None.
+
+        Raises:
+            InvalidLanguageError: If the language is not recognized.
+            FetchError: On HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
+
+        Example:
+            >>> stock = Stock("GULF")
+            >>> summary = await stock.get_consensus_overall()
+            >>> row = summary.get("GULF")
+            >>> print(f"{row.buy} buy / {row.hold} hold / {row.sell} sell")
+        """
+        logger.debug(f"Fetching consensus summary for {self.symbol} (lang={lang})")
+        return await self.analyst_consensus_service.fetch_overall(symbol=self.symbol, lang=lang)
 
     @property
     def dr_profile_service(self) -> DrProfileService:

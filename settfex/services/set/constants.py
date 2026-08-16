@@ -65,3 +65,31 @@ TRADINGVIEW_SCANNER_BASE_URL = "https://scanner.tradingview.com"
 TRADINGVIEW_SCAN_ENDPOINT = "/global/scan"
 TRADINGVIEW_ORIGIN = "https://th.tradingview.com"
 TRADINGVIEW_REFERER = "https://th.tradingview.com/"
+
+# Settrade (www.settrade.com) — SET Group's retail portal, which serves the IAA analyst-consensus
+# research behind https://www.settrade.com/th/equities/quote/{symbol}/analyst-consensus (the
+# "tableAnalystConcensus" table). That page is a client-rendered Nuxt app — the table is NOT in
+# the server HTML — so these are the JSON endpoints the page's own bundle calls. No HTML parsing.
+#
+# Bot protection (Incapsula, live-probed 2026-08-16): BOTH a warmed www.settrade.com cookie jar
+# AND a Referer on www.settrade.com are required. A warmed session with no Referer -> 403, and a
+# session warmed on www.set.or.th -> 403 (Incapsula cookies are per-domain). Hence the dedicated
+# SessionManager warmup_site="settrade" — never let a settrade URL fall through to the SET warmup.
+# The warm URL does not need to be symbol-specific: one warmed session serves every symbol.
+SETTRADE_BASE_URL = "https://www.settrade.com"
+SETTRADE_WARMUP_URL = "https://www.settrade.com/th/home"
+
+# The consensus table itself: four aggregate rows (average/median/high/low) plus one row per
+# covering broker (broker, analyst, target price, recommendation, research PDF). Takes NO lang
+# parameter — the th and en responses are byte-identical and `recommend` is broker-supplied
+# English free text. Answers an uncovered symbol with HTTP 500, never 404 — and "uncovered"
+# includes perfectly valid SET symbols (ABICO), DRs (GOOG80) and warrants (JAS-W4).
+SETTRADE_ANALYST_CONSENSUS_ENDPOINT = "/api/set-fund/consensus/stock/{symbol}/consensus"
+
+# The buy/hold/sell summary shown above the table. Takes ?lang= and an OPTIONAL ?symbol=; with
+# no symbol it returns EVERY covered SET stock in one response (~48 KB) — a market-wide consensus
+# screener. An unknown symbol is answered silently: HTTP 200 with "overall": [].
+SETTRADE_CONSENSUS_OVERALL_ENDPOINT = "/api/set-fund/consensus/stock/overall"
+
+# Referer template — MANDATORY on every settrade API call (see the bot-protection note above).
+SETTRADE_QUOTE_REFERER = "https://www.settrade.com/th/equities/quote/{symbol}/analyst-consensus"

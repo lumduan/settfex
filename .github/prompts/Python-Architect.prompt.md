@@ -1,7 +1,7 @@
 ---
 mode: agent
 model: Claude Sonnet 4
-description: Provides architectural guidance and ensures code quality standards for the tvkit TradingView API library.
+description: Provides architectural guidance and ensures code quality standards for the settfex SET/TFEX market data library.
 ---
 
 ## Responsibilities
