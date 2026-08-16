@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-08-16
+
+### Added
+
+- **Analyst Consensus (IAA) service** (`settfex/services/set/stock/analyst_consensus.py`) — broker
+  target prices, earnings forecasts and research PDF links for a SET stock, from the library's
+  first **`www.settrade.com`** host. This is the data behind the `tableAnalystConcensus` table on
+  Settrade's quote page; the page is a client-rendered Nuxt app, so the service calls the JSON
+  endpoints its bundle calls rather than parsing HTML.
+  - `GET /api/set-fund/consensus/stock/{symbol}/consensus` →
+    `AnalystConsensusService.fetch_analyst_consensus()` / `get_analyst_consensus()` returning an
+    `AnalystConsensus`: four aggregate rows (`average`/`median`/`high`/`low`, typed
+    `ConsensusStatistic` and labelled by their payload key) plus one `AnalystConsensusRow` per
+    covering broker with analyst name, recommendation, target price and `last_research_url` (the
+    research PDF). Helpers: `count`, `brokers`, `statistics`, `broker_names`, `with_research`,
+    `research_urls`, `latest_update`, `broker(name)`.
+  - `GET /api/set-fund/consensus/stock/overall?lang=&symbol=` →
+    `fetch_overall()` / `get_consensus_overall()` returning a `ConsensusOverallResponse` of
+    `ConsensusOverall` rows (last price, coverage count, buy/hold/sell, bullish/bearish, median
+    and average target price). **Omit the symbol and it returns every covered SET stock in one
+    request** — a market-wide consensus screener.
+  - **Two DataFrames**, the feature's headline: `stats_to_dataframe()` for the four aggregate rows
+    (labelled by a `statistic` column) and `to_dataframe()` for the per-broker rows including the
+    PDF link; `get_analyst_consensus_dataframes()` fetches straight into both. Column names are
+    year-agnostic and the year labels ride in `df.attrs`. Requires the optional `dataframe` extra.
+  - `Stock.get_analyst_consensus()` (cached per instance) and `Stock.get_consensus_overall()`.
+  - `has_coverage` is a **computed** field: a listed stock nobody covers returns HTTP 200 with an
+    empty broker list and aggregates zero-filled to `0.0` rather than null, so the flag survives
+    `model_dump()` into Parquet. A symbol Settrade has no record of returns **HTTP 500, not 404**
+    — including valid SET stocks, DRs and warrants — and is raised as a plain `FetchError`, never
+    `SymbolNotFoundError`.
+  - Every numeric field is `float | None`: real broker rows null `targetPriceChange`,
+    `nextYearPe`, `currentYearPbv` and `nextYearDiv`.
+- **`SessionManager` gained a third warmup site, `"settrade"`** (`settfex/utils/session_manager.py`),
+  auto-detected from the URL host by `get_session_for_url()`. Incapsula cookies are per-domain: a
+  session warmed on `www.set.or.th` is rejected with HTTP 403 on `www.settrade.com`, so a settrade
+  URL must never fall through to the SET warmup. Warmup URLs now live in a `WARMUP_URLS` map.
+- **`AGENTS.md`** at the repo root — the calling contract for AI agents and LLM tool use: the
+  service map across all four hosts, the `get_*()` / `fetch_*()` / `fetch_*_raw()` tiers, the
+  warning that the top-level `settfex` package re-exports only a subset of
+  `settfex.services.set`, and the failure modes that silently produce wrong answers (HTTP 500 as
+  "uncovered", zero-filled aggregates, dd/MM/yyyy news dates, ThaiBMA's silent roll-back,
+  percent-vs-basis-point units). `CLAUDE.md` remains the guide for *changing* the library.
+
+### Fixed
+
+- **`SessionManager.reset_instance(site)` no longer resets unrelated sites.** Instance keys are
+  `f"{warmup_site}_{browser}"` and the filter used a bare `key.startswith(warmup_site)`, so
+  `reset_instance("set")` also matched `settrade_chrome120` and would have silently closed the
+  Settrade session. It now matches on the `"<site>_"` prefix. Latent before this release (no two
+  existing site names were prefixes of one another).
+
 ## [0.17.0] - 2026-08-10
 
 ### Added
