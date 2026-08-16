@@ -27,8 +27,9 @@ settfex/
 │   │   │                     #   nvdr_holder, board_of_director, trading_stat,
 │   │   │                     #   price_performance, chart_quotation,
 │   │   │                     #   latest_historical_trading, profile_dr,
-│   │   │                     #   dr_indicative_price (TradingView), financial/,
-│   │   │                     #   stock.py, utils.py
+│   │   │                     #   dr_indicative_price (TradingView),
+│   │   │                     #   analyst_consensus (IAA, settrade.com),
+│   │   │                     #   financial/, stock.py, utils.py
 │   │   ├── tfex/             # TFEX services: list.py, trading_statistics.py, underlying_price.py
 │   │   ├── sec/              # SEC IDISC (market.sec.or.th) document services: constants.py,
 │   │   │                     #   company.py, financial_report.py, download.py, sec.py, utils.py
@@ -39,7 +40,7 @@ settfex/
 │                             #   session_cache.py, logging.py
 ├── tests/                     # Mirror of settfex/ with test_ prefix
 ├── docs/                      # Service docs, guides, solutions
-├── examples/                  # 23 Jupyter notebooks (18 SET + 3 TFEX + 1 SEC + 1 ThaiBMA)
+├── examples/                  # 24 Jupyter notebooks (19 SET + 3 TFEX + 1 SEC + 1 ThaiBMA)
 ├── scripts/                   # Verification scripts per service
 ├── .github/                   # CI and agent instructions
 ├── pyproject.toml             # uv-based config
@@ -124,9 +125,9 @@ data = await get_highlight_data("CPALL")   # or convenience function
 all_stocks = await get_stock_list()        # no cookie params needed
 ```
 
-## Services Inventory (24 total)
+## Services Inventory (25 total)
 
-### SET Services (19)
+### SET Services (20)
 
 | # | Service | Module | Endpoint Pattern | Key Data |
 |---|---|---|---|---|
@@ -150,6 +151,7 @@ all_stocks = await get_stock_list()        # no cookie params needed
 
 | 18 | DR Profile | `stock/profile_dr.py` | `/api/set/dr/{sym}/profile` | Depositary Receipt details: issuer, underlying (symbol/name/exchange/url), conversion ratio (verbatim `"2,000 : 1"`), `fractionalTrade` (DRx), trading session, and the **TradingView "Indicative Price" link** — `indicativePriceSymbol` expression (e.g. `NASDAQ:GOOG*FX_IDC:USDTHB/2000.0`; sometimes null) + `indicativePriceUrl` (always present; expression recoverable from its `symbol` query param via `DrProfile.indicative_expression`). Non-DR symbols → 404 `Invalid DR` → `SymbolNotFoundError` w/ **no** suggestion. `Stock.get_dr_profile()` (cached per lang) / `get_tradingview_url()` (None for non-DR) |
 | 19 | DR Indicative Price | `stock/dr_indicative_price.py` | `POST scanner.tradingview.com/global/scan` (stateless foreign host) | DR fair value in THB: evaluates the expression (`product of leg closes ÷ ratio`) with ONE batch scan for all legs; `close` column = last price (~15-min delayed for exchange legs, streaming FX); `DrIndicativePrice` (legs/ratio/`is_delayed`/aware-Bangkok `as_of`) + `DrIndicativeQuotation` (a `Quotation` subclass, `volume=None`); **`Stock.get_latest_price()` auto-returns this for DRs** (opt-out `prefer_dr_indicative=False`; explicit `as_of` forces SET path; any failure falls back to SET chart data); `get_dr_indicative_price()` |
+| 20 | Analyst Consensus (IAA) | `stock/analyst_consensus.py` | `GET www.settrade.com/api/set-fund/consensus/stock/{sym}/consensus`; `GET .../consensus/stock/overall?lang=&symbol=` | Broker research consensus — the data behind the `tableAnalystConcensus` table on Settrade's quote page (a Nuxt SPA, so this calls the JSON its bundle calls; **no HTML parsing**). Returns four aggregate rows (`average`/`median`/`high`/`low` as `ConsensusStatistic`, labelled by payload key) + one `AnalystConsensusRow` per covering broker (analyst, recommend, target price, EPS/net-profit/PE/PBV/div forecasts, `last_research_url` = **the research PDF**). **Two DataFrames**: `stats_to_dataframe()` (aggregates) and `to_dataframe()` (brokers) — or `get_analyst_consensus_dataframes()` for both; year-agnostic column names with the years in `df.attrs`. Second endpoint = buy/hold/sell summary (`ConsensusOverallResponse`); **omit the symbol → every covered SET stock in one request** (a market-wide screener). `Stock.get_analyst_consensus()` (cached) / `get_consensus_overall()`. Uses `SessionManager(warmup_site="settrade")` |
 
 ### AssetType classification (`asset_type.py`)
 
@@ -197,6 +199,8 @@ profile = await stock.get_profile()
 latest = await stock.get_latest_price()    # latest traded price vs now (DRs: TradingView indicative)
 news = await stock.get_news()              # company news/disclosures for this symbol
 asset = await stock.get_asset_type()       # AssetType: stock/etf/dr/dw/warrant/... (cached)
+iaa = await stock.get_analyst_consensus()  # broker targets + research PDFs (cached; settrade.com)
+rec = await stock.get_consensus_overall()  # buy/hold/sell counts (live last_price, not cached)
 # DR symbols only (e.g. Stock("GOOG80")):
 dr = await stock.get_dr_profile()          # issuer/underlying/ratio + TradingView link (cached)
 url = await stock.get_tradingview_url()    # "Indicative Price" chart URL (None for non-DR)
@@ -284,6 +288,9 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full, versioned release history — t
 
 ## Contact & Resources
 
+- **Calling** the library from an AI agent: [`AGENTS.md`](AGENTS.md) — service map, the `get_*()`
+  contract, and the traps that produce wrong answers. This file (`CLAUDE.md`) covers **changing**
+  the library; keep the two in sync when a service is added or a gotcha is found.
 - Documentation: `docs/` directory
 - Issues: GitHub Issues
 - License: MIT
@@ -321,6 +328,13 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full, versioned release history — t
 - **ThaiBMA's classification flags were never backfilled:** `IsBenchmark` is all-false before **2013** and `IsSynthetic` all-false before **2014** (probed: 2012-01-04 → 0/0, 2013-01-04 → 8/0, 2014-01-06 → 5/17). A backtest filtering history on `is_benchmark` gets **an empty set for the first ~14 years** rather than an error. `IsPlot` was `True` on every row in every era sampled, so it is not a useful filter either.
 - **ThaiBMA fails malformed input in two different SILENT ways, plus a `null` body:** `2026-8-10` (unpadded) → an **HTML** 404 page; `2026-02-30` (well-formed but impossible) → HTTP 200 with the **latest** curve; a date before 1999-09-15 → HTTP 200 with a body of literal `null` (not `{}`, not 404); `getbyyear` with an out-of-range year → `[]`, with a non-numeric year → HTTP 400. `normalize_curve_date()` makes the first two unreachable (it re-emits every date zero-padded and rejects impossible days during `date` construction, before any request). Because error bodies are sometimes ASP.NET JSON and sometimes HTML, **never parse a non-2xx body** — the status is the only trustworthy signal.
 - **No bulk history for ThaiBMA's zero-coupon curve — and it is deliberately not implemented:** `/yieldcurve/zero/{date}` exists and returns a byte-identical `{"Curve","Stat"}` envelope (coverage starts 2001-07-02), but `getzerobyyear` 404s. `fetch_history()` therefore takes **no** curve-type argument on purpose: accepting one and silently returning government data would be the worst possible outcome. The US Treasury curve and the corporate industry-spread curves on the same controller are out of scope (not Thai / not government); all are recorded in `docs/settfex/services/thaibma/yield_curve.md` so nobody re-discovers them.
+- **Settrade is a SEPARATE Incapsula cookie domain — and the `Referer` is mandatory:** `www.settrade.com` (the analyst-consensus service) is SET Group's retail portal but a different host from `www.set.or.th`, with its own cookie jar. Proved by a 2×3 warm-URL/referer matrix (live-probed 2026-08-16): a session warmed on `www.set.or.th` → **403**; a warmed settrade session with **no** `Referer` → **403**; a warmed settrade session **plus** any `www.settrade.com` referer → 200. The warm URL need not be symbol-specific and one warmed session serves every symbol, so `SessionManager` gained a third `warmup_site="settrade"` (warms `https://www.settrade.com/th/home`) and `get_session_for_url()` routes by host. **Never let a settrade URL fall through to the SET warmup** — it would 403 every request.
+- **`SessionManager.reset_instance()` matches on `"<site>_"`, not the bare site name:** instance keys are `f"{warmup_site}_{browser}"`, so the old bare `startswith(warmup_site)` made `reset_instance("set")` also match `settrade_chrome120` and silently close the Settrade session. Harmless until `settrade` landed (no two earlier site names were prefixes of one another); a test now pins it. Any future site name that extends an existing one has the same hazard.
+- **The analyst-consensus endpoint answers an uncovered symbol with HTTP 500, not 404:** `/api/set-fund/consensus/stock/{sym}/consensus` returns 500 for anything it has no consensus record for — **including valid SET common stocks** (`ABICO`), DRs (`GOOG80`) and warrants (`JAS-W4`). It is therefore raised as a plain `FetchError(status_code=500)`, never `SymbolNotFoundError`: the suggester would emit the absurd "'ABICO' not found — did you mean 'ABICO'?" (the mirror of the DR-profile 404 gotcha above). A genuine server error is indistinguishable, so retry once before concluding a symbol is uncovered.
+- **A listed stock nobody covers returns ZEROS, not nulls:** `TCC`/`MORE`/`PROUD` answer HTTP 200 with `consensuses: []` **and every aggregate row filled with `0.0`** — a 0.0 target price is indistinguishable from a real one. The zeros are kept verbatim (repo convention: record the anomaly, never rewrite the payload); `AnalystConsensus.has_coverage` is the guard, and it is a **computed field** so it survives `model_dump()` into Parquet. The service also logs a warning.
+- **An analyst-consensus AGGREGATE row is not any one broker's row:** every column in `average`/`median`/`high`/`low` is aggregated independently. On GULF (2026-08-16) `high.target_price` was `91.0` from one broker while `high.target_price_change` was `12.0` from a *different* broker whose target was `79.0` — so never reconstruct one field from another across an aggregate row. Worse, the change columns only aggregate the brokers who actually revised (2 of 16), so `average.target_price_change` is **not** `average.target_price` minus a previous average.
+- **The analyst-consensus table endpoint has NO language dimension:** `?lang=` is silently ignored and the `th`/`en` payloads are byte-identical (`recommend` is broker-supplied English free text like `"Buy"` / `"Outperform Market"`). `fetch_analyst_consensus()` deliberately takes **no** `lang` argument — do not add one "for consistency". Only the *overall* summary endpoint honours `lang`. That summary also fails silently: an unknown symbol is HTTP 200 with `overall: []`, never an error.
+- **Analyst-consensus units come from the rendered column headers, not a guess:** `currentYearNetProfit` is in **million baht** (`กำไรสุทธิ (ล้านบาท)`) and `currentYearDiv`/`nextYearDiv` are a dividend **yield in percent** (`DIV (%)`), not baht per share — both confirmed against `tableAnalystConcensus` on 2026-08-16. Every numeric field is nullable on real broker rows (`targetPriceChange`, `nextYearPe`, `currentYearPbv`, `nextYearDiv` all observed null on CPALL), and `lastResearchURL` is null for many covering brokers (only 9 of GULF's 16 published a PDF).
 - **`Stock.get_latest_price()` is DR-aware by default:** for DRs it returns a `DrIndicativeQuotation` (TradingView indicative price; `volume`/`change` are `None` — it's a fair value, not a SET trade) and falls back to SET chart data on ANY TradingView failure. The switch only applies when `as_of is None` (TV can't answer historical instants); opt out per-call with `prefer_dr_indicative=False`. DR-ness is detected by one cached DR-profile probe per `Stock` instance (a 404 marks non-DR permanently for that instance; transient errors are never cached). Indicative vs SET-close divergence is EXPECTED (probe: 5.94 indicative vs 5.75 SET close after a US-session move) — not a bug.
 
 ---

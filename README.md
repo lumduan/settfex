@@ -39,7 +39,7 @@ This includes pandas, matplotlib, and jupyter notebook support.
 - [Stock List](examples/set/01_stock_list.ipynb) → [Highlight Data](examples/set/02_highlight_data.ipynb) → [Price Performance](examples/set/10_price_performance.ipynb) → [Financial Statements](examples/set/11_financial.ipynb)
 
 **Professional Trading :** Master all features for institutional use:
-- All 18 SET notebooks + TFEX notebooks (see below)
+- All 19 SET notebooks + TFEX notebooks (see below)
 
 ### 📊 SET Examples (Stock Exchange of Thailand)
 
@@ -63,6 +63,7 @@ All examples include beginner explanations, professional trading use cases, and 
 16. **[SET News](examples/set/16_news.ipynb)** - Company news/disclosures for all stocks: symbol/date/keyword filters, Thai headlines
 17. **[Market Holidays](examples/set/17_holiday.ipynb)** - Official market-closure calendar: is the market open, next holiday, long weekends
 18. **[Asset Types & Depositary Receipts](examples/set/18_dr_and_asset_type.ipynb)** - Tell stocks/ETFs/DRs/DWs apart, DR profiles, and TradingView indicative prices
+19. **[Analyst Consensus (IAA)](examples/set/19_analyst_consensus.ipynb)** - Broker target prices, forecasts, research PDF links, and a whole-market buy/hold/sell screener
 
 ### 📈 TFEX Examples (Thailand Futures Exchange)
 
@@ -75,6 +76,9 @@ Professional derivatives trading workflows with margin calculations and risk man
 **[📂 View All Examples](examples/)** - Complete index with learning guides
 
 ## 📚 Full Documentation
+
+**Building an AI agent or LLM tool?** Start with **[AGENTS.md](AGENTS.md)** — the service map,
+the flat `get_*()` calling contract, and the failure modes that silently produce wrong answers.
 
 Want to dig deeper? Check out our detailed guides:
 
@@ -99,6 +103,7 @@ Want to dig deeper? Check out our detailed guides:
 - **[Market Holiday Service](docs/settfex/services/set/holiday.md)** - Official SET market-closure calendar for the year, in English or Thai
 - **[DR Profile Service](docs/settfex/services/set/profile_dr.md)** - Depositary Receipt details: issuer, underlying, conversion ratio, and the TradingView "Indicative Price" link
 - **[DR Indicative Price Service](docs/settfex/services/set/dr_indicative_price.md)** - A DR's fair value in THB (underlying × FX ÷ ratio) from TradingView
+- **[Analyst Consensus Service](docs/settfex/services/set/analyst_consensus.md)** - IAA broker target prices, earnings forecasts and research PDF links, plus a market-wide buy/hold/sell screener
 
 ### TFEX Services
 
@@ -425,6 +430,37 @@ quote = await dr.get_latest_price(prefer_dr_indicative=False)  # SET traded pric
 ```
 
 **👉 [Learn more about DR Profiles](docs/settfex/services/set/profile_dr.md)** · **[DR Indicative Price](docs/settfex/services/set/dr_indicative_price.md)**
+
+---
+
+#### 🎯 Get Analyst Consensus
+
+Broker target prices, earnings forecasts and links to each broker's research PDF — split into the
+two tables the Settrade page shows (aggregates, and one row per broker):
+
+```python
+from settfex.services.set import get_analyst_consensus, get_consensus_overall
+
+data = await get_analyst_consensus("GULF")
+print(f"{data.count} brokers | target {data.low.target_price}–{data.high.target_price} "
+      f"(median {data.median.target_price})")
+
+for broker, url in data.research_urls:      # brokers that published a PDF
+    print(f"{broker:<10} {url}")
+
+# Two DataFrames (needs the optional `dataframe` extra)
+stats_df = data.stats_to_dataframe()        # average / median / high / low
+brokers_df = data.to_dataframe()            # broker, analyst, recommend, target, PDF link
+
+# Buy/hold/sell counts — omit the symbol for a whole-market screener
+summary = await get_consensus_overall("GULF")
+row = summary.get("GULF")
+print(f"{row.buy} buy / {row.hold} hold / {row.sell} sell ({row.bullish}% bullish)")
+
+market = await get_consensus_overall()      # every covered SET stock, one request
+```
+
+**👉 [Learn more about Analyst Consensus](docs/settfex/services/set/analyst_consensus.md)**
 
 ---
 

@@ -4,7 +4,7 @@ applyTo: '**'
 # Documentation Standards Agent
 
 ## Purpose
-Ensures comprehensive documentation standards and maintains consistency across the tvkit TradingView API library.
+Ensures comprehensive documentation standards and maintains consistency across the settfex SET/TFEX market data library.
 
 ## Responsibilities
 
