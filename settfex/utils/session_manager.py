@@ -24,6 +24,25 @@ from loguru import logger
 
 from settfex.utils.session_cache import SessionCache, get_global_cache
 
+# Warmup site -> (homepage to visit for cookies, human label for logs).
+#
+# Incapsula cookies are PER-DOMAIN: a session warmed on one host is useless on another
+# (live-probed 2026-08-16 — a set.or.th-warmed session gets HTTP 403 on www.settrade.com), which
+# is why each host gets its own SessionManager instance and its own disk-cache entry. The homepage
+# does not need to be section- or symbol-specific: one warmed session serves every URL on it.
+WARMUP_URLS: dict[str, tuple[str, str]] = {
+    "set": ("https://www.set.or.th/en/home", "SET"),
+    "tfex": ("https://www.tfex.co.th/en/home", "TFEX"),
+    "settrade": ("https://www.settrade.com/th/home", "Settrade"),
+}
+
+# Host substring -> warmup site, for get_session_for_url(). Anything unmatched uses the SET
+# warmup. Order is irrelevant today (no host matches two entries) but the tuple keeps it stable.
+_URL_WARMUP_SITES: tuple[tuple[str, str], ...] = (
+    ("tfex.co.th", "tfex"),
+    ("settrade.com", "settrade"),
+)
+
 
 class SessionManager:
     """
@@ -82,7 +101,8 @@ class SessionManager:
             cache_dir: Directory for session cache (default: ~/.settfex/cache)
             cache_ttl: Cache time-to-live in seconds (default: 3600 = 1 hour)
             enable_cache: Enable disk caching (default: True)
-            warmup_site: Site to warmup with - 'set' or 'tfex' (default: 'set')
+            warmup_site: Site to warmup with - 'set', 'tfex' or 'settrade' (default: 'set').
+                Unrecognized values fall back to the SET warmup.
         """
         self.browser = browser
         self.cache_dir = cache_dir
@@ -109,11 +129,12 @@ class SessionManager:
         """
         Get singleton instance of SessionManager.
 
-        Creates separate instances for SET and TFEX to maintain independent sessions.
+        Creates a separate instance per site (SET / TFEX / Settrade) so each keeps its own
+        cookie jar - Incapsula cookies are per-domain and are not interchangeable.
 
         Args:
             browser: Browser to impersonate (default: chrome120)
-            warmup_site: Site to warmup with - 'set' or 'tfex' (default: 'set')
+            warmup_site: Site to warmup with - 'set', 'tfex' or 'settrade' (default: 'set')
 
         Returns:
             SessionManager instance
@@ -130,12 +151,16 @@ class SessionManager:
         Reset singleton instance (useful for testing).
 
         Args:
-            warmup_site: Specific site to reset ('set' or 'tfex'), or None to reset all
+            warmup_site: Specific site to reset ('set', 'tfex' or 'settrade'), or None to
+                reset all
         """
         if warmup_site:
-            # Reset specific site
+            # Reset specific site. Match on "<site>_" and NOT on the bare site name: instance
+            # keys are f"{warmup_site}_{browser}", and "settrade_chrome120".startswith("set")
+            # is True - resetting SET would silently close the Settrade session as well.
+            prefix = f"{warmup_site}_"
             for key in list(cls._instances.keys()):
-                if key.startswith(warmup_site):
+                if key.startswith(prefix):
                     instance = cls._instances[key]
                     if instance._session:
                         instance._session.close()
@@ -295,13 +320,8 @@ class SessionManager:
             return
 
         # Slow path: Warm up session
-        # Determine warmup URL based on site
-        if self.warmup_site == "tfex":
-            warmup_url = "https://www.tfex.co.th/en/home"
-            site_name = "TFEX"
-        else:
-            warmup_url = "https://www.set.or.th/en/home"
-            site_name = "SET"
+        # Determine warmup URL based on site (unknown sites fall back to SET, as before)
+        warmup_url, site_name = WARMUP_URLS.get(self.warmup_site, WARMUP_URLS["set"])
 
         logger.info(f"Warming up session with {site_name} homepage visit...")
 
@@ -449,7 +469,7 @@ async def get_shared_session(
 
     Args:
         browser: Browser to impersonate (default: chrome120)
-        warmup_site: Site to warmup with - 'set' or 'tfex' (default: 'set')
+        warmup_site: Site to warmup with - 'set', 'tfex' or 'settrade' (default: 'set')
 
     Returns:
         Initialized SessionManager instance
@@ -462,6 +482,10 @@ async def get_shared_session(
         >>> # For TFEX APIs
         >>> session = await get_shared_session(warmup_site="tfex")
         >>> response = await session.get("https://www.tfex.co.th/api/...")
+        >>>
+        >>> # For Settrade APIs (analyst consensus)
+        >>> session = await get_shared_session(warmup_site="settrade")
+        >>> response = await session.get("https://www.settrade.com/api/set-fund/...")
     """
     manager = await SessionManager.get_instance(browser=browser, warmup_site=warmup_site)
     await manager.ensure_initialized()
@@ -472,10 +496,13 @@ async def get_session_for_url(url: str, browser: str = "chrome120") -> SessionMa
     """
     Get SessionManager instance appropriate for the given URL.
 
-    Automatically detects whether to use SET or TFEX warmup based on URL.
+    Automatically detects the warmup site (SET / TFEX / Settrade) from the URL's host. A
+    settrade.com URL must never fall through to the SET warmup: Incapsula cookies are
+    per-domain, and set.or.th cookies are rejected with HTTP 403 on www.settrade.com.
 
     Args:
-        url: URL to fetch (e.g., "https://www.set.or.th/api/..." or "https://www.tfex.co.th/api/...")
+        url: URL to fetch (e.g., "https://www.set.or.th/api/...", "https://www.tfex.co.th/api/..."
+            or "https://www.settrade.com/api/set-fund/...")
         browser: Browser to impersonate (default: chrome120)
 
     Returns:
@@ -487,8 +514,12 @@ async def get_session_for_url(url: str, browser: str = "chrome120") -> SessionMa
         >>>
         >>> session = await get_session_for_url("https://www.tfex.co.th/api/...")
         >>> # Automatically uses TFEX warmup
+        >>>
+        >>> session = await get_session_for_url("https://www.settrade.com/api/set-fund/...")
+        >>> # Automatically uses Settrade warmup
     """
-    # Auto-detect warmup site based on URL
-    warmup_site = "tfex" if "tfex.co.th" in url.lower() else "set"
+    # Auto-detect warmup site based on URL host; anything unmatched uses the SET warmup.
+    lowered = url.lower()
+    warmup_site = next((site for host, site in _URL_WARMUP_SITES if host in lowered), "set")
 
     return await get_shared_session(browser=browser, warmup_site=warmup_site)

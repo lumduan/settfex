@@ -25,15 +25,17 @@ The `settfex` library uses **disk-based session caching** to dramatically improv
 ┌─────────────────────────────────────────────────┐
 │  SessionManager (Site-Specific Singletons)      │
 │  ┌───────────────────────────────────────────┐  │
-│  │ Auto-detect SET vs TFEX from URL          │  │
+│  │ Auto-detect the site from the URL host    │  │
 │  │ 1. Check disk cache for cookies           │  │
 │  │ 2. If found & valid → Use (FAST PATH)     │  │
-│  │ 3. If not found → Warm up (SET or TFEX)   │  │
+│  │ 3. If not found → Warm up (per-site)      │  │
 │  │ 4. Save to cache for next time            │  │
 │  └───────────────────────────────────────────┘  │
-│  • Separate instances for SET and TFEX        │
-│  • SET warmup: https://www.set.or.th          │
-│  • TFEX warmup: https://www.tfex.co.th        │
+│  • One instance per site (cookies are           │
+│    per-domain and NOT interchangeable)          │
+│  • SET warmup:      https://www.set.or.th       │
+│  • TFEX warmup:     https://www.tfex.co.th      │
+│  • Settrade warmup: https://www.settrade.com    │
 └─────────────────┬───────────────────────────────┘
                   │
                   ▼
@@ -45,6 +47,7 @@ The `settfex` library uses **disk-based session caching** to dramatically improv
 │  Keys:                                          │
 │    - set_session_chrome120                      │
 │    - tfex_session_chrome120                     │
+│    - settrade_session_chrome120                 │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -115,10 +118,10 @@ The session manager maintains **separate cached sessions** for SET and TFEX:
 
 ### Automatic Site Detection
 
-The library automatically detects whether you're accessing SET or TFEX based on the URL:
+The library automatically detects the site from the URL's host:
 
 ```python
-from settfex.services.set import get_stock_list
+from settfex.services.set import get_analyst_consensus, get_stock_list
 from settfex.services.tfex import get_series_list
 
 # SET API: Warms up with https://www.set.or.th
@@ -127,14 +130,23 @@ stock_list = await get_stock_list()
 # TFEX API: Warms up with https://www.tfex.co.th
 series_list = await get_series_list()
 
-# Both sessions are cached separately!
+# Settrade API (analyst consensus): Warms up with https://www.settrade.com
+consensus = await get_analyst_consensus("GULF")
+
+# Every session is cached separately!
 # - ~/.settfex/cache/set_session_chrome120
 # - ~/.settfex/cache/tfex_session_chrome120
+# - ~/.settfex/cache/settrade_session_chrome120
 ```
+
+> **Why separate sessions are mandatory, not just tidy:** Incapsula cookies are scoped to a
+> domain. A session warmed on `www.set.or.th` is rejected with HTTP 403 on
+> `www.settrade.com` (live-probed 2026-08-16), so routing a settrade URL through the SET
+> warmup would fail every request.
 
 ### Benefits
 
-- **Independent Sessions**: SET and TFEX sessions don't interfere with each other
+- **Independent Sessions**: SET, TFEX and Settrade sessions don't interfere with each other
 - **Optimal Performance**: Each site gets its own optimized warmup strategy
 - **Separate Caching**: Each site maintains its own 1-hour cache
 - **No Manual Config**: URL-based detection works automatically

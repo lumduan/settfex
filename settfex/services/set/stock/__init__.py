@@ -1,5 +1,16 @@
 """Stock-specific utilities and services for SET stock operations."""
 
+from settfex.services.set.stock.analyst_consensus import (
+    AnalystConsensus,
+    AnalystConsensusRow,
+    AnalystConsensusService,
+    ConsensusOverall,
+    ConsensusOverallResponse,
+    ConsensusStatistic,
+    get_analyst_consensus,
+    get_analyst_consensus_dataframes,
+    get_consensus_overall,
+)
 from settfex.services.set.stock.board_of_director import (
     BoardOfDirectorService,
     Director,
@@ -89,6 +100,16 @@ from settfex.services.set.stock.utils import Language, normalize_language, norma
 __all__ = [
     # Main Stock Class
     "Stock",
+    # Analyst Consensus (IAA) Service
+    "AnalystConsensusService",
+    "AnalystConsensus",
+    "AnalystConsensusRow",
+    "ConsensusStatistic",
+    "ConsensusOverall",
+    "ConsensusOverallResponse",
+    "get_analyst_consensus",
+    "get_analyst_consensus_dataframes",
+    "get_consensus_overall",
     # Latest Historical Trading Service
     "LatestHistoricalTradingService",
     "LatestHistoricalTrading",

@@ -349,6 +349,32 @@ trust) and prices Depositary Receipts against their underlying via TradingView
 > ⚠️ The indicative price is ~15 minutes delayed for the underlying exchange leg and keeps moving
 > while SET is closed — divergence from the DR's own SET close is expected, not an error.
 
+---
+
+### 19. Analyst Consensus (IAA) (`19_analyst_consensus.ipynb`)
+**What it does**: Fetches the broker research consensus behind Settrade's *Analyst Consensus*
+table — target prices, earnings forecasts and each broker's research PDF
+
+**Learn how to**:
+- Fetch a symbol's consensus with `get_analyst_consensus()` and read the aggregate rows
+  (`average` / `median` / `high` / `low`)
+- Render the **two DataFrames**: `stats_to_dataframe()` for the aggregates and `to_dataframe()`
+  for the per-broker rows, or `get_analyst_consensus_dataframes()` for both at once
+- Collect every broker's research PDF link from `research_urls`
+- Read the buy/hold/sell counts with `get_consensus_overall()`
+- Screen the **whole market** by calling `get_consensus_overall()` with no symbol
+- Tell "no consensus record" (a `FetchError`, HTTP 500) apart from "listed but uncovered"
+  (HTTP 200 with `has_coverage=False`)
+
+**Use cases**:
+- Ranking a watchlist by consensus upside, or by how divergent the analysts are
+- Bulk-collecting research PDFs for a name you are working on
+- Screening for widely covered stocks with unanimous Buy ratings
+
+> ⚠️ The aggregate rows are computed **per column** — the `high` row is not one broker's row, and
+> `average.target_price_change` only averages the brokers who actually revised. And a stock nobody
+> covers comes back zero-filled, not null: check `has_coverage` before trusting the aggregates.
+
 ## Learning Path
 
 ### Beginners

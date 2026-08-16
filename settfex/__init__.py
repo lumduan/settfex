@@ -62,8 +62,10 @@ from settfex.services.sec import (
     resolve_company,
 )
 from settfex.services.set import (
+    AnalystConsensus,
     AssetType,
     CompanyProfile,
+    ConsensusOverallResponse,
     DrIndicativePrice,
     DrProfile,
     HolidayCalendar,
@@ -77,7 +79,10 @@ from settfex.services.set import (
     StockHighlightData,
     StockListResponse,
     StockProfile,
+    get_analyst_consensus,
+    get_analyst_consensus_dataframes,
     get_company_profile,
+    get_consensus_overall,
     get_dr_indicative_price,
     get_dr_profile,
     get_highlight_data,
@@ -127,6 +132,9 @@ __all__ = [
     "get_holidays",
     "get_dr_profile",
     "get_dr_indicative_price",
+    "get_analyst_consensus",
+    "get_analyst_consensus_dataframes",
+    "get_consensus_overall",
     # SEC IDISC document services (market.sec.or.th)
     "SecCompany",
     "get_sec_documents",
@@ -161,6 +169,8 @@ __all__ = [
     "IndexCompositionResponse",
     "NewsSearchResponse",
     "HolidayCalendar",
+    "AnalystConsensus",
+    "ConsensusOverallResponse",
     # Utilities
     "AsyncDataFetcher",
     "FetcherConfig",

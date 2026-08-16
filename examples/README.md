@@ -29,7 +29,7 @@ Complete tutorial series covering the SET services:
 17. **Market Holidays** - Official market-closure calendar: is the market open, next holiday
 18. **Asset Types & Depositary Receipts** - Classify stocks/ETFs/DRs/DWs, DR profiles, TradingView indicative prices
 
-**Total**: 18 notebooks + comprehensive guide
+**Total**: 19 notebooks + comprehensive guide
 
 ### ThaiBMA (Thai Bond Market Association) Examples
 
@@ -170,7 +170,7 @@ Learn to fetch basic data and track dividends.
 Build complete fundamental analysis system.
 
 ### Path 3: Portfolio Management (3 hours)
-All 18 SET notebooks in sequence.
+All 19 SET notebooks in sequence.
 
 Master complete SET data ecosystem.
 
