@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@v7
 
       # setup-uv stopped publishing floating major tags at v8 — pin the exact version.
-      - uses: astral-sh/setup-uv@v9.0.0
+      - uses: astral-sh/setup-uv@v10.0.1
         with:
           # Pinned for reproducible builds — "latest" silently adopts whatever uv shipped
           # that day. Dependabot does not bump action *inputs*, so bump this by hand.
@@ -58,7 +58,7 @@ jobs:
       - uses: actions/checkout@v7
 
       # setup-uv stopped publishing floating major tags at v8 — pin the exact version.
-      - uses: astral-sh/setup-uv@v9.0.0
+      - uses: astral-sh/setup-uv@v10.0.1
         with:
           # Pinned for reproducible builds — "latest" silently adopts whatever uv shipped
           # that day. Dependabot does not bump action *inputs*, so bump this by hand.
