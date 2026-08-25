@@ -44,7 +44,7 @@ uv run pre-commit run --all-files
 - **Async-first**: all I/O uses `async`/`await`.
 - **Pydantic models** for all inputs/outputs.
 - **Tests**: add tests for new behavior and **mock all external API calls** — the
-  suite must run offline. Target ≥80% coverage (the CI floor is raised over time).
+  suite must run offline. **The CI floor is 85%** and `uv run pytest` fails below it.
 - **Service pattern**: new services follow the existing pattern — `fetch_*()`
   (Pydantic) + `fetch_*_raw()` (dict) + a `get_*()` convenience function, with
   `en`/`th` and symbol normalization. See `CLAUDE.md` and existing services under

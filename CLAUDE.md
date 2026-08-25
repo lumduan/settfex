@@ -63,7 +63,7 @@ uv run mypy .        # type-check (strict mode)
 3. **Utilities**: Reusable helpers in `utils/` for cross-cutting concerns
 4. **Type Safety**: Full type hints and Pydantic validation throughout
 5. **Modern Python**: Python 3.11+ with async/await patterns
-6. **Testing**: Comprehensive pytest coverage (>80% target)
+6. **Testing**: Comprehensive pytest coverage (**85% CI floor**, currently 86.65%)
 7. **Documentation**: Maintained docs for all public APIs
 
 ## Development Guidelines
@@ -81,7 +81,7 @@ uv run mypy .        # type-check (strict mode)
 ### Testing
 - Write tests for all new features; mock external API calls
 - Use pytest fixtures in `conftest.py` for shared setup
-- Maintain >80% coverage
+- Maintain coverage at or above the **85%** CI floor (`--cov-fail-under=85` in `pyproject.toml`); currently 86.65%. `--cov-branch` is in the pytest defaults so a local `uv run pytest` reports the same number CI does
 
 ### Documentation
 - Update docs when adding features; include docstrings for all public APIs
