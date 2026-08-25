@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **pandas 3 support (2.3.3 → 3.0.5), and it changes what `to_dataframe()` gives you.** settfex
+  still supports `pandas>=2.0.0`, so **the same call now differs by installed pandas**:
+  - A **missing value in a string column is `NaN` on pandas 3** (column typed `str`) where it was
+    **`None` on pandas 2** (column typed `object`). `value is None` silently stops matching —
+    **`pd.isna(value)` is the portable check.** This is user-visible on every nullable string the
+    library exposes, e.g. `research_url` for a broker that published no PDF, or `youtube_url` for
+    an upcoming earnings call.
+  - Tz-aware datetime columns move `datetime64[ns, +07:00]` → `datetime64[us, +07:00]`. Values are
+    unchanged; only the resolution differs. **No test caught this** — it was found by running the
+    same fixture through both majors and diffing.
+  - `NaN` is **not valid JSON**, so `json.dumps(df.to_dict("records"))` emits a bare `NaN` token.
+    Python's own `json.loads` accepts it, but strict parsers (`JSON.parse`, most non-Python
+    consumers) reject it. Use `df.to_json()`, which correctly writes `null`.
+  - Verified safe: **`df.attrs` survives** copy, column selection and `head()`, so the forecast-year
+    metadata on the analyst-consensus frames is intact — and **pyarrow is not required** by
+    pandas 3; the `str` dtype falls back to a numpy object store.
+
+  The suite is green on **both** majors (882 passed under 3.0.5 and under 2.3.3). Documented in
+  `CLAUDE.md`, as an agent-facing trap in `AGENTS.md`, and in the analyst-consensus service doc.
+
+### Fixed
+
+- `AnalystConsensus.to_dataframe()`'s docstring claimed `last_update_date` is typed `object`
+  because it "mixes timezone-aware datetimes with None". It is not, and was not on pandas 2
+  either — all SET timestamps share the `+07:00` offset, so pandas coerces the column to a
+  tz-aware `datetime64` with `NaT` for the missing entries. The same stale claim was repeated as
+  an `# object -> datetime64` comment in `docs/settfex/services/set/analyst_consensus.md`; both
+  now describe what actually happens.
+
 ### Internal
 
 - **Coverage floor raised 45% → 85%** (`--cov-fail-under` in `pyproject.toml`). The old floor was

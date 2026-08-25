@@ -412,7 +412,11 @@ class TestDataFrames:
         assert len(df) == 2
         assert df.iloc[0]["broker_name"] == "ASPS"
         assert df.iloc[0]["research_url"].endswith("ASPS_GULF_350186.pdf")
-        assert df.iloc[1]["research_url"] is None
+        # pandas 3 types string columns as `str` and spells the missing value NaN; pandas 2 used
+        # `object` + None. settfex supports both (pandas>=2.0.0), so assert the portable way.
+        import pandas as pd
+
+        assert pd.isna(df.iloc[1]["research_url"])
 
     def test_stats_dataframe_has_four_labelled_rows(self) -> None:
         df = self._data().stats_to_dataframe()

@@ -164,6 +164,7 @@ being wrong, so none of them will announce itself.
 | **A listed stock nobody covers returns `0.0` for every consensus aggregate**, not `null` | check `AnalystConsensus.has_coverage` first. Never report a `0.0` target price as an estimate |
 | **`ThaiBMA` never 404s on a date — it silently rolls back** to the previous business day, and a *future* date returns today | check `is_rolled_back` / `rollback_days` before quoting an "as of" date |
 | **ThaiBMA classification flags were never backfilled**: `is_benchmark` is all-false before 2013 | filtering history on it yields an empty set, not an error |
+| **A missing value in a `to_dataframe()` string column is `NaN` on pandas 3, `None` on pandas 2** — settfex supports both, so this depends on the installed pandas | test with `pd.isna(value)`, never `value is None`. Serialise with `df.to_json()` — `json.dumps(df.to_dict("records"))` emits a bare `NaN`, which is not valid JSON |
 
 ### Units and formats
 
