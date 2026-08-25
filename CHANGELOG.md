@@ -26,11 +26,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `CLAUDE.md`.
 - Dependency-queue cleanup: the `uv` ecosystem was sitting at its `open-pull-requests-limit: 5`
   with all five slots consumed by stale PRs, which blocked Dependabot from opening **any** new
-  `uv` PR — a security bump included. Open PRs went 6 → 1; the only one left open is #89
-  (curl-cffi 0.13.0 → 0.16.0), parked deliberately because it is the core HTTP dependency and
-  wants a live smoke test. It is blocked solely by six now-redundant `# type: ignore` comments on
-  `impersonate=` (`utils/http.py`, `utils/session_manager.py`, `utils/data_fetcher.py`) that
-  curl-cffi 0.16 makes unnecessary under `mypy --strict`.
+  `uv` PR — a security bump included. Clearing the stale backlog took open PRs 6 → 1, and
+  Dependabot immediately re-scanned the freed slots and proposed four updates it had been unable
+  to raise (notebook 7.6.2, pandas 3.0.5, tqdm 4.70.0, pre-commit 4.6.2) — direct evidence the
+  channel had been blocked rather than merely untidy. **No ruff PR was raised in that re-scan**,
+  confirming the ignore holds.
+- **curl-cffi 0.13.0 → 0.16.1 (#96) is parked, not abandoned.** It is the core HTTP dependency
+  (browser impersonation / bot bypass) and wants a live smoke test against SET/Settrade rather
+  than a drive-by merge. It is blocked solely by six now-redundant `# type: ignore` comments on
+  `impersonate=` (`utils/http.py:40`, `utils/session_manager.py:360`/`:423`,
+  `utils/data_fetcher.py:240`/`:247`/`:253`) that curl-cffi 0.16 makes unnecessary under
+  `mypy --strict`. Supersedes #89, which Dependabot closed in favour of the 0.16.1 bump.
 
 ## [0.18.0] - 2026-08-16
 
