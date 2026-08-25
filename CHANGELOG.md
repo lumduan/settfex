@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- **Coverage floor raised 45% → 85%** (`--cov-fail-under` in `pyproject.toml`). The old floor was
+  set "just below current coverage (~49%)" with an "80% goal"; actual coverage had since reached
+  **87.99%**, so both halves of that comment were wrong and the gate was guarding a level cleared
+  long ago — a regression could have halved coverage without turning CI red. Headroom at the new
+  floor is ~177 new all-uncovered statements, so landing a large service with no tests is meant to
+  trip it. Verified in both directions: the suite passes at 85 and fails at 95.
+  Every surface restating the old number moved with it — the `pyproject.toml` comment,
+  `CONTRIBUTING.md` ("target ≥80%" → the enforced 85% floor), the two ">80% coverage" claims in
+  `CLAUDE.md`, and the historical `COMPREHENSIVE_AUDIT.md` metric row, which keeps its
+  point-in-time "gate = 45%" value but is now labelled as history with a pointer to what
+  superseded it.
+
 - Dev/CI dependency bumps (lockfile only — no `pyproject.toml` constraint changes): notebook
   7.6.0 → 7.6.1, pre-commit 4.6.0 → 4.6.1, twine 6.2.0 → 7.0.0. `twine` is a break-glass tool
   only — the release path publishes through `pypa/gh-action-pypi-publish` over OIDC and invokes

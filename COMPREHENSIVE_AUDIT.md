@@ -12,8 +12,12 @@ SET/TFEX async client, with the public API contract preserved exactly.
 |---|---|---|
 | Tests passing | 116 | **149** (+33) |
 | Test runtime | 3.77 s | 2.81 s |
-| Coverage (gate = 45%) | 49.26% | **61.25%** (+11.99 pts) |
+| Coverage (gate = 45% *at the time*) | 49.26% | **61.25%** (+11.99 pts) |
 | `ruff check` / `ruff format` / `mypy --strict` | clean | clean |
+
+> ➡️ **The coverage row is a point-in-time record of this branch, not current state.** Coverage
+> has since reached **87.99%** and the gate was raised **45% → 85%** on 2026-08-25
+> (`--cov-fail-under` in `pyproject.toml`).
 
 - **5 classes of defect fixed** — the headline one being **silent NaN/Infinity acceptance**
   into financial models (prices, P/E, margins), plus context-free parse failures, an
