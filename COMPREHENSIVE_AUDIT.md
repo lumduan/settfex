@@ -16,7 +16,7 @@ SET/TFEX async client, with the public API contract preserved exactly.
 | `ruff check` / `ruff format` / `mypy --strict` | clean | clean |
 
 > ➡️ **The coverage row is a point-in-time record of this branch, not current state.** Coverage
-> has since reached **87.99%** and the gate was raised **45% → 85%** on 2026-08-25
+> has since reached **86.65%** and the gate was raised **45% → 85%** on 2026-08-25
 > (`--cov-fail-under` in `pyproject.toml`).
 
 - **5 classes of defect fixed** — the headline one being **silent NaN/Infinity acceptance**

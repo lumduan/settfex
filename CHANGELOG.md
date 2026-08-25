@@ -11,11 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Coverage floor raised 45% → 85%** (`--cov-fail-under` in `pyproject.toml`). The old floor was
   set "just below current coverage (~49%)" with an "80% goal"; actual coverage had since reached
-  **87.99%**, so both halves of that comment were wrong and the gate was guarding a level cleared
+  **86.65%**, so both halves of that comment were wrong and the gate was guarding a level cleared
   long ago — a regression could have halved coverage without turning CI red. Headroom at the new
-  floor is ~177 new all-uncovered statements, so landing a large service with no tests is meant to
+  floor is ~115 new all-uncovered statements, so landing a large service with no tests is meant to
   trip it. Verified in both directions: the suite passes at 85 and fails at 95.
-  Every surface restating the old number moved with it — the `pyproject.toml` comment,
+- **`--cov-branch` added to the pytest defaults so a local run measures what CI measures.** CI
+  passes `--cov-branch` explicitly, and branch coverage scores ~1.3 points below statement-only
+  (86.65% vs 87.99%) — but `--cov-fail-under` applied to both, so the *same* floor meant two
+  different things depending on where it ran, and the local number was the falsely reassuring one:
+  a change sitting at 85.5% locally would have failed CI at ~84.2%. Both now report 86.65%.
+  Every surface restating the old floor moved with it — the `pyproject.toml` comment,
   `CONTRIBUTING.md` ("target ≥80%" → the enforced 85% floor), the two ">80% coverage" claims in
   `CLAUDE.md`, and the historical `COMPREHENSIVE_AUDIT.md` metric row, which keeps its
   point-in-time "gate = 45%" value but is now labelled as history with a pointer to what
