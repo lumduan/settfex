@@ -228,7 +228,7 @@ Target improvements: type safety, reliability, performance optimization."
 Requirements:
 - Pydantic models for validation
 - Retry logic for external calls
-- 90% test coverage including error conditions
+- 85% test coverage including error conditions
 
 Current implementation: [code]
 Integration context: [architecture info]"
