@@ -28,7 +28,7 @@ description: Provides architectural guidance and ensures code quality standards 
 
 ### Testing Strategy Guidance
 - Guide testing strategy and coverage requirements
-- Ensure minimum 90% code coverage
+- Ensure minimum 85% code coverage (the enforced CI floor, `--cov-fail-under=85`)
 - Validate test patterns and mocking strategies
 - Review integration test approaches
 
@@ -61,7 +61,7 @@ description: Provides architectural guidance and ensures code quality standards 
 1. **Type Safety**: Complete type annotations for all code
 2. **Async Patterns**: async/await for all I/O operations
 3. **Pydantic Models**: Data validation and settings management
-4. **Testing**: Comprehensive test coverage (90%+)
+4. **Testing**: Comprehensive test coverage (85%+, the enforced CI floor)
 5. **Documentation**: Complete docstrings for public APIs
 
 ### Prohibited Actions
