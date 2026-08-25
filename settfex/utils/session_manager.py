@@ -357,7 +357,7 @@ class SessionManager:
                 response = self._session.get(
                     warmup_url,
                     headers=headers,
-                    impersonate=self.browser,  # type: ignore
+                    impersonate=self.browser,
                     timeout=30,
                 )
                 return response
@@ -420,7 +420,7 @@ class SessionManager:
             return self._session.get(
                 url,
                 headers=headers or {},
-                impersonate=self.browser,  # type: ignore
+                impersonate=self.browser,
                 timeout=timeout,
             )
 

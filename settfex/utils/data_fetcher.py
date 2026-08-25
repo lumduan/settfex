@@ -237,20 +237,20 @@ class AsyncDataFetcher:
                             data=data,
                             headers=headers,
                             timeout=self.config.timeout,
-                            impersonate=self.config.browser_impersonate,  # type: ignore
+                            impersonate=self.config.browser_impersonate,
                         )
                     return requests.post(
                         url,
                         json=json_body,
                         headers=headers,
                         timeout=self.config.timeout,
-                        impersonate=self.config.browser_impersonate,  # type: ignore
+                        impersonate=self.config.browser_impersonate,
                     )
                 return requests.get(
                     url,
                     headers=headers,
                     timeout=self.config.timeout,
-                    impersonate=self.config.browser_impersonate,  # type: ignore
+                    impersonate=self.config.browser_impersonate,
                 )
 
             try:
