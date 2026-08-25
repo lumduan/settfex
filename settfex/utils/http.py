@@ -37,7 +37,7 @@ class HTTPClient:
 
     async def __aenter__(self) -> "HTTPClient":
         """Enter async context manager."""
-        self._session = AsyncSession(impersonate=self.impersonate)  # type: ignore[arg-type]
+        self._session = AsyncSession(impersonate=self.impersonate)
         logger.debug("HTTP session opened")
         return self
 

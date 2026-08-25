@@ -48,12 +48,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to raise (notebook 7.6.2, pandas 3.0.5, tqdm 4.70.0, pre-commit 4.6.2) — direct evidence the
   channel had been blocked rather than merely untidy. **No ruff PR was raised in that re-scan**,
   confirming the ignore holds.
-- **curl-cffi 0.13.0 → 0.16.1 (#96) is parked, not abandoned.** It is the core HTTP dependency
-  (browser impersonation / bot bypass) and wants a live smoke test against SET/Settrade rather
-  than a drive-by merge. It is blocked solely by six now-redundant `# type: ignore` comments on
-  `impersonate=` (`utils/http.py:40`, `utils/session_manager.py:360`/`:423`,
-  `utils/data_fetcher.py:240`/`:247`/`:253`) that curl-cffi 0.16 makes unnecessary under
-  `mypy --strict`. Supersedes #89, which Dependabot closed in favour of the 0.16.1 bump.
+- **curl-cffi 0.13.0 → 0.16.1** (#96, superseding #89) — the core HTTP dependency behind browser
+  impersonation and the Incapsula bypass. Six `# type: ignore` comments on `impersonate=` were
+  removed as part of the bump (`utils/http.py:40`, `utils/session_manager.py:360`/`:423`,
+  `utils/data_fetcher.py:240`/`:247`/`:253`): curl-cffi 0.16 widened that parameter to
+  `Optional[Union[BrowserTypeLiteral, str, Fingerprint]]`, so passing a plain `str` is legal and
+  `mypy --strict` flagged all six as `unused-ignore`. The package still ships `py.typed`, so the
+  call sites remain type-checked — this removes redundant suppression, not the check itself.
+- **The curl-cffi bump was verified live, because the unit suite cannot verify it.** All 882 tests
+  mock the HTTP layer, so every one of them passes whether or not impersonation still defeats bot
+  detection. Each distinct network path was therefore exercised for real against 0.16.1: a
+  session-warmed SET GET, the large SET stock-list payload (3,954 securities), Settrade on its
+  separate Incapsula cookie domain, the stateless TradingView scanner POST, and ThaiBMA — 5/5.
+  A control probe confirms the check is not vacuous: the same SET endpoint answers **403** to a
+  bare `AsyncSession` request *even with `impersonate="chrome120"` set*, so it is the
+  `SessionManager` cookie warmup plus referer that carries the bypass, and that chain is intact.
 
 ## [0.18.0] - 2026-08-16
 
