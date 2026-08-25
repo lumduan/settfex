@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- The two AI-agent prompt files under `.github/prompts/` asked for **90% coverage** while the
+  enforced gate is **85%** (`--cov-fail-under`), so an agent following them was working to a number
+  the repo does not check. Both now state 85% and name the setting that enforces it, so the figure
+  points at its instrument rather than drifting again: `Coding.prompt.md` (the requirement and the
+  completion checklist) and `Python-Architect.prompt.md` (the strategy guidance and the review
+  checklist) — four surfaces in total. `Coding.prompt.md`'s separate "100% coverage for public
+  APIs" line is left as-is: it is a narrower, stricter target and does not conflict with a
+  repo-wide floor.
+
 ## [0.19.0] - 2026-08-25
 
 ### Changed

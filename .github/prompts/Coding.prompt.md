@@ -148,7 +148,8 @@ from module.submodule import something
 ## 🧪 Testing Requirements (NO EXCEPTIONS)
 
 1. **Test Coverage:**
-   - Minimum 90% code coverage
+   - Minimum 85% code coverage — this is the *enforced* CI floor
+     (`--cov-fail-under=85` in `pyproject.toml`), not an aspiration
    - 100% coverage for public APIs
    - Edge cases and error conditions MUST be tested
 
@@ -275,7 +276,7 @@ A task is only complete when:
 2. ✅ All todos marked as completed in sequence
 3. ✅ All quality gates passed
 4. ✅ Documentation is comprehensive
-5. ✅ Tests are passing (90%+ coverage)
+5. ✅ Tests are passing (85%+ coverage — the enforced floor)
 6. ✅ Code follows all architectural guidelines
 7. ✅ Git commit message follows standards
 8. ✅ User receives detailed summary
