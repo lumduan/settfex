@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- Dev/CI dependency bumps (lockfile only — no `pyproject.toml` constraint changes): notebook
+  7.6.0 → 7.6.1, pre-commit 4.6.0 → 4.6.1, twine 6.2.0 → 7.0.0. `twine` is a break-glass tool
+  only — the release path publishes through `pypa/gh-action-pypi-publish` over OIDC and invokes
+  no workflow that uses it.
+- `astral-sh/setup-uv` bumped v9.0.0 → v10.0.1 across all six workflow steps
+  (`ci.yml`, `release.yml`, `security.yml`). The hand-maintained `version: "0.11.33"` **input** is
+  unchanged — Dependabot bumps action refs, never action inputs, so that pin still moves only by
+  hand.
+- **ruff is frozen at 0.13.2 and removed from Dependabot's watch list.** Ruff 0.16+ formats Python
+  code blocks inside Markdown, so `ruff format --check` wants to reformat 34 `.md` files and
+  collapse the column-aligned inline comments in every doc code sample. The bump was proposed and
+  rejected three times (#61 → #78 → #88); #88 was closed with `@dependabot ignore this dependency`,
+  which ends the cycle permanently. Re-enabling means re-opening #88, and settling the
+  `extend-exclude = ["*.md"]` question first — see the "Ruff is FROZEN at 0.13.2" gotcha in
+  `CLAUDE.md`.
+- Dependency-queue cleanup: the `uv` ecosystem was sitting at its `open-pull-requests-limit: 5`
+  with all five slots consumed by stale PRs, which blocked Dependabot from opening **any** new
+  `uv` PR — a security bump included. Open PRs went 6 → 1; the only one left open is #89
+  (curl-cffi 0.13.0 → 0.16.0), parked deliberately because it is the core HTTP dependency and
+  wants a live smoke test. It is blocked solely by six now-redundant `# type: ignore` comments on
+  `impersonate=` (`utils/http.py`, `utils/session_manager.py`, `utils/data_fetcher.py`) that
+  curl-cffi 0.16 makes unnecessary under `mypy --strict`.
+
 ## [0.18.0] - 2026-08-16
 
 ### Added
