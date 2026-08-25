@@ -420,9 +420,15 @@ class AnalystConsensus(BaseModel):
             target_price_year and has_coverage, because the ``current_year_*`` column names are
             deliberately year-agnostic and stable.
 
-            ``last_update_date`` mixes timezone-aware datetimes with None, so pandas types it as
-            ``object``; call ``pd.to_datetime(df["last_update_date"], utc=True)`` if you need a
-            datetime64 column.
+            ``last_update_date`` comes back as a tz-aware ``datetime64`` column (all SET
+            timestamps share the +07:00 offset), with ``NaT`` for brokers that have no update
+            date — not the ``object`` column an earlier version of this docstring described.
+            Resolution differs by pandas major: ``datetime64[ns, +07:00]`` on pandas 2,
+            ``datetime64[us, +07:00]`` on pandas 3.
+
+            Missing values in the string columns (``research_url``, ``recommend``, ...) are
+            ``None`` on pandas 2 and ``NaN`` on pandas 3, which types those columns as ``str``
+            rather than ``object``. Use ``pd.isna(value)`` rather than ``value is None``.
 
         Raises:
             ImportError: If pandas is not installed.

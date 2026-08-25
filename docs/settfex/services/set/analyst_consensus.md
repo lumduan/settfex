@@ -266,8 +266,17 @@ data = await get_analyst_consensus("GULF")
 print(f"Most recent broker update: {data.latest_update}")   # tz-aware, +07:00
 
 df = data.to_dataframe()
-df["last_update_date"] = pd.to_datetime(df["last_update_date"], utc=True)  # object -> datetime64
+
+# `last_update_date` already arrives as a tz-aware datetime64 column (NaT where a broker has no
+# update date) — the resolution is `[ns, +07:00]` on pandas 2 and `[us, +07:00]` on pandas 3.
+# Convert only if you specifically want the values normalised to UTC:
+df["last_update_date"] = pd.to_datetime(df["last_update_date"], utc=True)
 ```
+
+> **Missing values differ by pandas major.** settfex supports `pandas>=2.0.0`. On **pandas 3** a
+> string column is typed `str` and a missing value is `NaN`; on **pandas 2** it was `object` and
+> `None`. Test with `pd.isna(value)`, never `value is None`. Serialise with `df.to_json()` —
+> `json.dumps(df.to_dict("records"))` emits a bare `NaN`, which is not valid JSON.
 
 ## Error Handling & Troubleshooting
 

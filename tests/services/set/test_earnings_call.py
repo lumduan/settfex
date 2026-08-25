@@ -230,8 +230,12 @@ class TestToDataFrame:
         assert row0["youtube_url"] == "https://www.youtube.com/watch?v=qCw7HH77f0U"
         # upcoming row: null youtube + null duration
         row1 = df.iloc[1].to_dict()
-        assert row1["youtube_url"] is None
-        assert row1["video_clip_time"] is None
+        # pandas 3 types string columns as `str` and spells the missing value NaN; pandas 2 used
+        # `object` + None. settfex supports both (pandas>=2.0.0), so assert the portable way.
+        import pandas as pd
+
+        assert pd.isna(row1["youtube_url"])
+        assert pd.isna(row1["video_clip_time"])
 
     def test_custom_columns(self) -> None:
         resp = EarningsCallResponse.model_validate(MOCK_PAGE)
