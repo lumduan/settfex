@@ -150,7 +150,6 @@ from module.submodule import something
 1. **Test Coverage:**
    - Minimum 85% code coverage — this is the *enforced* CI floor
      (`--cov-fail-under=85` in `pyproject.toml`), not an aspiration
-   - 100% coverage for public APIs
    - Edge cases and error conditions MUST be tested
 
 2. **Test Quality:**
