@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-08-25
+
 ### Changed
 
 - **pandas 3 support (2.3.3 → 3.0.5), and it changes what `to_dataframe()` gives you.** settfex
@@ -58,7 +60,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   superseded it.
 
 - Dev/CI dependency bumps (lockfile only — no `pyproject.toml` constraint changes): notebook
-  7.6.0 → 7.6.1, pre-commit 4.6.0 → 4.6.1, twine 6.2.0 → 7.0.0. `twine` is a break-glass tool
+  7.6.0 → **7.6.2**, pre-commit 4.6.0 → **4.6.2**, tqdm 4.69.0 → **4.70.0**, twine 6.2.0 → 7.0.0.
+  (notebook, pre-commit and tqdm landed in two rounds — the second round was raised by Dependabot
+  only after the queue below was unblocked.) `twine` is a break-glass tool
   only — the release path publishes through `pypa/gh-action-pypi-publish` over OIDC and invokes
   no workflow that uses it.
 - `astral-sh/setup-uv` bumped v9.0.0 → v10.0.1 across all six workflow steps
