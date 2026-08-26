@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- `docs/guide/PYTHON_LIBRARY_BEST_PRACTICES.md` still said "Aim for >80% coverage". It reads as
+  generic advice but is explicitly a document about *this* library ("best practices followed in the
+  `settfex` library"), so it was a repo claim sitting **below the enforced 85% floor** — the last
+  one left after the 0.19.1 prompt sweep. It now names `--cov-fail-under=85` and says the floor is
+  enforced rather than aspirational. `CLAUDE.md` needed no change: both of its figures already read
+  86.65% and remain accurate.
+
 ## [0.19.1] - 2026-08-26
 
 ### Internal

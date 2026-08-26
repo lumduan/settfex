@@ -129,7 +129,7 @@ strict = true
 2. **Use pytest**: Modern testing framework
 3. **`conftest.py`**: Shared fixtures
 4. **Test Naming**: `test_*.py`, `test_*()` functions
-5. **Coverage**: Aim for >80% coverage
+5. **Coverage**: 85% is the enforced CI floor (`--cov-fail-under=85` in `pyproject.toml`), not a target to aim at — `uv run pytest` fails below it
 
 ### Example Structure
 
