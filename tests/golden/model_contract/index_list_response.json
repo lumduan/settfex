@@ -1,0 +1,137 @@
+{
+  "expected_dump": {
+    "indices": [
+      {
+        "level": "INDEX",
+        "market": "SET",
+        "name_en": "SET",
+        "name_th": "SET",
+        "parent_index": null,
+        "query_symbol": "SET",
+        "symbol": "SET"
+      },
+      {
+        "level": "INDEX",
+        "market": "SET",
+        "name_en": "SET50",
+        "name_th": "SET50",
+        "parent_index": null,
+        "query_symbol": "SET50",
+        "symbol": "SET50"
+      },
+      {
+        "level": "INDEX",
+        "market": "SET",
+        "name_en": "sSET",
+        "name_th": "sSET",
+        "parent_index": null,
+        "query_symbol": "sSET",
+        "symbol": "sSET"
+      },
+      {
+        "level": "INDEX",
+        "market": "mai",
+        "name_en": "mai",
+        "name_th": "mai",
+        "parent_index": null,
+        "query_symbol": "mai",
+        "symbol": "mai"
+      },
+      {
+        "level": "INDUSTRY",
+        "market": "SET",
+        "name_en": "Agro & Food Industry",
+        "name_th": "เกษตรและอุตสาหกรรมอาหาร",
+        "parent_index": "SET",
+        "query_symbol": "AGRO",
+        "symbol": "AGRO"
+      },
+      {
+        "level": "INDUSTRY",
+        "market": "mai",
+        "name_en": "Agro & Food Industry",
+        "name_th": "เกษตรและอุตสาหกรรมอาหาร",
+        "parent_index": "mai",
+        "query_symbol": "AGRO-m",
+        "symbol": "AGRO"
+      },
+      {
+        "level": "SECTOR",
+        "market": "SET",
+        "name_en": "Agribusiness",
+        "name_th": "ธุรกิจการเกษตร",
+        "parent_index": "AGRO",
+        "query_symbol": "AGRI",
+        "symbol": "AGRI"
+      }
+    ]
+  },
+  "input": {
+    "indices": [
+      {
+        "level": "INDEX",
+        "market": "SET",
+        "nameEN": "SET",
+        "nameTH": "SET",
+        "parentIndex": null,
+        "querySymbol": "SET",
+        "symbol": "SET"
+      },
+      {
+        "level": "INDEX",
+        "market": "SET",
+        "nameEN": "SET50",
+        "nameTH": "SET50",
+        "parentIndex": null,
+        "querySymbol": "SET50",
+        "symbol": "SET50"
+      },
+      {
+        "level": "INDEX",
+        "market": "SET",
+        "nameEN": "sSET",
+        "nameTH": "sSET",
+        "parentIndex": null,
+        "querySymbol": "sSET",
+        "symbol": "sSET"
+      },
+      {
+        "level": "INDEX",
+        "market": "mai",
+        "nameEN": "mai",
+        "nameTH": "mai",
+        "parentIndex": null,
+        "querySymbol": "mai",
+        "symbol": "mai"
+      },
+      {
+        "level": "INDUSTRY",
+        "market": "SET",
+        "nameEN": "Agro & Food Industry",
+        "nameTH": "เกษตรและอุตสาหกรรมอาหาร",
+        "parentIndex": "SET",
+        "querySymbol": "AGRO",
+        "symbol": "AGRO"
+      },
+      {
+        "level": "INDUSTRY",
+        "market": "mai",
+        "nameEN": "Agro & Food Industry",
+        "nameTH": "เกษตรและอุตสาหกรรมอาหาร",
+        "parentIndex": "mai",
+        "querySymbol": "AGRO-m",
+        "symbol": "AGRO"
+      },
+      {
+        "level": "SECTOR",
+        "market": "SET",
+        "nameEN": "Agribusiness",
+        "nameTH": "ธุรกิจการเกษตร",
+        "parentIndex": "AGRO",
+        "querySymbol": "AGRI",
+        "symbol": "AGRI"
+      }
+    ]
+  },
+  "model": "settfex.services.set.index.list.IndexListResponse"
+}

@@ -75,7 +75,16 @@ python_functions = ["test_*"]
 # --cov-branch explicitly (.github/workflows/ci.yml), and branch coverage scores ~1.3 points
 # lower than statement-only (86.65% vs 87.99%). Without this flag the same floor meant two
 # different things by location, and a change sitting at 85.5% locally would fail CI at ~84.2%.
-addopts = "-v --strict-markers --cov=settfex --cov-branch --cov-report=term-missing --cov-fail-under=85"
+# -m "not integration" keeps the live-endpoint probes (tests/integration/) out of the default
+# run; a CLI -m comes after addopts and overrides it, so `uv run pytest -m integration --no-cov`
+# runs exactly the probes (--no-cov because the 85% floor is calibrated for the full suite).
+addopts = '-v --strict-markers --cov=settfex --cov-branch --cov-report=term-missing --cov-fail-under=85 -m "not integration"'
+markers = [
+    "integration: live-endpoint probes against real SET/TFEX/ThaiBMA hosts; run with: uv run pytest -m integration --no-cov",
+]
+# Pin pytest-asyncio's fixture loop scope explicitly (its unset-value deprecation path); the
+# suite has no async fixtures today, so "function" simply freezes current behavior.
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
 source = ["settfex"]
