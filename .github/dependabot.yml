@@ -12,14 +12,15 @@ updates:
       prefix: "chore(deps)"
     labels:
       - "dependencies"
-    # NOTE: `ruff` is on Dependabot's PERMANENT IGNORE LIST and will never appear here again.
-    # Set on 2026-08-25 via `@dependabot ignore this dependency` on PR #88, after the same bump
-    # was rejected three times (#61 -> #78 -> #88): ruff 0.16+ formats Python code blocks inside
-    # Markdown, so `ruff format --check` wants to reformat 34 of our .md files. See the "Ruff is
-    # FROZEN at 0.13.2" gotcha in CLAUDE.md.
-    # The ignore is stored in Dependabot's own state, NOT in this file -- do not add an `ignore:`
-    # block here expecting to control it. To re-enable ruff updates, RE-OPEN PR #88 (or comment
-    # `@dependabot unignore ruff` on any other Dependabot PR).
+    # NOTE: `ruff` is on Dependabot's PERMANENT IGNORE LIST and will never appear here.
+    # Set on 2026-08-25 via `@dependabot ignore this dependency` on PR #88 (bump rejected 3x:
+    # #61 -> #78 -> #88, because ruff 0.16+ formats Python code blocks inside Markdown).
+    # Ruff itself was UNFROZEN on 2026-08-31 with `extend-exclude = ["*.md"]` in pyproject.toml,
+    # but the Dependabot ignore was deliberately LEFT IN PLACE: ruff bumps are applied by hand
+    # (uv.lock + .pre-commit-config.yaml rev in lockstep) and the monthly dependency-drift
+    # workflow reports ruff staleness. The ignore lives in Dependabot's own state, NOT in this
+    # file -- to re-enable Dependabot's ruff PRs anyway, re-open PR #88 or comment
+    # `@dependabot unignore ruff` on any other Dependabot PR.
 
   # GitHub Actions used in workflows.
   - package-ecosystem: "github-actions"

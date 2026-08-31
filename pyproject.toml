@@ -103,6 +103,11 @@ exclude_lines = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# ruff 0.16+ formats Python code blocks inside Markdown BY DEFAULT. The doc/code samples in
+# CLAUDE.md, AGENTS.md, README.md and docs/ carry intentionally column-aligned inline comments,
+# so Markdown is excluded — this preserves pre-0.16 behavior byte-identically and is the
+# settlement that unfroze ruff (see PRs #61/#78/#88 and the CHANGELOG 0.19.2 entry).
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 # E/F/W=pycodestyle+pyflakes, I=isort, N=pep8-naming, UP=pyupgrade,
