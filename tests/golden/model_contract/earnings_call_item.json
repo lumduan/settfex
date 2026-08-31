@@ -1,0 +1,30 @@
+{
+  "expected_dump": {
+    "company_name": "HANN: MUKDAHAN INTERNATIONAL HOSPITAL PUBLIC COMPANY LIMITED",
+    "company_name_clean": "MUKDAHAN INTERNATIONAL HOSPITAL PUBLIC COMPANY LIMITED",
+    "detail": null,
+    "id": 10647,
+    "image_path": "https://img.youtube.com/vi/qCw7HH77f0U/mqdefault.jpg",
+    "industry": "Services",
+    "meeting_date": "2026-06-05T00:00:00Z",
+    "name": "การนำเสนอข้อมูลงบการเงิน ผลการดำเนินงานประจำ Q1/2026",
+    "period": "45:00",
+    "symbol": "HANN",
+    "transcript": null,
+    "view_mode": true,
+    "youtube_url": "https://www.youtube.com/watch?v=qCw7HH77f0U",
+    "youtube_video_id": "qCw7HH77f0U"
+  },
+  "input": {
+    "company_name": "HANN: MUKDAHAN INTERNATIONAL HOSPITAL PUBLIC COMPANY LIMITED",
+    "id": 10647,
+    "image_path": "https://img.youtube.com/vi/qCw7HH77f0U/mqdefault.jpg",
+    "industry": "Services",
+    "meeting_date": "2026-06-05T00:00:00Z",
+    "name": "การนำเสนอข้อมูลงบการเงิน ผลการดำเนินงานประจำ Q1/2026",
+    "period": "45:00",
+    "symbol": "HANN",
+    "view_mode": true
+  },
+  "model": "settfex.services.set.earnings_call.EarningsCallItem"
+}

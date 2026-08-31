@@ -53,6 +53,22 @@ jobs:
           fi
           echo "✅ Version ${TAG_VERSION} matches pyproject.toml"
 
+      # The version lives in TWO hand-synced places (RELEASING.md): pyproject.toml and
+      # settfex/__init__.py. Grep (not import — the release runner has no deps installed)
+      # so a forgotten __init__ bump fails at validate instead of shipping a wheel whose
+      # settfex.__version__ lies. tests/test_public_api_surface.py::test_version_sync
+      # guards the same invariant in CI.
+      - name: Verify tag matches settfex/__init__.py
+        run: |
+          INIT_VERSION=$(grep -Po '(?<=^__version__ = ")[^"]+' settfex/__init__.py)
+          TAG_VERSION="${{ steps.parse.outputs.version }}"
+          if [ "$INIT_VERSION" != "$TAG_VERSION" ]; then
+            echo "❌ Version mismatch: settfex/__init__.py=${INIT_VERSION}, tag=${TAG_VERSION}"
+            echo "   Bump __version__ in settfex/__init__.py before tagging."
+            exit 1
+          fi
+          echo "✅ Version ${TAG_VERSION} matches settfex/__init__.py"
+
   # ── 2. Full CI gate ─────────────────────────────────────────────────────────
   ci:
     name: CI
@@ -104,6 +120,12 @@ jobs:
 
       - name: Verify dist contents
         run: ls -lh dist/
+
+      # py.typed ships only implicitly (hatchling includes everything under packages=["settfex"]);
+      # nothing else asserts it, and losing it would silently strip type information from every
+      # downstream mypy run. Fail the release before publish if the wheel does not carry it.
+      - name: Assert py.typed ships in the wheel
+        run: unzip -l dist/*.whl | grep -q "settfex/py.typed" && echo "✅ py.typed present"
 
       - uses: actions/upload-artifact@v7
         with:

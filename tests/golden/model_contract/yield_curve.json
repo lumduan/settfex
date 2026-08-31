@@ -1,0 +1,283 @@
+{
+  "expected_dump": {
+    "as_of": "2026-08-10",
+    "is_rolled_back": true,
+    "points": [
+      {
+        "as_of": "2026-08-10",
+        "tenor_years": 0.076712328767123,
+        "yield_percent": 0.856643
+      },
+      {
+        "as_of": "2026-08-10",
+        "tenor_years": 0.249315068493151,
+        "yield_percent": 0.8717
+      },
+      {
+        "as_of": "2026-08-10",
+        "tenor_years": 0.498630136986301,
+        "yield_percent": 0.886454
+      },
+      {
+        "as_of": "2026-08-10",
+        "tenor_years": 1.0,
+        "yield_percent": 0.945142
+      },
+      {
+        "as_of": "2026-08-10",
+        "tenor_years": 2.0,
+        "yield_percent": 1.132935
+      },
+      {
+        "as_of": "2026-08-10",
+        "tenor_years": 3.0,
+        "yield_percent": 1.250791
+      },
+      {
+        "as_of": "2026-08-10",
+        "tenor_years": 4.0,
+        "yield_percent": 1.439915
+      },
+      {
+        "as_of": "2026-08-10",
+        "tenor_years": 5.0,
+        "yield_percent": 1.564301
+      }
+    ],
+    "quotes": [
+      {
+        "as_of": "2026-08-10",
+        "change_bps": -0.0054,
+        "group_order": 1,
+        "is_benchmark": false,
+        "is_plot": true,
+        "is_synthetic": false,
+        "maturity_date": null,
+        "spread": 4.3354444444444,
+        "symbol": "T-BILL1M",
+        "ttm_years": 0.076712328767123,
+        "yield_percent": 0.856643
+      },
+      {
+        "as_of": "2026-08-10",
+        "change_bps": 0.2155,
+        "group_order": 1,
+        "is_benchmark": false,
+        "is_plot": true,
+        "is_synthetic": false,
+        "maturity_date": null,
+        "spread": 4.6532444444444,
+        "symbol": "T-BILL3M",
+        "ttm_years": 0.249315068493151,
+        "yield_percent": 0.8717
+      },
+      {
+        "as_of": "2026-08-10",
+        "change_bps": 0.0,
+        "group_order": 2,
+        "is_benchmark": false,
+        "is_plot": true,
+        "is_synthetic": false,
+        "maturity_date": "2027-11-17",
+        "spread": 2.5241666666667,
+        "symbol": "LB27NA",
+        "ttm_years": 1.271232876712329,
+        "yield_percent": 1.01
+      },
+      {
+        "as_of": "2026-08-10",
+        "change_bps": -0.5534,
+        "group_order": 2,
+        "is_benchmark": false,
+        "is_plot": true,
+        "is_synthetic": true,
+        "maturity_date": "2028-03-13",
+        "spread": 2.612,
+        "symbol": "LB283A",
+        "ttm_years": 1.591780821917808,
+        "yield_percent": 1.065988
+      },
+      {
+        "as_of": "2026-08-10",
+        "change_bps": -0.248144,
+        "group_order": 2,
+        "is_benchmark": true,
+        "is_plot": true,
+        "is_synthetic": false,
+        "maturity_date": "2029-09-17",
+        "spread": 2.6508888888889,
+        "symbol": "LB299A",
+        "ttm_years": 3.106849315068493,
+        "yield_percent": 1.257515
+      },
+      {
+        "as_of": "2026-08-10",
+        "change_bps": -2.259256,
+        "group_order": 2,
+        "is_benchmark": true,
+        "is_plot": true,
+        "is_synthetic": false,
+        "maturity_date": "2036-05-17",
+        "spread": 2.1388888888889,
+        "symbol": "LB365A",
+        "ttm_years": 9.775342465753425,
+        "yield_percent": 2.026944444444444
+      },
+      {
+        "as_of": "2026-08-10",
+        "change_bps": -0.146033,
+        "group_order": 2,
+        "is_benchmark": true,
+        "is_plot": true,
+        "is_synthetic": false,
+        "maturity_date": "2077-06-17",
+        "spread": 7.8184555555556,
+        "symbol": "LB776A",
+        "ttm_years": 50.88767123287671,
+        "yield_percent": 3.293888888888889
+      }
+    ],
+    "requested_date": "2026-08-12",
+    "rollback_days": 2
+  },
+  "input": {
+    "as_of": "2026-08-10",
+    "points": [
+      {
+        "Asof": "2026-08-10T00:00:00",
+        "X": 0.076712328767123,
+        "Y": 0.856643
+      },
+      {
+        "Asof": "2026-08-10T00:00:00",
+        "X": 0.249315068493151,
+        "Y": 0.8717
+      },
+      {
+        "Asof": "2026-08-10T00:00:00",
+        "X": 0.498630136986301,
+        "Y": 0.886454
+      },
+      {
+        "Asof": "2026-08-10T00:00:00",
+        "X": 1.0,
+        "Y": 0.945142
+      },
+      {
+        "Asof": "2026-08-10T00:00:00",
+        "X": 2.0,
+        "Y": 1.132935
+      },
+      {
+        "Asof": "2026-08-10T00:00:00",
+        "X": 3.0,
+        "Y": 1.250791
+      },
+      {
+        "Asof": "2026-08-10T00:00:00",
+        "X": 4.0,
+        "Y": 1.439915
+      },
+      {
+        "Asof": "2026-08-10T00:00:00",
+        "X": 5.0,
+        "Y": 1.564301
+      }
+    ],
+    "quotes": [
+      {
+        "Asof": "2026-08-10T00:00:00",
+        "Change": -0.0054,
+        "GroupOrder": 1,
+        "IsBenchmark": false,
+        "IsPlot": true,
+        "IsSynthetic": false,
+        "MaturityDate": null,
+        "Spread": 4.3354444444444,
+        "Symbol": "T-BILL1M",
+        "Ttm": 0.076712328767123,
+        "Yield": 0.856643
+      },
+      {
+        "Asof": "2026-08-10T00:00:00",
+        "Change": 0.2155,
+        "GroupOrder": 1,
+        "IsBenchmark": false,
+        "IsPlot": true,
+        "IsSynthetic": false,
+        "MaturityDate": null,
+        "Spread": 4.6532444444444,
+        "Symbol": "T-BILL3M",
+        "Ttm": 0.249315068493151,
+        "Yield": 0.8717
+      },
+      {
+        "Asof": "2026-08-10T00:00:00",
+        "Change": 0.0,
+        "GroupOrder": 2,
+        "IsBenchmark": false,
+        "IsPlot": true,
+        "IsSynthetic": false,
+        "MaturityDate": "2027-11-17T00:00:00",
+        "Spread": 2.5241666666667,
+        "Symbol": "LB27NA",
+        "Ttm": 1.271232876712329,
+        "Yield": 1.01
+      },
+      {
+        "Asof": "2026-08-10T00:00:00",
+        "Change": -0.5534,
+        "GroupOrder": 2,
+        "IsBenchmark": false,
+        "IsPlot": true,
+        "IsSynthetic": true,
+        "MaturityDate": "2028-03-13T00:00:00",
+        "Spread": 2.612,
+        "Symbol": "LB283A",
+        "Ttm": 1.591780821917808,
+        "Yield": 1.065988
+      },
+      {
+        "Asof": "2026-08-10T00:00:00",
+        "Change": -0.248144,
+        "GroupOrder": 2,
+        "IsBenchmark": true,
+        "IsPlot": true,
+        "IsSynthetic": false,
+        "MaturityDate": "2029-09-17T00:00:00",
+        "Spread": 2.6508888888889,
+        "Symbol": "LB299A",
+        "Ttm": 3.106849315068493,
+        "Yield": 1.257515
+      },
+      {
+        "Asof": "2026-08-10T00:00:00",
+        "Change": -2.259256,
+        "GroupOrder": 2,
+        "IsBenchmark": true,
+        "IsPlot": true,
+        "IsSynthetic": false,
+        "MaturityDate": "2036-05-17T00:00:00",
+        "Spread": 2.1388888888889,
+        "Symbol": "LB365A",
+        "Ttm": 9.775342465753425,
+        "Yield": 2.026944444444444
+      },
+      {
+        "Asof": "2026-08-10T00:00:00",
+        "Change": -0.146033,
+        "GroupOrder": 2,
+        "IsBenchmark": true,
+        "IsPlot": true,
+        "IsSynthetic": false,
+        "MaturityDate": "2077-06-17T00:00:00",
+        "Spread": 7.8184555555556,
+        "Symbol": "LB776A",
+        "Ttm": 50.88767123287671,
+        "Yield": 3.293888888888889
+      }
+    ],
+    "requested_date": "2026-08-12"
+  },
+  "model": "settfex.services.thaibma.yield_curve.YieldCurve"
+}

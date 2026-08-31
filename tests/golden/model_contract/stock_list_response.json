@@ -1,0 +1,98 @@
+{
+  "expected_dump": {
+    "security_symbols": [
+      {
+        "indices": [],
+        "industry": "SERVICE",
+        "is_foreign_listing": false,
+        "is_iff": false,
+        "market": "SET",
+        "name_en": "CPALL (EN)",
+        "name_th": "CPALL (TH)",
+        "query_sector": "comm",
+        "remark": "",
+        "sector": "COMM",
+        "security_type": "S",
+        "symbol": "CPALL",
+        "type_sequence": 1
+      },
+      {
+        "indices": [],
+        "industry": "INDUS",
+        "is_foreign_listing": false,
+        "is_iff": false,
+        "market": "SET",
+        "name_en": "AAA (EN)",
+        "name_th": "AAA (TH)",
+        "query_sector": "comm",
+        "remark": "",
+        "sector": "COMM",
+        "security_type": "S",
+        "symbol": "AAA",
+        "type_sequence": 1
+      },
+      {
+        "indices": [],
+        "industry": "RESOURC",
+        "is_foreign_listing": false,
+        "is_iff": false,
+        "market": "SET",
+        "name_en": "PTT (EN)",
+        "name_th": "PTT (TH)",
+        "query_sector": "comm",
+        "remark": "",
+        "sector": "COMM",
+        "security_type": "S",
+        "symbol": "PTT",
+        "type_sequence": 1
+      }
+    ]
+  },
+  "input": {
+    "securitySymbols": [
+      {
+        "industry": "SERVICE",
+        "isForeignListing": false,
+        "isIFF": false,
+        "market": "SET",
+        "nameEN": "CPALL (EN)",
+        "nameTH": "CPALL (TH)",
+        "querySector": "comm",
+        "remark": "",
+        "sector": "COMM",
+        "securityType": "S",
+        "symbol": "CPALL",
+        "typeSequence": 1
+      },
+      {
+        "industry": "INDUS",
+        "isForeignListing": false,
+        "isIFF": false,
+        "market": "SET",
+        "nameEN": "AAA (EN)",
+        "nameTH": "AAA (TH)",
+        "querySector": "comm",
+        "remark": "",
+        "sector": "COMM",
+        "securityType": "S",
+        "symbol": "AAA",
+        "typeSequence": 1
+      },
+      {
+        "industry": "RESOURC",
+        "isForeignListing": false,
+        "isIFF": false,
+        "market": "SET",
+        "nameEN": "PTT (EN)",
+        "nameTH": "PTT (TH)",
+        "querySector": "comm",
+        "remark": "",
+        "sector": "COMM",
+        "securityType": "S",
+        "symbol": "PTT",
+        "typeSequence": 1
+      }
+    ]
+  },
+  "model": "settfex.services.set.list.StockListResponse"
+}

@@ -7,14 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.2] - 2026-08-31
+
+Dependency refresh with enforced backward-compatibility evidence. No library code changed in this
+release — the compatibility gates below were added **first**, and every dependency bump was then
+judged by them, one package per commit.
+
+### Added
+
+- **Backward-compat gates** — nothing in the repo previously prevented a dependency bump from
+  silently breaking downstream consumers:
+  - `tests/test_public_api_surface.py` + `tests/golden/api_surface.json`: a deterministic
+    structural snapshot of the entire public surface (function/method signatures, exception MROs,
+    Pydantic fields with aliases/required flags/defaults, computed fields vs plain properties,
+    enum members, endpoint constants). Any removed or renamed export, changed signature, changed
+    default, or required↔optional flip now fails the suite. Also pins the two-site version sync
+    (`pyproject.toml` vs `settfex.__version__`). Regenerate only for an intended surface change:
+    `uv run python -m tests.test_public_api_surface --regen`.
+  - `tests/test_model_contract.py` + 13 goldens under `tests/golden/model_contract/` (one
+    representative model per service family): `model_validate(input).model_dump(mode="json")`
+    locked byte-for-byte, deliberately covering the repo's known serialization traps — the
+    `Holiday` trailing-`" *"` footnote, `YieldCurve` computed fields on a rolled-back date, a
+    nanosecond `+07:00` timestamp, a `Z`-suffixed UTC datetime, and long-precision floats.
+  - `tests/test_impersonate_target.py`: every impersonate default the package ships (`chrome120`
+    in `FetcherConfig`/`SessionManager`, bare `"chrome"` in `HTTPClient`) must be a member of the
+    installed curl_cffi's accepted-target enumeration (`BrowserTypeLiteral`).
+  - `tests/integration/test_live_endpoints.py`: five opt-in live probes through the public
+    `get_*()` entry points (stock list, highlight data, TFEX series, holidays with the patient
+    retry config, ThaiBMA curve), excluded from the default run via `-m "not integration"` and
+    run with `uv run pytest -m integration --no-cov`. `SETTFEX_PROBE_DIR` dumps structural
+    evidence for before/after diffs; `SETTFEX_PROBE_CLEAR_CACHE=1` clears the session cache so a
+    TLS-fingerprint regression cannot hide behind cached cookies.
+- **Drift detection, so this refresh does not need repeating by hand**: a monthly
+  `dependency-drift.yml` workflow maintains a standing outdated-report issue
+  (`uv tree --outdated --depth 1 --all-groups` on the pinned uv); CI's lint job now runs
+  `uv lock --check` (the existing `--frozen` installs never validated lock-vs-pyproject
+  consistency); release.yml now asserts the built wheel ships `settfex/py.typed` and that the
+  tag matches `settfex/__init__.py` in addition to `pyproject.toml`.
+- **Dependency policy** section in `CLAUDE.md`: constraint style (`>=` floors, no caps without
+  evidence), the one-package-per-commit upgrade protocol, the four backward-compat levels with
+  their enforcement tests, and the mandatory curl_cffi live-probe rule.
+
+### Changed
+
+- Dependency locks refreshed to latest stable — **pyproject floors untouched**, so downstream
+  resolution is unchanged: pydantic 2.11.9 → 2.13.5 (with pydantic-core 2.33.2 → 2.46.5),
+  curl-cffi 0.16.1 → 0.16.2, build 1.5.0 → 1.6.0, mypy 2.3.0 → 2.3.1, pytest 8.4.2 → 9.1.1
+  (dev-only major; 9.1.1 specifically, because 9.0.x silently ignored `--strict-markers` from
+  `addopts` — verified fixed here empirically), pytest-asyncio 1.2.0 → 1.4.0, pytest-cov
+  7.0.0 → 7.1.0, ruff 0.13.2 → 0.16.5. loguru (0.7.3) and diskcache (5.6.3) were already at
+  latest. The pydantic bump was proven byte-identical on all 13 serialization goldens; the
+  curl-cffi bump was live-probed before/after with a cleared session cache (all five response
+  shapes identical, impersonate targets and `AsyncSession` signatures unchanged).
+- **ruff is unfrozen** (frozen at 0.13.2 since 2026-08-25; Dependabot bumps rejected 3× in
+  #61/#78/#88). The freeze's deferred question is settled with `extend-exclude = ["*.md"]` under
+  `[tool.ruff]`: ruff 0.16 formats Python code blocks inside Markdown by default, and the
+  exclusion preserves pre-0.16 behavior byte-identically, keeping the column-aligned doc code
+  samples intact. Three minor versions of new stable rules and the 2026 formatter style produced
+  **zero** findings and zero reformats in this codebase. The `.pre-commit-config.yaml` rev moved
+  in lockstep; the Dependabot server-side ignore stays (ruff bumps remain manual, watched by the
+  monthly drift report).
+- Coverage figures in `CLAUDE.md` refreshed 86.65% → 86.87% (the new gates raised measured
+  coverage; the enforced floor stays 85%). `asyncio_default_fixture_loop_scope = "function"` is
+  now pinned explicitly (the suite has no async fixtures — this freezes current behavior).
+
 ### Internal
 
 - `docs/guide/PYTHON_LIBRARY_BEST_PRACTICES.md` still said "Aim for >80% coverage". It reads as
   generic advice but is explicitly a document about *this* library ("best practices followed in the
   `settfex` library"), so it was a repo claim sitting **below the enforced 85% floor** — the last
   one left after the 0.19.1 prompt sweep. It now names `--cov-fail-under=85` and says the floor is
-  enforced rather than aspirational. `CLAUDE.md` needed no change: both of its figures already read
-  86.65% and remain accurate.
+  enforced rather than aspirational. `CLAUDE.md` needed no change at the time this was written:
+  both of its figures read 86.65%, accurate until this release's new tests moved measured coverage
+  to 86.87% (refreshed above).
+
+**Backward compatibility:** the public API surface, the Python floor (`requires-python >= 3.11`),
+and every dependency lower bound are unchanged in this release. Evidence, not assertion: the API
+surface was snapshot-diffed before and after the whole refresh and is **byte-identical**; Pydantic
+serialization output is **byte-identical** on all 13 model-contract goldens across the
+pydantic-core 2.33 → 2.46 jump; live SET/TFEX/ThaiBMA probes pass before and after with identical
+response shapes. These guarantees are now permanently enforced by
+`tests/test_public_api_surface.py` and `tests/test_model_contract.py` — a future change that
+breaks any of them fails the test suite rather than shipping silently. No behavior change of any
+kind ships in this release.
 
 ## [0.19.1] - 2026-08-26
 

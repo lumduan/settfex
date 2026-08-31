@@ -1,6 +1,6 @@
 [project]
 name = "settfex"
-version = "0.19.1"
+version = "0.19.2"
 description = "Async Python library for fetching real-time and historical data from the Stock Exchange of Thailand (SET) and Thailand Futures Exchange (TFEX)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -75,7 +75,16 @@ python_functions = ["test_*"]
 # --cov-branch explicitly (.github/workflows/ci.yml), and branch coverage scores ~1.3 points
 # lower than statement-only (86.65% vs 87.99%). Without this flag the same floor meant two
 # different things by location, and a change sitting at 85.5% locally would fail CI at ~84.2%.
-addopts = "-v --strict-markers --cov=settfex --cov-branch --cov-report=term-missing --cov-fail-under=85"
+# -m "not integration" keeps the live-endpoint probes (tests/integration/) out of the default
+# run; a CLI -m comes after addopts and overrides it, so `uv run pytest -m integration --no-cov`
+# runs exactly the probes (--no-cov because the 85% floor is calibrated for the full suite).
+addopts = '-v --strict-markers --cov=settfex --cov-branch --cov-report=term-missing --cov-fail-under=85 -m "not integration"'
+markers = [
+    "integration: live-endpoint probes against real SET/TFEX/ThaiBMA hosts; run with: uv run pytest -m integration --no-cov",
+]
+# Pin pytest-asyncio's fixture loop scope explicitly (its unset-value deprecation path); the
+# suite has no async fixtures today, so "function" simply freezes current behavior.
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
 source = ["settfex"]
@@ -94,6 +103,11 @@ exclude_lines = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# ruff 0.16+ formats Python code blocks inside Markdown BY DEFAULT. The doc/code samples in
+# CLAUDE.md, AGENTS.md, README.md and docs/ carry intentionally column-aligned inline comments,
+# so Markdown is excluded — this preserves pre-0.16 behavior byte-identically and is the
+# settlement that unfroze ruff (see PRs #61/#78/#88 and the CHANGELOG 0.19.2 entry).
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 # E/F/W=pycodestyle+pyflakes, I=isort, N=pep8-naming, UP=pyupgrade,

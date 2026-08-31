@@ -4,8 +4,11 @@
 #   Update revs:    uv run pre-commit autoupdate
 repos:
   # Ruff: lint (with autofix) + format — matches CI `ruff check` / `ruff format`.
+  # Keep this rev in lockstep with the ruff pin in uv.lock. Markdown stays excluded via
+  # [tool.ruff] extend-exclude = ["*.md"] (and ruff-pre-commit does not pass .md files
+  # unless types_or opts in), so doc code samples are never reformatted.
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.13.2
+    rev: v0.16.5
     hooks:
       - id: ruff
         args: [--fix]

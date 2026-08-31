@@ -1,0 +1,13 @@
+{
+  "expected_dump": {
+    "company_name": "CP ALL PUBLIC COMPANY LIMITED",
+    "is_primary": true,
+    "unique_id": "0000003875"
+  },
+  "input": {
+    "Flag": true,
+    "Text": "CP ALL PUBLIC COMPANY LIMITED",
+    "Value": "0000003875"
+  },
+  "model": "settfex.services.sec.company.CompanyMatch"
+}

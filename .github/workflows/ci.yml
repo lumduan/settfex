@@ -40,6 +40,11 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - run: uv python install 3.11
+
+      # --frozen only means "install exactly what the lock says" — it does NOT verify the
+      # lock is still consistent with pyproject.toml (that is --locked / `uv lock --check`).
+      # Without this gate, a pyproject edit without `uv lock` runs CI against a stale lock.
+      - run: uv lock --check
       - run: uv sync --group dev --frozen
 
       - run: uv run ruff check .

@@ -1,0 +1,103 @@
+{
+  "expected_dump": {
+    "news_info_list": [
+      {
+        "headline": "Financial Performance Quarter 2 (F45)",
+        "id": "105467000",
+        "is_today_news": false,
+        "lang": "en",
+        "market_alert_type_id": null,
+        "news_datetime": "2026-07-17T21:06:00+07:00",
+        "percent_price_change": null,
+        "product": "S",
+        "source": "CPALL",
+        "symbol": "CPALL",
+        "tag": "financial-statement",
+        "url": "https://www.set.or.th/en/market/news-and-alert/newsdetails?id=105467000&symbol=CPALL",
+        "view_clarification": null
+      },
+      {
+        "headline": "Notification of the Resignation of the Chief Executive Officer",
+        "id": "105467001",
+        "is_today_news": true,
+        "lang": "en",
+        "market_alert_type_id": null,
+        "news_datetime": "2026-07-17T08:00:00+07:00",
+        "percent_price_change": null,
+        "product": "S",
+        "source": "PTT",
+        "symbol": "PTT",
+        "tag": "",
+        "url": "https://www.set.or.th/en/market/news-and-alert/newsdetails?id=105467001&symbol=PTT",
+        "view_clarification": null
+      },
+      {
+        "headline": "TFEX Daily Settlement Price",
+        "id": "105467002",
+        "is_today_news": false,
+        "lang": "en",
+        "market_alert_type_id": null,
+        "news_datetime": "2026-07-17T17:30:00+07:00",
+        "percent_price_change": null,
+        "product": "TFEX",
+        "source": "TFEX",
+        "symbol": "S50U26",
+        "tag": "set-releases",
+        "url": "https://www.set.or.th/en/market/news-and-alert/newsdetails?id=105467002&symbol=S50U26",
+        "view_clarification": null
+      }
+    ],
+    "total_count": 3
+  },
+  "input": {
+    "newsInfoList": [
+      {
+        "datetime": "2026-07-17T21:06:00+07:00",
+        "headline": "Financial Performance Quarter 2 (F45)",
+        "id": "105467000",
+        "isTodayNews": false,
+        "lang": "en",
+        "marketAlertTypeId": null,
+        "percentPriceChange": null,
+        "product": "S",
+        "source": "CPALL",
+        "symbol": "CPALL",
+        "tag": "financial-statement",
+        "url": "https://www.set.or.th/en/market/news-and-alert/newsdetails?id=105467000&symbol=CPALL",
+        "viewClarification": null
+      },
+      {
+        "datetime": "2026-07-17T08:00:00+07:00",
+        "headline": "Notification of the Resignation of the Chief Executive Officer",
+        "id": "105467001",
+        "isTodayNews": true,
+        "lang": "en",
+        "marketAlertTypeId": null,
+        "percentPriceChange": null,
+        "product": "S",
+        "source": "PTT",
+        "symbol": "PTT",
+        "tag": "",
+        "url": "https://www.set.or.th/en/market/news-and-alert/newsdetails?id=105467001&symbol=PTT",
+        "viewClarification": null
+      },
+      {
+        "datetime": "2026-07-17T17:30:00+07:00",
+        "headline": "TFEX Daily Settlement Price",
+        "id": "105467002",
+        "isTodayNews": false,
+        "lang": "en",
+        "marketAlertTypeId": null,
+        "percentPriceChange": null,
+        "product": "TFEX",
+        "source": "TFEX",
+        "symbol": "S50U26",
+        "tag": "set-releases",
+        "url": "https://www.set.or.th/en/market/news-and-alert/newsdetails?id=105467002&symbol=S50U26",
+        "viewClarification": null
+      }
+    ],
+    "totalCount": 3
+  },
+  "model": "settfex.services.set.news.NewsSearchResponse"
+}

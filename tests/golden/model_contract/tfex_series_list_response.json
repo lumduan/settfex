@@ -1,0 +1,41 @@
+{
+  "expected_dump": {
+    "series": [
+      {
+        "active": true,
+        "contract_month": "12/2025",
+        "first_trading_date": "2024-01-02T00:00:00+07:00",
+        "has_night_session": true,
+        "instrument_id": "SET50_FC",
+        "instrument_name": "SET50 Futures",
+        "last_trading_date": "2025-12-29T16:30:00+07:00",
+        "market_list_id": "TXI_F",
+        "market_list_name": "Equity Index Futures",
+        "options_type": "",
+        "strike_price": null,
+        "symbol": "S50Z25",
+        "underlying": "SET50"
+      }
+    ]
+  },
+  "input": {
+    "series": [
+      {
+        "active": true,
+        "contractMonth": "12/2025",
+        "firstTradingDate": "2024-01-02T00:00:00+07:00",
+        "hasNightSession": true,
+        "instrumentId": "SET50_FC",
+        "instrumentName": "SET50 Futures",
+        "lastTradingDate": "2025-12-29T16:30:00+07:00",
+        "marketListId": "TXI_F",
+        "marketListName": "Equity Index Futures",
+        "optionsType": "",
+        "strikePrice": null,
+        "symbol": "S50Z25",
+        "underlying": "SET50"
+      }
+    ]
+  },
+  "model": "settfex.services.tfex.list.TFEXSeriesListResponse"
+}

@@ -217,7 +217,11 @@ uv run ruff format --check . # formatting — a SEPARATE gate; `ruff check` pass
 uv run mypy .                # type-check (strict)
 ```
 
-CI runs all four. `ruff` also formats `.ipynb`, so example notebooks must satisfy it too.
+CI runs all four. `ruff` also formats `.ipynb`, so example notebooks must satisfy it too
+(`.md` files are deliberately excluded from ruff — do not remove `extend-exclude` from
+`pyproject.toml`). Live-endpoint smoke probes exist as opt-in integration tests:
+`uv run pytest -m integration --no-cov` (excluded from the default run; they hit the real
+SET/TFEX/ThaiBMA hosts — see the Dependency policy in `CLAUDE.md` for when they are mandatory).
 
 Deeper context lives in [`CLAUDE.md`](CLAUDE.md) (architecture, service-design patterns, the
 complete Known Gotchas list) and in per-service pages under

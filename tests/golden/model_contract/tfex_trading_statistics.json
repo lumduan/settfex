@@ -1,0 +1,31 @@
+{
+  "expected_dump": {
+    "day_to_maturity": 85,
+    "has_theoretical_price": true,
+    "im": 9600.0,
+    "is_options": false,
+    "last_trading_date": "2025-12-29T16:30:00+07:00",
+    "market_time": "2025-10-05T17:00:00+07:00",
+    "mm": 6720.0,
+    "prior_settlement_price": 848.0,
+    "settlement_pattern": "#,##0.0",
+    "settlement_price": 851.2,
+    "symbol": "S50Z25",
+    "theoretical_price": 850.5
+  },
+  "input": {
+    "dayToMaturity": 85,
+    "hasTheoreticalPrice": true,
+    "im": 9600.0,
+    "isOptions": false,
+    "lastTradingDate": "2025-12-29T16:30:00+07:00",
+    "marketTime": "2025-10-05T17:00:00+07:00",
+    "mm": 6720.0,
+    "priorSettlementPrice": 848.0,
+    "settlementPattern": "#,##0.0",
+    "settlementPrice": 851.2,
+    "symbol": "S50Z25",
+    "theoreticalPrice": 850.5
+  },
+  "model": "settfex.services.tfex.trading_statistics.TradingStatistics"
+}

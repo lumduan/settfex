@@ -63,7 +63,7 @@ uv run mypy .        # type-check (strict mode)
 3. **Utilities**: Reusable helpers in `utils/` for cross-cutting concerns
 4. **Type Safety**: Full type hints and Pydantic validation throughout
 5. **Modern Python**: Python 3.11+ with async/await patterns
-6. **Testing**: Comprehensive pytest coverage (**85% CI floor**, currently 86.65%)
+6. **Testing**: Comprehensive pytest coverage (**85% CI floor**, currently 86.87%)
 7. **Documentation**: Maintained docs for all public APIs
 
 ## Development Guidelines
@@ -81,7 +81,7 @@ uv run mypy .        # type-check (strict mode)
 ### Testing
 - Write tests for all new features; mock external API calls
 - Use pytest fixtures in `conftest.py` for shared setup
-- Maintain coverage at or above the **85%** CI floor (`--cov-fail-under=85` in `pyproject.toml`); currently 86.65%. `--cov-branch` is in the pytest defaults so a local `uv run pytest` reports the same number CI does
+- Maintain coverage at or above the **85%** CI floor (`--cov-fail-under=85` in `pyproject.toml`); currently 86.87%. `--cov-branch` is in the pytest defaults so a local `uv run pytest` reports the same number CI does
 
 ### Documentation
 - Update docs when adding features; include docstrings for all public APIs
@@ -250,6 +250,43 @@ files = await sec.download_all(subset, dest_dir="./out")  # concurrent; pass `do
 | Build | `uv` (pyproject.toml) | Fast dependency resolution |
 | Lint | Ruff + mypy strict | Modern, fast tooling |
 
+## Dependency policy
+
+How dependencies are constrained, upgraded, and verified. (Established with the 0.19.2
+dependency refresh; the enforcement tests it references live in `tests/`.)
+
+- **Constraint style:** `>=` floors only, no upper caps. A floor is raised ONLY for a proven
+  incompatibility with the old bound; a cap is added ONLY with evidence that the next major
+  breaks settfex (justify either in `CHANGELOG.md`). Upgrades move `uv.lock`, not the floors.
+- **Cadence & detection:** Dependabot proposes bumps weekly; the `dependency-drift.yml`
+  workflow posts a monthly whole-picture outdated report as a standing issue. `uv lock --check`
+  in CI fails any commit whose lock is stale vs `pyproject.toml`.
+- **Upgrade protocol:** one package per commit — `uv lock --upgrade-package <name>==<target>`,
+  then the full gates (`pytest`, `ruff check`, `ruff format --check`, `mypy settfex/`); the lock
+  diff must move only the named package + its dependency closure, enumerated in the commit body.
+  Never batch a major bump with anything else. Read the upstream release notes before bumping.
+- **Backward compatibility = 4 levels, all enforced:**
+  - **L1 API surface** — no removed/renamed exports, changed signatures, or changed exception
+    MROs. Enforced by `tests/test_public_api_surface.py` vs `tests/golden/api_surface.json`.
+  - **L2 resolution** — `requires-python >= 3.11` and dependency floors unchanged.
+  - **L3 behavior** — Pydantic field names/types/optionality/aliases and
+    `model_dump(mode="json")` output unchanged. Enforced by `tests/test_model_contract.py`
+    vs `tests/golden/model_contract/`.
+  - **L4 runtime** — live SET/TFEX/ThaiBMA calls still succeed:
+    `uv run pytest -m integration --no-cov`.
+- **curl_cffi bumps REQUIRE the live-probe protocol** — a green unit suite is not evidence
+  (HTTP is mocked; the failure mode is a TLS-fingerprint/impersonate change that only the real
+  Incapsula origins can reveal). Run the integration probes before and after with
+  `SETTFEX_PROBE_DIR=tmp/live_{before,after} SETTFEX_PROBE_CLEAR_CACHE=1` and diff the shapes;
+  `tests/test_impersonate_target.py` additionally pins every shipped impersonate default to the
+  installed curl_cffi's accepted-target enumeration.
+- **Golden files are gates, not fixtures:** never regenerate `tests/golden/**` to make a
+  dependency bump pass — a diff there IS the finding. Regenerate only for an intended, reviewed
+  surface/behavior change (`--regen` entry points in the two test modules).
+- **Hand-pinned, Dependabot-invisible spots:** the setup-uv `version:` input (all workflows) and
+  ruff (server-side-ignored; bump lock + `.pre-commit-config.yaml` rev in lockstep, keep
+  `extend-exclude = ["*.md"]`). The monthly drift report is what watches these.
+
 ## Target Users
 
 - Python developers building trading applications
@@ -315,7 +352,7 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full, versioned release history — t
 - **A SEC `FS` search returns three categories at once:** querying `ddlReportType=FS` returns financial statements **+** Key Financial Ratio **+** MD&A sections in one HTML response (each its own table); large sections truncate inline and expose a `ViewMore/{fs-norm|fs-kf|fs-mda}` link the listing follows (`follow_view_more=True`). MD&A rows use different columns (Date/Time/Heading/Link, no Name) — the mapper fills `company_name` from the resolved company as a fallback.
 - **`DocumentCategory` is a `StrEnum`, deliberately — do not "restore" `(str, Enum)`:** ruff 0.15+ rejects the `(str, Enum)` pattern via `UP042`. As a `StrEnum`, `str(cat)` / `f"{cat}"` give the bare value (`"financial_statement"`), **not** `"DocumentCategory.FINANCIAL_STATEMENT"` — use `cat.name` or `repr(cat)` if you need the qualified form. Equality with the plain string, `.value`, JSON output and all `SecDocumentList` helpers are unaffected (tests guard this). Note `years_by_category()` keys on `.value` on purpose, which is why `summary()` never depended on the enum's `__str__`.
 - **The uv version in CI is pinned by hand — Dependabot will not bump it:** all six `astral-sh/setup-uv` steps pass `version: "0.11.33"` instead of `"latest"`, so a uv release cannot silently change a build (this matters most in `release.yml`, which builds the published artifact). Dependabot's `github-actions` ecosystem bumps the *action ref*, never an action *input*, so this pin only moves when someone edits it. Note pinning does **not** make setup-uv network-free: on a GitHub-hosted runner uv is not in the tool cache, so `getArtifact` still fetches `raw.githubusercontent.com/astral-sh/versions` for the download URL — a fetch that has been observed to fail transiently. Re-run the job when it does.
-- **Ruff is FROZEN at 0.13.2 and excluded from Dependabot — because 0.16+ formats Python code blocks inside Markdown by default:** upgrading past 0.16.0 makes `ruff format --check` want to reformat **34** files (`CLAUDE.md`, `docs/`, `.github/instructions/`), collapsing the intentionally column-aligned inline comments in the code samples. Dependabot proposed the bump three times and it was rejected all three (#61 → #78 → #88); on **2026-08-25** #88 was closed with `@dependabot ignore this dependency`, so **no further ruff PR will ever be opened**. That ignore lives in Dependabot's own state, **not** in `.github/dependabot.yml` — the reversal is to **re-open PR #88** (Dependabot's own wording: *"I won't notify you about ruff again, unless you re-open this PR"*), or `@dependabot unignore ruff` on any other Dependabot PR. Before re-enabling, settle the question this freeze deferred: accept the markdown churn, or set `extend-exclude = ["*.md"]` under `[tool.ruff]` first.
+- **Ruff is UNFROZEN (0.16.5 since 2026-08-31) — Markdown is permanently excluded via `extend-exclude = ["*.md"]`:** ruff 0.16+ formats Python code blocks inside Markdown by default, which would collapse the intentionally column-aligned inline comments in ~40 doc files (`CLAUDE.md`, `README.md`, `AGENTS.md`, `docs/`) — the reason ruff was frozen at 0.13.2 from 2026-08-25 to 2026-08-31 (Dependabot bumps rejected 3×: #61 → #78 → #88). The freeze's deferred question was settled by the `extend-exclude = ["*.md"]` line under `[tool.ruff]`: it preserves pre-0.16 behavior byte-identically (0.13.2 never touched `.md`), so **do not remove it** when tidying config. A ruff bump is a **2-place change**: the dev-group lock (`uv lock -P ruff==X`) and the `rev:` in `.pre-commit-config.yaml` — keep them in lockstep. Note Dependabot STILL never proposes ruff bumps (the `@dependabot ignore` from PR #88 lives in Dependabot's server-side state and was deliberately left in place); the monthly dependency-drift workflow reports ruff staleness instead, and bumps are applied by hand.
 - **Classify asset types by `securityType` CODE, never by `securityTypeName`:** the API's own display name for code `Q` carries a typo ("Prefered Foreign Stocks"), and names are localizable. `AssetType.from_security_type()` maps codes case-insensitively and returns `UNKNOWN` for anything new (never raises). There is deliberately no `AssetType.BOND` — bonds appear nowhere in SET's stock APIs (no `/api/set/bond/list`, none in the stock list; live-probed 2026-08-03).
 - **The DR-profile endpoint 404s for perfectly valid non-DR symbols:** `/api/set/dr/{sym}/profile` answers ANY non-DR (even `CPALL`) with HTTP 404 `{"message":"Invalid DR"}` — so the service raises `SymbolNotFoundError` with `suggest=False`; letting the symbol suggester run would produce the absurd "'CPALL' not found — did you mean 'CPALL'?". A 404 here means "not a DR", not "unknown symbol".
 - **`indicativePriceSymbol` is sometimes null while `indicativePriceUrl` is not:** several DRs (HERMES80, BYDCOM80, NDX01 in live probes) return `indicativePriceSymbol: null` but still carry the full expression URL-encoded in `indicativePriceUrl`'s `symbol` query param. `DrProfile.indicative_expression` recovers it from the URL automatically — don't treat a null symbol field as "no expression".
