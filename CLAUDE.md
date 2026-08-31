@@ -250,6 +250,43 @@ files = await sec.download_all(subset, dest_dir="./out")  # concurrent; pass `do
 | Build | `uv` (pyproject.toml) | Fast dependency resolution |
 | Lint | Ruff + mypy strict | Modern, fast tooling |
 
+## Dependency policy
+
+How dependencies are constrained, upgraded, and verified. (Established with the 0.19.2
+dependency refresh; the enforcement tests it references live in `tests/`.)
+
+- **Constraint style:** `>=` floors only, no upper caps. A floor is raised ONLY for a proven
+  incompatibility with the old bound; a cap is added ONLY with evidence that the next major
+  breaks settfex (justify either in `CHANGELOG.md`). Upgrades move `uv.lock`, not the floors.
+- **Cadence & detection:** Dependabot proposes bumps weekly; the `dependency-drift.yml`
+  workflow posts a monthly whole-picture outdated report as a standing issue. `uv lock --check`
+  in CI fails any commit whose lock is stale vs `pyproject.toml`.
+- **Upgrade protocol:** one package per commit — `uv lock --upgrade-package <name>==<target>`,
+  then the full gates (`pytest`, `ruff check`, `ruff format --check`, `mypy settfex/`); the lock
+  diff must move only the named package + its dependency closure, enumerated in the commit body.
+  Never batch a major bump with anything else. Read the upstream release notes before bumping.
+- **Backward compatibility = 4 levels, all enforced:**
+  - **L1 API surface** — no removed/renamed exports, changed signatures, or changed exception
+    MROs. Enforced by `tests/test_public_api_surface.py` vs `tests/golden/api_surface.json`.
+  - **L2 resolution** — `requires-python >= 3.11` and dependency floors unchanged.
+  - **L3 behavior** — Pydantic field names/types/optionality/aliases and
+    `model_dump(mode="json")` output unchanged. Enforced by `tests/test_model_contract.py`
+    vs `tests/golden/model_contract/`.
+  - **L4 runtime** — live SET/TFEX/ThaiBMA calls still succeed:
+    `uv run pytest -m integration --no-cov`.
+- **curl_cffi bumps REQUIRE the live-probe protocol** — a green unit suite is not evidence
+  (HTTP is mocked; the failure mode is a TLS-fingerprint/impersonate change that only the real
+  Incapsula origins can reveal). Run the integration probes before and after with
+  `SETTFEX_PROBE_DIR=tmp/live_{before,after} SETTFEX_PROBE_CLEAR_CACHE=1` and diff the shapes;
+  `tests/test_impersonate_target.py` additionally pins every shipped impersonate default to the
+  installed curl_cffi's accepted-target enumeration.
+- **Golden files are gates, not fixtures:** never regenerate `tests/golden/**` to make a
+  dependency bump pass — a diff there IS the finding. Regenerate only for an intended, reviewed
+  surface/behavior change (`--regen` entry points in the two test modules).
+- **Hand-pinned, Dependabot-invisible spots:** the setup-uv `version:` input (all workflows) and
+  ruff (server-side-ignored; bump lock + `.pre-commit-config.yaml` rev in lockstep, keep
+  `extend-exclude = ["*.md"]`). The monthly drift report is what watches these.
+
 ## Target Users
 
 - Python developers building trading applications
