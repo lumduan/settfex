@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-09-19
+
 ### Added
 
 - **Stock Info service** (`settfex/services/set/stock/info.py`) — `GET /api/set/stock/{symbol}/info`,
@@ -37,6 +39,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     verification script `scripts/settfex/services/set/verify_stock_info.py`, 45 unit tests
     (100% coverage of the new module), a `stock_info` model-contract golden, and a live
     integration probe.
+
+### Dependencies
+
+Five Dependabot bumps merged into this release, one package per PR per the Dependency policy;
+every lock diff moved only the named package.
+
+- **curl-cffi 0.16.2 → 0.16.3** (runtime). Gated by the live-probe protocol, because 0.16.3
+  carries a TLS-fingerprint change (*"fix tls_signed_cert_timestamps not applied"*, upstream
+  PR #833) and the unit suite mocks HTTP. Evidence: before/after `pytest -m integration` with
+  `SETTFEX_PROBE_CLEAR_CACHE=1` over all six live probes — **0 structural differences** (no
+  added/removed fields, no new nulls); a deliberately cold run with `~/.settfex/cache` deleted
+  completed warmup + fetch against the Incapsula-protected origin in 0.16 s, so no cached cookie
+  could have masked a rejected fingerprint; `tests/test_impersonate_target.py` green against the
+  installed 0.16.3.
+- **matplotlib 3.11.1 → 3.11.2** (`examples` extra), **tqdm 4.70.0 → 4.70.1**
+  (dev / `examples` / `progress`), **build 1.6.0 → 1.6.1** (dev).
+- **`astral-sh/setup-uv` 10.0.1 → 10.1.0** (CI action ref only — the hand-pinned
+  `version: "0.11.33"` uv-binary input is untouched, as Dependabot cannot see it).
 
 ### Fixed
 
