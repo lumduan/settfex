@@ -46,7 +46,7 @@ This PR implements disk-based session caching with **25x performance improvement
 ```
 Request → Check disk cache
                  ↓
-           Cache HIT? 
+           Cache HIT?
                  ↓
      YES ←─────┴─────→ NO
       ↓                ↓
@@ -246,4 +246,3 @@ manager = SessionManager(enable_cache=False)
 ---
 
 **Ready to use! Just update your dependencies and enjoy the speed boost! 🚀**
-

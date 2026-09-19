@@ -932,4 +932,3 @@ This library is not officially affiliated with the Stock Exchange of Thailand or
 - 🐛 Found a bug? [Open an issue](https://github.com/lumduan/settfex/issues)
 
 ---
-
