@@ -25,6 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for 3.11/3.12/3.13, `bandit`, `pip-audit`, and the release path `uv run python -m build` with the
   `py.typed` wheel assertion. The unit suite alone would not have covered the release path, which is
   the one that builds the published artifact.
+- **CI now runs pre-commit** (`.github/workflows/pre-commit.yml`). The hooks had never been a
+  gate — `ci.yml` calls ruff/mypy/pytest directly, so `trailing-whitespace`, `end-of-file-fixer`,
+  `check-yaml`/`check-toml`, the merge-conflict and private-key checks only ever saw files a
+  developer happened to stage. That is how eight files drifted. The job runs the **full** hook set
+  on `--all-files`, so "pre-commit passes locally" and "CI is green" mean the same thing, with
+  `--show-diff-on-failure` so the log shows the fix; it deliberately carries **no paths filter**,
+  because whitespace in a `.md` file is precisely what `ci.yml`'s filter skips. pre-commit itself
+  comes from the dev group, so CI runs the locked version. This is the eighth `setup-uv` step and
+  is pinned at 0.12.17 with the rest.
 - **The monthly drift report now watches the two hand-maintained pins it previously only claimed
   to watch** (`dependency-drift.yml`). uv is not a lock entry, so `uv tree --outdated` is blind to
   the `version:` input on `setup-uv`; the workflow printed that pin as a hardcoded literal and

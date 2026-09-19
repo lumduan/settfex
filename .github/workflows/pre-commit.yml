@@ -1,0 +1,60 @@
+# Pre-commit in CI — the gate that stops the hooks from being advisory.
+#
+# The hooks in .pre-commit-config.yaml only ever ran on files a developer happened to stage,
+# because nothing here executed them: ci.yml calls ruff/mypy/pytest directly. Eight files had
+# drifted by 2026-09-19 (PR #118) and surfaced as churn in an unrelated branch, which is the
+# most expensive moment to discover whitespace.
+#
+# This deliberately runs the FULL hook set, not just the hygiene ones, so "pre-commit passes
+# locally" and "CI is green" mean the same thing. That re-runs ruff and mypy, which ci.yml also
+# runs directly against the LOCKED versions — the overlap is deliberate: ci.yml gates the code,
+# this gates the hooks, and the monthly drift report checks the two ruff pins still agree.
+#
+# NOTE: no paths filter, unlike ci.yml. Trailing whitespace in a .md file is exactly what that
+# filter skips, and exactly what this job exists to catch.
+
+name: Pre-commit
+
+concurrency:
+  group: pre-commit-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "feature/**"
+
+jobs:
+  pre-commit:
+    name: pre-commit (all files)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # setup-uv stopped publishing floating major tags at v8 — pin the exact version.
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          # Pinned for reproducible builds — "latest" silently adopts whatever uv shipped
+          # that day. Dependabot does not bump action *inputs*, so bump this by hand.
+          version: "0.12.17"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - run: uv python install 3.11
+
+      # pre-commit comes from the dev group, so this runs the version in uv.lock — not
+      # whatever `pip install pre-commit` would resolve on the day.
+      - run: uv sync --group dev --frozen
+
+      # Hook environments are rebuilt from scratch otherwise; key on the config so a rev bump
+      # invalidates them.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      # --show-diff-on-failure prints the exact fix the hook would apply, so the log tells a
+      # contributor what to do rather than only that a file "was modified by this hook".
+      - run: uv run pre-commit run --all-files --show-diff-on-failure
