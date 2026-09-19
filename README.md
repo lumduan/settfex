@@ -39,7 +39,7 @@ This includes pandas, matplotlib, and jupyter notebook support.
 - [Stock List](examples/set/01_stock_list.ipynb) → [Highlight Data](examples/set/02_highlight_data.ipynb) → [Price Performance](examples/set/10_price_performance.ipynb) → [Financial Statements](examples/set/11_financial.ipynb)
 
 **Professional Trading :** Master all features for institutional use:
-- All 19 SET notebooks + TFEX notebooks (see below)
+- All 20 SET notebooks + TFEX notebooks (see below)
 
 ### 📊 SET Examples (Stock Exchange of Thailand)
 
@@ -64,6 +64,7 @@ All examples include beginner explanations, professional trading use cases, and 
 17. **[Market Holidays](examples/set/17_holiday.ipynb)** - Official market-closure calendar: is the market open, next holiday, long weekends
 18. **[Asset Types & Depositary Receipts](examples/set/18_dr_and_asset_type.ipynb)** - Tell stocks/ETFs/DRs/DWs apart, DR profiles, and TradingView indicative prices
 19. **[Analyst Consensus (IAA)](examples/set/19_analyst_consensus.ipynb)** - Broker target prices, forecasts, research PDF links, and a whole-market buy/hold/sell screener
+20. **[Stock Info](examples/set/20_stock_info.ipynb)** - Live quote block and trading signs (SP/NC/NP/CB/XD): is a symbol suspended, best bid/offer, every security type
 
 ### 📈 TFEX Examples (Thailand Futures Exchange)
 
@@ -104,6 +105,7 @@ Want to dig deeper? Check out our detailed guides:
 - **[DR Profile Service](docs/settfex/services/set/profile_dr.md)** - Depositary Receipt details: issuer, underlying, conversion ratio, and the TradingView "Indicative Price" link
 - **[DR Indicative Price Service](docs/settfex/services/set/dr_indicative_price.md)** - A DR's fair value in THB (underlying × FX ÷ ratio) from TradingView
 - **[Analyst Consensus Service](docs/settfex/services/set/analyst_consensus.md)** - IAA broker target prices, earnings forecasts and research PDF links, plus a market-wide buy/hold/sell screener
+- **[Stock Info Service](docs/settfex/services/set/info.md)** - Live quote block and trading signs (`SP`/`NC`/`NP`/`CB`/`XD`) for every security type, plus best bid/offer
 
 ### TFEX Services
 
@@ -430,6 +432,37 @@ quote = await dr.get_latest_price(prefer_dr_indicative=False)  # SET traded pric
 ```
 
 **👉 [Learn more about DR Profiles](docs/settfex/services/set/profile_dr.md)** · **[DR Indicative Price](docs/settfex/services/set/dr_indicative_price.md)**
+
+---
+
+#### 🚦 Check Trading Signs (is it suspended?)
+
+The quote block is the only source of a symbol's trading `sign` — and the only one that has it
+for warrants, DWs and DRs too. SET packs every active sign into **one comma-separated string**,
+so never compare `sign == "SP"`:
+
+```python
+from settfex.services.set import Stock, get_stock_info
+
+info = await get_stock_info("GRAND")
+print(info.sign)            # 'SP, CB, CS, CC'  <- several codes in one string
+print(info.signs)           # ['SP', 'CB', 'CS', 'CC']
+print(info.is_suspended)    # True
+print(info.has_sign("nc"))  # False (case-insensitive)
+
+# Live quote data comes with it
+print(f"{info.name_en}: last={info.last} bid/ask={info.best_bid}/{info.best_offer}")
+print(f"status={info.market_status} as of {info.market_date_time}")
+
+# Or through the Stock facade
+halted = await Stock("INGRS").is_suspended()
+```
+
+> ⚠️ `market_status` reads `'Closed'` for **every** symbol outside trading hours — it is not a
+> suspension flag. Only `is_suspended` (which reads the per-symbol sign) answers that.
+> A halted symbol returns HTTP 200 with `last`/OHLC/volume `None` and an empty book; use `prior`.
+
+**👉 [Learn more about Stock Info](docs/settfex/services/set/info.md)**
 
 ---
 

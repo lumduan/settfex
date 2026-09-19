@@ -375,6 +375,30 @@ table — target prices, earnings forecasts and each broker's research PDF
 > `average.target_price_change` only averages the brokers who actually revised. And a stock nobody
 > covers comes back zero-filled, not null: check `has_coverage` before trusting the aggregates.
 
+---
+
+### 20. Stock Info — Live Quote Block & Trading Signs (`20_stock_info.ipynb`)
+**What it does**: Fetches the quote-page header payload — the trading **sign**
+(`SP`/`NC`/`NP`/`CB`/`XD`…), live price/OHLC, best bid/offer and reference data
+
+**Learn how to**:
+- Read a symbol's trading signs with `get_stock_info()` — `signs`, `has_sign()`, `is_suspended`
+- Screen a watchlist for suspensions concurrently
+- Handle every security type in one call: stocks, warrants, DWs, DRs, ETFs, preferred lines
+- Read warrant/DW terms (`exercise_price`, `exercise_ratio`, `ttm`, `moneyness_status`) and ETF
+  `inav`
+- Use `Stock.get_signs()` / `Stock.is_suspended()`
+- Find **every** SP symbol market-wide using index compositions (~36 requests, not ~4,000)
+
+**Use cases**:
+- Excluding suspended names before placing orders or building a tradable universe
+- Monitoring a portfolio for newly posted signs (NP/NC/CB often precede an SP)
+- Checking whether a warrant or DW — invisible to the composition route — is halted
+
+> ⚠️ SET packs every active sign into one comma-separated string (`"SP, CB, CS, CC"`), so
+> `sign == "SP"` misses most suspended symbols — use `signs` / `has_sign()`. And `market_status`
+> reads `'Closed'` for everything outside trading hours: only the sign is per-symbol.
+
 ## Learning Path
 
 ### Beginners

@@ -52,6 +52,13 @@ from settfex.services.set.stock.highlight_data import (
     StockHighlightDataService,
     get_highlight_data,
 )
+from settfex.services.set.stock.info import (
+    Inav,
+    StockInfo,
+    StockInfoService,
+    get_stock_info,
+    parse_signs,
+)
 from settfex.services.set.stock.latest_historical_trading import (
     LatestHistoricalTrading,
     LatestHistoricalTradingService,
@@ -129,6 +136,12 @@ __all__ = [
     "StockHighlightDataService",
     "StockHighlightData",
     "get_highlight_data",
+    # Stock Info Service (live quote block + trading signs)
+    "StockInfoService",
+    "StockInfo",
+    "Inav",
+    "get_stock_info",
+    "parse_signs",
     # Profile Service
     "StockProfileService",
     "StockProfile",

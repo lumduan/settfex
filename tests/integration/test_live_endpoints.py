@@ -34,7 +34,12 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from settfex.services.set import get_highlight_data, get_holidays, get_stock_list
+from settfex.services.set import (
+    get_highlight_data,
+    get_holidays,
+    get_stock_info,
+    get_stock_list,
+)
 from settfex.services.tfex import get_series_list
 from settfex.services.thaibma import get_government_yield_curve
 from settfex.utils.data_fetcher import FetcherConfig
@@ -92,6 +97,20 @@ async def test_live_set_highlight_data():
     assert data.symbol == "CPALL"
     assert data.market_cap is not None and data.market_cap > 1e9
     _record("set_highlight_data", data, elapsed, symbol=data.symbol)
+
+
+@pytest.mark.asyncio
+async def test_live_set_stock_info():
+    """The quote block is the only live source of a symbol's trading sign."""
+    t0 = time.perf_counter()
+    info = await get_stock_info("CPALL")
+    elapsed = time.perf_counter() - t0
+    assert info.symbol == "CPALL"
+    assert info.security_type == "S"
+    assert info.prior is not None and info.prior > 0
+    # sign is "" for an untagged security, never null-and-unparseable
+    assert isinstance(info.signs, list)
+    _record("set_stock_info", info, elapsed, symbol=info.symbol, sign=info.sign)
 
 
 @pytest.mark.asyncio

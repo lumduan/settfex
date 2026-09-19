@@ -20,6 +20,14 @@ SET_FINANCIAL_CASH_FLOW_ENDPOINT = "/api/set/factsheet/{symbol}/financialstateme
 SET_STOCK_CHART_QUOTATION_ENDPOINT = "/api/set/stock/{symbol}/chart-quotation"
 SET_STOCK_LATEST_HISTORICAL_TRADING_ENDPOINT = "/api/set/stock/{symbol}/latest-historical-trading"
 
+# Live quote block behind the header of a set.or.th quote page: trading sign (SP/NC/NP/CB/XD...),
+# price/OHLC, best bid/offer, and reference data. Serves EVERY listed security type (stocks,
+# warrants, DWs, DRs, ETFs), which no other endpoint here does — the stock list has no sign field
+# and index compositions cover common stocks only. It has NO language dimension: ?lang=en and
+# ?lang=th return byte-identical payloads (both nameEN and nameTH are always present).
+# An unknown symbol answers HTTP 404 {"message": "Invalid Stock Name"}.
+SET_STOCK_INFO_ENDPOINT = "/api/set/stock/{symbol}/info"
+
 # DR (Depositary Receipt) profile — issuer/underlying/conversion-ratio details plus the
 # "Indicative Price" TradingView chart link shown on the DR quote page. Answers non-DR
 # symbols (even valid ones like CPALL) with HTTP 404 {"message": "Invalid DR"}.

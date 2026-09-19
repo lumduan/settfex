@@ -9,6 +9,7 @@
         "Stock",
         "SetIndex",
         "get_stock_list",
+        "get_stock_info",
         "get_highlight_data",
         "get_profile",
         "get_company_profile",
@@ -43,6 +44,7 @@
         "BondQuote",
         "StockListResponse",
         "StockHighlightData",
+        "StockInfo",
         "StockProfile",
         "CompanyProfile",
         "AssetType",
@@ -98,6 +100,7 @@
         "StaleDataError",
         "Stock",
         "StockHighlightData",
+        "StockInfo",
         "StockListResponse",
         "StockProfile",
         "SymbolNotFoundError",
@@ -123,6 +126,7 @@
         "get_news",
         "get_profile",
         "get_sec_documents",
+        "get_stock_info",
         "get_stock_list",
         "get_yield_curve_availability",
         "get_yield_curve_history",
@@ -1777,6 +1781,11 @@
         "StockHighlightDataService",
         "StockHighlightData",
         "get_highlight_data",
+        "StockInfoService",
+        "StockInfo",
+        "Inav",
+        "get_stock_info",
+        "parse_signs",
         "StockProfileService",
         "StockProfile",
         "get_profile",
@@ -2011,6 +2020,7 @@
         "Holiday",
         "HolidayCalendar",
         "HolidayService",
+        "Inav",
         "IncomeStatement",
         "IndexChartQuotationService",
         "IndexComposition",
@@ -2074,6 +2084,8 @@
         "Stock",
         "StockHighlightData",
         "StockHighlightDataService",
+        "StockInfo",
+        "StockInfoService",
         "StockListResponse",
         "StockListService",
         "StockProfile",
@@ -2118,12 +2130,14 @@
         "get_price_performance",
         "get_profile",
         "get_shareholder_data",
+        "get_stock_info",
         "get_stock_list",
         "get_trading_stats",
         "normalize_index_symbol",
         "normalize_language",
         "normalize_symbol",
         "parse_indicative_price_expression",
+        "parse_signs",
         "suggest_symbol"
       ],
       "functions": {}
@@ -2309,6 +2323,10 @@
           "type": "str",
           "value": "/api/set/stock/{symbol}/highlight-data"
         },
+        "SET_STOCK_INFO_ENDPOINT": {
+          "type": "str",
+          "value": "/api/set/stock/{symbol}/info"
+        },
         "SET_STOCK_LATEST_HISTORICAL_TRADING_ENDPOINT": {
           "type": "str",
           "value": "/api/set/stock/{symbol}/latest-historical-trading"
@@ -2377,6 +2395,7 @@
         "SET_PRICE_PERFORMANCE_ENDPOINT",
         "SET_STOCK_CHART_QUOTATION_ENDPOINT",
         "SET_STOCK_HIGHLIGHT_DATA_ENDPOINT",
+        "SET_STOCK_INFO_ENDPOINT",
         "SET_STOCK_LATEST_HISTORICAL_TRADING_ENDPOINT",
         "SET_STOCK_LIST_ENDPOINT",
         "SET_STOCK_PROFILE_ENDPOINT",
@@ -5906,6 +5925,11 @@
         "StockHighlightDataService",
         "StockHighlightData",
         "get_highlight_data",
+        "StockInfoService",
+        "StockInfo",
+        "Inav",
+        "get_stock_info",
+        "parse_signs",
         "StockProfileService",
         "StockProfile",
         "get_profile",
@@ -5977,6 +6001,7 @@
         "DrProfileService",
         "FinancialService",
         "FinancialStatement",
+        "Inav",
         "IncomeStatement",
         "IndicativePriceExpression",
         "Intermission",
@@ -5993,6 +6018,8 @@
         "Stock",
         "StockHighlightData",
         "StockHighlightDataService",
+        "StockInfo",
+        "StockInfoService",
         "StockProfile",
         "StockProfileService",
         "TradingStat",
@@ -6017,10 +6044,12 @@
         "get_price_performance",
         "get_profile",
         "get_shareholder_data",
+        "get_stock_info",
         "get_trading_stats",
         "normalize_language",
         "normalize_symbol",
-        "parse_indicative_price_expression"
+        "parse_indicative_price_expression",
+        "parse_signs"
       ],
       "functions": {}
     },
@@ -8992,6 +9021,519 @@
         }
       }
     },
+    "settfex.services.set.stock.info": {
+      "all": null,
+      "classes": {
+        "Inav": {
+          "bases": [
+            "pydantic.main.BaseModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "change": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "inav": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "percent_change": {
+              "alias": "percentChange",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "populate_by_name": true
+          },
+          "mro": [
+            "settfex.services.set.stock.info.Inav",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "StockInfo": {
+          "bases": [
+            "pydantic.main.BaseModel"
+          ],
+          "computed_fields": {
+            "is_suspended": {
+              "annotation": "bool"
+            },
+            "signs": {
+              "annotation": "list[str]"
+            }
+          },
+          "fields": {
+            "aom_value": {
+              "alias": "aomValue",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "aom_volume": {
+              "alias": "aomVolume",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "average": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "bids": {
+              "alias": null,
+              "annotation": "list[settfex.services.set.index.composition.BidOffer]",
+              "default_factory": "list",
+              "required": false
+            },
+            "ceiling": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "change": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "dividend_yield": {
+              "alias": "dividendYield",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "exercise_price": {
+              "alias": "exercisePrice",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "exercise_price_unit": {
+              "alias": "exercisePriceUnit",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "exercise_ratio": {
+              "alias": "exerciseRatio",
+              "annotation": "float | str | None",
+              "default": "None",
+              "required": false
+            },
+            "floor": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "high": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "high_52_weeks": {
+              "alias": "high52Weeks",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "inav": {
+              "alias": null,
+              "annotation": "settfex.services.set.stock.info.Inav | None",
+              "default": "None",
+              "required": false
+            },
+            "industry_name": {
+              "alias": "industryName",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "is_iff": {
+              "alias": "isIFF",
+              "annotation": "bool | None",
+              "default": "None",
+              "required": false
+            },
+            "is_npg": {
+              "alias": "isNPG",
+              "annotation": "bool | None",
+              "default": "None",
+              "required": false
+            },
+            "is_pfund": {
+              "alias": "isPFUND",
+              "annotation": "bool | None",
+              "default": "None",
+              "required": false
+            },
+            "last": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "last_trading_date": {
+              "alias": "lastTradingDate",
+              "annotation": "datetime.datetime | None",
+              "default": "None",
+              "required": false
+            },
+            "listed_share": {
+              "alias": "listedShare",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "low": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "low_52_weeks": {
+              "alias": "low52Weeks",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "market_cap": {
+              "alias": "marketCap",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "market_date_time": {
+              "alias": "marketDateTime",
+              "annotation": "datetime.datetime | None",
+              "default": "None",
+              "required": false
+            },
+            "market_name": {
+              "alias": "marketName",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "market_status": {
+              "alias": "marketStatus",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "maturity_date": {
+              "alias": "maturityDate",
+              "annotation": "datetime.datetime | None",
+              "default": "None",
+              "required": false
+            },
+            "moneyness_percent": {
+              "alias": "moneynessPercent",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "moneyness_status": {
+              "alias": "moneynessStatus",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "multiplier": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "name_en": {
+              "alias": "nameEN",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "name_th": {
+              "alias": "nameTH",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "nvdr_net_volume": {
+              "alias": "nvdrNetVolume",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "offers": {
+              "alias": null,
+              "annotation": "list[settfex.services.set.index.composition.BidOffer]",
+              "default_factory": "list",
+              "required": false
+            },
+            "open": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "par": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "pb_ratio": {
+              "alias": "pbRatio",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "pe_ratio": {
+              "alias": "peRatio",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "percent_change": {
+              "alias": "percentChange",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "prior": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "sector_name": {
+              "alias": "sectorName",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "security_type": {
+              "alias": "securityType",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "sign": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "statistics_as_of": {
+              "alias": "statisticsAsOf",
+              "annotation": "datetime.datetime | None",
+              "default": "None",
+              "required": false
+            },
+            "symbol": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "tick_size": {
+              "alias": "tickSize",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "total_value": {
+              "alias": "totalValue",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "total_volume": {
+              "alias": "totalVolume",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "tr_value": {
+              "alias": "trValue",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "tr_volume": {
+              "alias": "trVolume",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "ttm": {
+              "alias": null,
+              "annotation": "int | None",
+              "default": "None",
+              "required": false
+            },
+            "underlying": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {
+            "has_sign": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "code",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "bool"
+            }
+          },
+          "model_config": {
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.set.stock.info.StockInfo",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "asset_type",
+            "best_bid",
+            "best_offer",
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "StockInfoService": {
+          "bases": [
+            "builtins.object"
+          ],
+          "kind": "class",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "FetcherConfig | None",
+                  "default": "None",
+                  "name": "config",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "None"
+            },
+            "fetch_stock_info": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "symbol",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "StockInfo"
+            },
+            "fetch_stock_info_raw": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "symbol",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "dict[str, Any]"
+            }
+          },
+          "mro": [
+            "settfex.services.set.stock.info.StockInfoService",
+            "builtins.object"
+          ],
+          "properties": []
+        }
+      },
+      "constants": {
+        "SET_BASE_URL": {
+          "type": "str",
+          "value": "https://www.set.or.th"
+        },
+        "SET_STOCK_INFO_ENDPOINT": {
+          "type": "str",
+          "value": "/api/set/stock/{symbol}/info"
+        }
+      },
+      "exports": [
+        "Any",
+        "AssetType",
+        "AsyncDataFetcher",
+        "BidOffer",
+        "FetcherConfig",
+        "Inav",
+        "InvalidSymbolError",
+        "SET_BASE_URL",
+        "SET_STOCK_INFO_ENDPOINT",
+        "StockInfo",
+        "StockInfoService",
+        "decode_json",
+        "get_stock_info",
+        "normalize_symbol",
+        "parse_signs",
+        "raise_for_status",
+        "validate_or_raise"
+      ],
+      "functions": {
+        "get_stock_info": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "str",
+              "name": "symbol",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "StockInfo"
+        },
+        "parse_signs": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "str | None",
+              "name": "sign",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "list[str]"
+        }
+      }
+    },
     "settfex.services.set.stock.latest_historical_trading": {
       "all": null,
       "classes": {
@@ -11309,6 +11851,11 @@
               "params": [],
               "returns": "DrIndicativePrice"
             },
+            "get_info": {
+              "kind": "coroutine",
+              "params": [],
+              "returns": "StockInfo"
+            },
             "get_latest_historical_trading": {
               "kind": "coroutine",
               "params": [],
@@ -11398,10 +11945,20 @@
               ],
               "returns": "ShareholderData"
             },
+            "get_signs": {
+              "kind": "coroutine",
+              "params": [],
+              "returns": "list[str]"
+            },
             "get_tradingview_url": {
               "kind": "coroutine",
               "params": [],
               "returns": "str | None"
+            },
+            "is_suspended": {
+              "kind": "coroutine",
+              "params": [],
+              "returns": "bool"
             }
           },
           "mro": [
@@ -11414,6 +11971,7 @@
             "dr_indicative_price_service",
             "dr_profile_service",
             "highlight_data_service",
+            "info_service",
             "latest_historical_trading_service",
             "news_service",
             "profile_service",
@@ -11440,6 +11998,8 @@
         "Stock",
         "StockHighlightData",
         "StockHighlightDataService",
+        "StockInfo",
+        "StockInfoService",
         "SymbolNotFoundError",
         "TYPE_CHECKING",
         "normalize_language",
