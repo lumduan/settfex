@@ -36,7 +36,7 @@ Four rules that cover most mistakes:
 
 ### ⚠️ The top-level package is a *subset*
 
-`settfex` re-exports only 22 callables; `settfex.services.set` exposes 36. These are **not** at
+`settfex` re-exports only 24 functions; `settfex.services.set` exposes 43. These are **not** at
 top level and will raise `ImportError` if you guess:
 
 `get_balance_sheet`, `get_income_statement`, `get_cash_flow`, `get_trading_stats`,
@@ -82,6 +82,7 @@ accepts `english`/`thai`; `config: FetcherConfig | None` tunes timeout/retries.
 | **latest traded price** | `get_latest_price(symbol)` | `Quotation` — see the DR trap below |
 | intraday / historical price series | `get_chart_quotation(symbol, period="1D")` | `ChartQuotation` |
 | last completed session OHLCV | `get_latest_historical_trading(symbol)` | `LatestHistoricalTrading` |
+| **is it suspended? trading signs** (SP/NC/NP/CB/XD…), live quote block, best bid/offer | `get_stock_info(symbol)` | `StockInfo` — `.signs`, `.is_suspended`, `.has_sign()` |
 | company news & disclosures | `get_news(lang, symbol, from_date, to_date, keyword)` | `NewsSearchResponse` |
 | market-closure calendar | `get_holidays(year, lang)` | `HolidayCalendar` |
 | earnings calls (OPPDAY) + YouTube | `get_earnings_calls(...)`, `get_all_earnings_calls(...)`, `get_earnings_call_detail(id)`, `get_earnings_call_transcript(id)` | calendar entries, Thai transcripts |
@@ -131,7 +132,8 @@ from settfex.services.sec import SecCompany
 from settfex.services.thaibma import ThaiBMA
 
 stock = Stock("CPALL")           # .get_highlight_data() .get_profile() .get_latest_price()
-                                 # .get_news() .get_asset_type() .get_analyst_consensus() ...
+                                 # .get_news() .get_asset_type() .get_analyst_consensus()
+                                 # .get_info() .get_signs() .is_suspended() ...
 index = SetIndex("SET50")        # .get_info() .get_constituents() .get_latest_price()
 sec = SecCompany("CPALL")        # .list_documents() .download_all()
 tbma = ThaiBMA()                 # .get_yield_curve() .get_history() .get_availability()
@@ -185,6 +187,11 @@ being wrong, so none of them will announce itself.
 | **`HolidayCalendar.is_holiday()` is not "is the market open"** — weekends are absent from the payload | combine it with a weekday check |
 | **`SET` and `mai` have no constituent list** (HTTP 404) | query a sub-index such as `SET50`, a sector, or an industry |
 | **The analyst-consensus table endpoint ignores `?lang=`** | there is no Thai version; `recommend` is broker-supplied English free text |
+| **The stock LIST carries no trading sign** — `remark` is `""` on all 3,954 rows | a symbol's SP/NC/NP status comes from `get_stock_info(symbol)`, never from the list |
+| **`sign` packs several codes into one string** (`"SP, CB, CS, CC"`) — only 1 of 28 suspended stocks had a bare `"SP"` | test with `.has_sign("SP")` or `"SP" in .signs`, never `sign == "SP"` |
+| **`market_status` says `'Closed'` for every symbol after hours** — it is not a suspension flag | use `.is_suspended`, which reads the per-symbol sign |
+| **A suspended symbol returns HTTP 200 with `last`/OHLC/volume all `null`** and an empty book | that is data, not an error; quote `.prior` as its last known price |
+| **A market-wide sign scan via index compositions sees COMMON STOCKS only** (929 of 3,954 symbols) | suspended warrants/DWs/DRs are invisible to it — check those with `get_stock_info()` |
 
 ---
 

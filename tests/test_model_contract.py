@@ -9,7 +9,8 @@ float rendering, enum coercion, or computed-field emission fails here loudly.
 The roster deliberately includes the repo's known serialization traps: the ``Holiday``
 trailing-``" *"`` footnote (str_strip_whitespace deliberately off), ``YieldCurve``'s
 computed fields on a rolled-back date, a nanosecond ``+07:00`` timestamp (TFEX underlying),
-a ``Z``-suffixed UTC datetime (earnings call), and long-precision floats (analyst consensus).
+a ``Z``-suffixed UTC datetime (earnings call), long-precision floats (analyst consensus),
+and ``StockInfo``'s computed fields over a string-coerced bid/offer ladder.
 
 Regenerate expected dumps (only for an INTENDED, reviewed behavior change):
 
@@ -40,6 +41,7 @@ REGISTRY: dict[str, str] = {
     "index_list_response": "settfex.services.set.index.list.IndexListResponse",
     "news_search_response": "settfex.services.set.news.NewsSearchResponse",
     "sec_company_match": "settfex.services.sec.company.CompanyMatch",
+    "stock_info": "settfex.services.set.stock.info.StockInfo",
     "stock_list_response": "settfex.services.set.list.StockListResponse",
     "tfex_series_list_response": "settfex.services.tfex.list.TFEXSeriesListResponse",
     "tfex_trading_statistics": "settfex.services.tfex.trading_statistics.TradingStatistics",

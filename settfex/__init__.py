@@ -35,7 +35,7 @@ Usage:
     >>> asyncio.run(main())
 """
 
-__version__ = "0.19.2"
+__version__ = "0.20.0"
 __author__ = "batt"
 __license__ = "MIT"
 
@@ -77,6 +77,7 @@ from settfex.services.set import (
     SetIndex,
     Stock,
     StockHighlightData,
+    StockInfo,
     StockListResponse,
     StockProfile,
     get_analyst_consensus,
@@ -92,6 +93,7 @@ from settfex.services.set import (
     get_index_list,
     get_news,
     get_profile,
+    get_stock_info,
     get_stock_list,
 )
 
@@ -122,6 +124,7 @@ __all__ = [
     "Stock",
     "SetIndex",
     "get_stock_list",
+    "get_stock_info",
     "get_highlight_data",
     "get_profile",
     "get_company_profile",
@@ -159,6 +162,7 @@ __all__ = [
     # Data Models
     "StockListResponse",
     "StockHighlightData",
+    "StockInfo",
     "StockProfile",
     "CompanyProfile",
     "AssetType",

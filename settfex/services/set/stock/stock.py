@@ -19,6 +19,7 @@ from settfex.services.set.stock.highlight_data import (
     StockHighlightData,
     StockHighlightDataService,
 )
+from settfex.services.set.stock.info import StockInfo, StockInfoService
 from settfex.services.set.stock.latest_historical_trading import (
     LatestHistoricalTrading,
     LatestHistoricalTradingService,
@@ -86,6 +87,7 @@ class Stock:
         self._highlight_data_service: StockHighlightDataService | None = None
         self._chart_quotation_service: ChartQuotationService | None = None
         self._latest_historical_trading_service: LatestHistoricalTradingService | None = None
+        self._info_service: StockInfoService | None = None
         self._profile_service: StockProfileService | None = None
         self._shareholder_service: ShareholderService | None = None
         self._news_service: NewsService | None = None
@@ -284,6 +286,82 @@ class Stock:
         return await self.latest_historical_trading_service.fetch_latest_historical_trading(
             symbol=self.symbol
         )
+
+    @property
+    def info_service(self) -> StockInfoService:
+        """
+        Get or create stock info service instance.
+
+        Returns:
+            StockInfoService instance
+        """
+        if self._info_service is None:
+            self._info_service = StockInfoService(config=self.config)
+        return self._info_service
+
+    async def get_info(self) -> StockInfo:
+        """
+        Fetch the live quote block for this symbol (sign, price, depth, reference data).
+
+        Never cached: this is live trading state, unlike the profile-derived accessors.
+
+        Returns:
+            StockInfo with sign, price/OHLC, best bid/offer and reference data
+
+        Raises:
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
+
+        Example:
+            >>> stock = Stock("INGRS")
+            >>> info = await stock.get_info()
+            >>> print(info.signs, info.last, info.market_status)
+            ['SP'] None Suspend
+        """
+        logger.debug(f"Fetching stock info for {self.symbol}")
+        return await self.info_service.fetch_stock_info(symbol=self.symbol)
+
+    async def get_signs(self) -> list[str]:
+        """
+        Fetch this symbol's active trading signs (``['SP', 'NC']``; ``[]`` when untagged).
+
+        Works for every security type, including warrants, DWs and DRs — the only route in
+        this package that does.
+
+        Returns:
+            Sign codes in payload order (e.g. ``['SP', 'CB', 'CS']``)
+
+        Raises:
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
+
+        Example:
+            >>> stock = Stock("GRAND")
+            >>> await stock.get_signs()
+            ['SP', 'CB', 'CS', 'CC']
+        """
+        return (await self.get_info()).signs
+
+    async def is_suspended(self) -> bool:
+        """
+        Whether this symbol currently carries the ``SP`` (trading suspended) sign.
+
+        Returns:
+            True if SP is active
+
+        Raises:
+            SymbolNotFoundError: If the symbol is not found (HTTP 404).
+            FetchError: On other HTTP or transport failures.
+            ResponseParseError: If the response cannot be parsed.
+
+        Example:
+            >>> stock = Stock("INGRS")
+            >>> await stock.is_suspended()
+            True
+        """
+        return (await self.get_info()).is_suspended
 
     @property
     def profile_service(self) -> StockProfileService:

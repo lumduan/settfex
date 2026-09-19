@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-09-19
+
+### Added
+
+- **Stock Info service** (`settfex/services/set/stock/info.py`) — `GET /api/set/stock/{symbol}/info`,
+  the quote-page header payload, and the **only** source in the library of a symbol's trading
+  `sign` (`SP`/`NC`/`NP`/`CB`/`CS`/`CC`/`XD`…). Live-probed 2026-09-19: the stock list carries no
+  sign field at all (`remark` is `""` on all 3,954 rows) and index-composition rows cover common
+  stocks only, so this endpoint is the only route to a warrant's, DW's or DR's sign.
+  - `StockInfo` — 53 fields across price/OHLC, floor/ceiling, best bid/offer, market status,
+    reference data (par, tick size, 52-week range, underlying), derivative terms
+    (`exercise_price`, `exercise_ratio` verbatim, `ttm`, moneyness), the nested `Inav` block for
+    ETFs, and the valuation block. Serves every security type SET lists — stocks, `-F`/`-P`/`-Q`,
+    warrants, DWs, DRs, ETFs, unit trusts — with type-specific fields `None` where they do not
+    apply.
+  - Sign helpers, because SET packs several codes into one comma-separated string
+    (`"SP, CB, CS, CC"` is a real value, and only 1 of the 28 suspended stocks on 2026-09-19 had a
+    bare `"SP"`): `signs` and `is_suspended` as **computed fields** (so the parsed form survives
+    `model_dump()` into Parquet/JSON), plus `has_sign()`, `best_bid`/`best_offer`, `asset_type`,
+    and a module-level `parse_signs()` usable on raw composition rows.
+  - `StockInfoService.fetch_stock_info()` / `fetch_stock_info_raw()`, convenience
+    `get_stock_info(symbol)`, and `Stock.get_info()` / `get_signs()` / `is_suspended()` —
+    deliberately **not** cached, unlike the profile-derived accessors: this is live trading state.
+  - Deliberately **no `lang` argument**: the endpoint has no language dimension (`?lang=en` and
+    `?lang=th` are byte-identical, and both names always come back as `name_en`/`name_th`), the
+    same shape as the analyst-consensus table endpoint.
+  - Exported from `settfex`, `settfex.services.set` and `settfex.services.set.stock`. Purely
+    additive — the public-API surface golden records 0 removals.
+  - Docs `docs/settfex/services/set/info.md`, notebook `examples/set/20_stock_info.ipynb`,
+    verification script `scripts/settfex/services/set/verify_stock_info.py`, 45 unit tests
+    (100% coverage of the new module), a `stock_info` model-contract golden, and a live
+    integration probe.
+
+### Dependencies
+
+Five Dependabot bumps merged into this release, one package per PR per the Dependency policy;
+every lock diff moved only the named package.
+
+- **curl-cffi 0.16.2 → 0.16.3** (runtime). Gated by the live-probe protocol, because 0.16.3
+  carries a TLS-fingerprint change (*"fix tls_signed_cert_timestamps not applied"*, upstream
+  PR #833) and the unit suite mocks HTTP. Evidence: before/after `pytest -m integration` with
+  `SETTFEX_PROBE_CLEAR_CACHE=1` over all six live probes — **0 structural differences** (no
+  added/removed fields, no new nulls); a deliberately cold run with `~/.settfex/cache` deleted
+  completed warmup + fetch against the Incapsula-protected origin in 0.16 s, so no cached cookie
+  could have masked a rejected fingerprint; `tests/test_impersonate_target.py` green against the
+  installed 0.16.3.
+- **matplotlib 3.11.1 → 3.11.2** (`examples` extra), **tqdm 4.70.0 → 4.70.1**
+  (dev / `examples` / `progress`), **build 1.6.0 → 1.6.1** (dev).
+- **`astral-sh/setup-uv` 10.0.1 → 10.1.0** (CI action ref only — the hand-pinned
+  `version: "0.11.33"` uv-binary input is untouched, as Dependabot cannot see it).
+
+### Fixed
+
+- `examples/README.md` listed only 18 SET notebooks while claiming 19; notebook 19 (Analyst
+  Consensus) was never added to the index. Both it and 20 are now listed.
+- `AGENTS.md` stated the top level re-exports "22 callables" and `settfex.services.set` "36";
+  the measured values were already 23 and 41 before this change (24 and 43 after it).
+
+
 ## [0.19.2] - 2026-08-31
 
 Dependency refresh with enforced backward-compatibility evidence. No library code changed in this
