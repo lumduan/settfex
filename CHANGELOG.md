@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **The session cache directory is now created `0700`, and a loose default one is tightened in
+  place** (`settfex/utils/session_cache.py`). `diskcache` reads cached values back with pickle, so
+  write access to the cache directory is code execution in the calling process
+  (CVE-2025-69872 / PYSEC-2026-2447, which has **no fixed release** — upstream's last release was
+  2023). The cached cookies are credentials besides. A directory passed as `cache_dir` is created
+  `0700` when new, but an existing group/other-writable one is **reported, not changed**: a shared
+  cache may be deliberate, and silently breaking that layout would be worse than the warning.
+  Windows is skipped (POSIX mode bits do not express this), and no permission failure can break
+  cache construction. Covered by the first tests this module has ever had
+  (`tests/utils/test_session_cache.py`); coverage 87.19% → 87.59%.
+
 ### Internal
 
 - **ruff 0.16.5 → 0.16.8** (dev group). The hand-applied 2-place bump — Dependabot

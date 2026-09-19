@@ -12,12 +12,69 @@ Key features:
 """
 
 import asyncio
+import os
+import stat
 import time
 from pathlib import Path
 from typing import Any
 
 import diskcache  # type: ignore[import-untyped]
 from loguru import logger
+
+# diskcache deserializes cached values with pickle (CVE-2025-69872 / PYSEC-2026-2447, which has
+# NO fixed release upstream), so any account that can write into the cache directory executes
+# code inside this process the next time the cache is read. The cached cookies are credentials
+# in their own right. 0700 removes both reaches for every other account on the machine.
+_CACHE_DIR_MODE = 0o700
+
+
+def _secure_cache_dir(cache_dir: Path, *, owned: bool) -> None:
+    """Create the cache directory private, and vet the permissions of one that already exists.
+
+    New directories are always created ``0700``. An existing one is treated differently
+    depending on who chose it:
+
+    * The default ``~/.settfex/cache`` is ours, so loose bits are tightened (and logged).
+    * A caller-supplied directory may be shared on purpose — a service account, a mounted
+      volume — so a group/other-writable one is *reported and left alone*. Silently breaking a
+      deliberate layout would be worse than the warning.
+
+    Never raises: a cache that cannot be permission-checked is still a usable cache, and this
+    module's contract is to degrade rather than fail (see the try/except in every method below).
+
+    Args:
+        cache_dir: Directory that will hold the diskcache database.
+        owned: True when settfex chose the location, False when the caller passed one.
+    """
+    cache_dir.mkdir(mode=_CACHE_DIR_MODE, parents=True, exist_ok=True)
+
+    # POSIX mode bits do not express this on Windows; skip rather than pretend.
+    if os.name == "nt":
+        return
+
+    try:
+        mode = stat.S_IMODE(cache_dir.stat().st_mode)
+        # A directory this call just created is already private -- mkdir's mode can only be
+        # tightened by the umask, never loosened -- so reaching past here means it pre-existed.
+        if not mode & 0o077:
+            return
+
+        if owned:
+            cache_dir.chmod(_CACHE_DIR_MODE)
+            logger.info(
+                f"Tightened cache directory permissions: {cache_dir} {mode:04o} -> 0700 "
+                f"(cached cookies are credentials, and diskcache reads them back via pickle)"
+            )
+        elif mode & 0o022:
+            logger.warning(
+                f"Cache directory {cache_dir} is group/other-writable ({mode:04o}). diskcache "
+                f"deserializes with pickle, so anyone who can write here can execute code in "
+                f"this process (CVE-2025-69872). Leaving the mode alone because you chose this "
+                f"path -- pass a private directory, or chmod 700 it, if the sharing is not "
+                f"deliberate."
+            )
+    except OSError as e:
+        logger.warning(f"Could not verify permissions on cache directory {cache_dir}: {e}")
 
 
 class SessionCache:
@@ -61,10 +118,13 @@ class SessionCache:
             default_ttl: Default time-to-live for cached items in seconds (default: 1 hour)
             size_limit: Maximum cache size in bytes (default: 100MB)
         """
+        # The `is None` test is repeated rather than reusing `is_default`, because mypy narrows
+        # the parameter on the literal check but not through the flag.
+        is_default = cache_dir is None
         cache_dir = Path.home() / ".settfex" / "cache" if cache_dir is None else Path(cache_dir)
 
-        # Create cache directory if needed
-        cache_dir.mkdir(parents=True, exist_ok=True)
+        # Create the cache directory 0700 -- see _secure_cache_dir for why the mode matters.
+        _secure_cache_dir(cache_dir, owned=is_default)
 
         # Initialize diskcache
         self.cache = diskcache.Cache(str(cache_dir), size_limit=size_limit)
