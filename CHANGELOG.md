@@ -14,6 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The lock diff moved only ruff (no dependency closure); `ruff check .` and `ruff format --check .`
   both reported **zero findings and zero reformats**, and 0.16.6/0.16.7/0.16.8 carry no
   formatter-default change touching Markdown, so `extend-exclude = ["*.md"]` is unaffected.
+- **uv 0.11.33 → 0.12.17** across all seven `astral-sh/setup-uv` `version:` inputs (`ci.yml` ×2,
+  `release.yml` ×2, `security.yml` ×2, `dependency-drift.yml` ×1) — the first move of this pin since
+  it was introduced, and Dependabot cannot propose it (it bumps action refs, never action inputs).
+  uv 0.12 is a **breaking** minor line: PEP 625 sdist formats and some wheel entry points are now
+  rejected, *including when referenced by an existing lockfile*. Validated by running every uv
+  command CI runs, under 0.12.17, against the real tree before flipping the pin — `lock --check`
+  (the lock is accepted **unchanged**, no format migration), `sync --group dev --frozen`, `ruff
+  check`, `ruff format --check`, `mypy settfex/`, `pytest` (946 passed, 87.19%), `python install`
+  for 3.11/3.12/3.13, `bandit`, `pip-audit`, and the release path `uv run python -m build` with the
+  `py.typed` wheel assertion. The unit suite alone would not have covered the release path, which is
+  the one that builds the published artifact.
 - **The monthly drift report now watches the two hand-maintained pins it previously only claimed
   to watch** (`dependency-drift.yml`). uv is not a lock entry, so `uv tree --outdated` is blind to
   the `version:` input on `setup-uv`; the workflow printed that pin as a hardcoded literal and
