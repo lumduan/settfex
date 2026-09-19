@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-09-19
+
 ### Fixed
 
 - **SEC document listings returned NOTHING for `lang="th"` — silently** (issue #123).
@@ -34,6 +36,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   corruption. `parse_int` is deliberately left pure. `๓๐/๐๖/๒๕๖๙` also parses now; it returned
   `None` before, because `\d` is Unicode-aware but `strptime` is not.
 
+### Changed
+
+- **SEC listings can now raise where they returned an empty list.** A results page carrying data
+  rows of which **none** can be classified raises `ParseError` (a `FetchError` subclass, so
+  `except FetchError` still catches it) instead of returning `[]`. Pages with no rows, and pages
+  whose rows are all skipped by design, are unaffected — the check keys on unrecognised section
+  headings, not on emptiness, so "this issuer filed nothing" stays quiet.
+- **`parse_dmy_date` returns a different value for Buddhist-era input.** `"30/06/2568"` gave
+  `date(2568, 6, 30)` — a date 543 years in the future — and now gives `date(2025, 6, 30)`. If you
+  call this public helper directly and were compensating for the old behaviour downstream, remove
+  that compensation.
+- **`lang` selects the DOCUMENT language, not just the page's.** The Thai and English SEC listings
+  link to **different files** for the same filing: every MD&A pdf and most financial-statement zips
+  exist in a Thai and an English edition with distinct `file_url`/`file_id`, while IPOS-hosted rows
+  are shared. Switching an archiver to `lang="th"` therefore downloads different artifacts — usually
+  the point, but it means `file_url` is not comparable across languages. `category`, `year` and
+  `as_of` are.
+
 ### Added
 
 - **`ParseError`** (a `FetchError` subclass, so `except FetchError` keeps working): raised when a
@@ -43,7 +63,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`SecDocumentList.reported_counts` and `completeness()`**: the per-section record count the page
   states about itself, in both marker forms, which settfex previously deleted in five places. It is
   the cross-check that caught #123 — a section reporting 27 records and yielding 0 documents is the
-  shape of a bug. Carried across `filter()`, narrowed by category.
+  shape of a bug. Counts cover **only the categories you requested**: a single `FS` search returns
+  the financial-statement, Key Financial Ratio and MD&A sections together, so reporting all three
+  when you asked for one would show a shortfall for sections you deliberately filtered out — noise
+  in the one primitive meant to make a real shortfall visible. Carried across `filter()`, narrowed
+  by category. A shortfall is still not automatically an error: a section truncated behind a "view
+  more" link legitimately reports more than it returns.
 - `settfex.services.sec.utils`: `parse_year`, `split_section_count`, `normalize_thai_digits`,
   `to_christian_year`.
 - A `debug` breadcrumb per results page — rows parsed / mapped / skipped / no download link /
