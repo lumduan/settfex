@@ -38,6 +38,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   id is a legacy alias upstream — it still works and still runs `ruff check`, but it announced
   itself as `ruff (legacy alias)` in every run, including the new CI job's log. Verified the id
   resolves at `rev: v0.16.8`; the hook now prints `ruff check`.
+- **Dependency advisories: 27 → 1.** `pip-audit` (non-blocking in `security.yml`, so this had been
+  accumulating quietly) reported 27 known vulnerabilities across 8 packages. Seven were fixable and
+  were bumped one package per commit, each with the full gates: **urllib3 2.5.0 → 2.8.0**,
+  **requests 2.32.5 → 2.34.2**, **pygments 2.19.2 → 2.21.0**, **cryptography 48.0.0 → 50.0.1**,
+  **idna 3.10 → 3.20**, **msgpack 1.2.0 → 1.2.2**, **pip 26.1.2 → 26.2.1**. All are transitive
+  dev/extras dependencies; **no `pyproject.toml` floor moved**, so downstream resolution is
+  unchanged, and the lock stayed at 184 packages with nothing added or removed. The cryptography
+  two-major jump additionally smoke-tested the chain it feeds (`twine check dist/*` PASSED;
+  keyring/SecretStorage/id import).
+- **The one that remains is `diskcache` and it cannot be bumped**: PYSEC-2026-2447 /
+  CVE-2025-69872, unsafe pickle deserialization, **no fixed release** (upstream's last release was
+  2023). It is settfex's only flagged **runtime** dependency. Exploitation requires write access to
+  the cache directory (`~/.settfex/cache` by default, created with the process umask), so the
+  default single-user install is low-risk, while a shared or explicitly-passed `cache_dir` is not.
+  Recorded, not silenced — the monthly drift report's standing note now names it so it is not
+  re-triaged as "nothing to bump" every month.
 - **The monthly drift report now watches the two hand-maintained pins it previously only claimed
   to watch** (`dependency-drift.yml`). uv is not a lock entry, so `uv tree --outdated` is blind to
   the `version:` input on `setup-uv`; the workflow printed that pin as a hardcoded literal and
