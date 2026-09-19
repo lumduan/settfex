@@ -113,6 +113,13 @@ Indices: `get_index_list(lang)`, `get_index_info(symbol, lang)`,
 
 Dates here are **dd/mm/yyyy**. Pass a wide window to see full year history.
 
+`lang="th"` works and returns the **Thai-language filing documents** — different files from the
+English ones, not a translated index. Years and dates come back as **C.E.** in the model even
+though the Thai page states them in the Buddhist era (`2568` → `2025`). Free-text cells
+(`status`, `period`, `statement_type`, `company_name`) stay in the page's own language, so compare
+on `year`/`as_of`/`category`, never on those. `docs.reported_counts` carries what the site said
+each section holds — compare it against what you got before concluding an issuer filed nothing.
+
 ### ThaiBMA bonds — `from settfex.services.thaibma import ...`
 
 | I want… | Call |

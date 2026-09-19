@@ -24,6 +24,7 @@ __all__ = [
     "FetchError",
     "SymbolNotFoundError",
     "StaleDataError",
+    "ParseError",
     "InvalidSymbolError",
     "InvalidLanguageError",
     "InvalidDateError",
@@ -114,6 +115,33 @@ class StaleDataError(FetchError):
         self.requested_date = requested_date
         self.as_of = as_of
         self.rollback_days = rollback_days
+
+
+class ParseError(FetchError):
+    """A response arrived intact but could not be mapped to the expected shape.
+
+    Raised when a page carries data rows the parser recognises *structurally* but cannot classify
+    at all — the signature of a site-side change (a renamed section, an unhandled language) rather
+    than of an empty result. An empty page is **not** an error and still returns an empty list;
+    this fires only when rows were present and every one of them was unrecognised, because that is
+    the case a caller cannot otherwise distinguish from "this issuer filed nothing".
+
+    Subclasses :class:`FetchError` because the request was valid and the *response* was not, so
+    existing ``except FetchError`` handlers keep working.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        url: str | None = None,
+        rows_parsed: int | None = None,
+        unknown_sections: list[str] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.url = url
+        self.rows_parsed = rows_parsed
+        self.unknown_sections = list(unknown_sections or [])
 
 
 class InvalidSymbolError(ValueError):

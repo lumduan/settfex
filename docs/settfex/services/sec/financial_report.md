@@ -70,6 +70,58 @@ from settfex.services.sec import download_sec_documents
 files = await download_sec_documents(docs, dest_dir="./out", max_concurrency=5, progress=True)
 ```
 
+## Language (`lang="en"` / `lang="th"`)
+
+Both languages are supported and return the **same documents** — same count, same categories, same
+reporting years and dates.
+
+```python
+docs_en = await get_sec_documents("PTT", lang="en", from_date="01/01/2025", to_date="30/06/2025")
+docs_th = await get_sec_documents("PTT", lang="th", from_date="01/01/2025", to_date="30/06/2025")
+len(docs_en) == len(docs_th)          # True
+```
+
+Three things to know before you compare or archive across languages:
+
+1. **`lang` selects the document language, not just the page's.** The Thai and English listings
+   link to *different files* for the same filing — every MD&A pdf and most financial-statement
+   zips exist in both editions, with distinct `file_url`/`file_id`. (IPOS-hosted rows are shared.)
+   That is usually the point of asking for Thai, but it means `file_url` is **not** comparable
+   across languages.
+2. **Years and dates are normalized to C.E.** The Thai pages state the Buddhist era — `2568`,
+   `30/06/2568`, sometimes in Thai numerals — and `year`/`as_of`/`receive_date` come back as
+   `2025` and `date(2025, 6, 30)` either way. Compare on these.
+3. **Free-text cells stay in the page's own language.** `company_name`, `status`, `period`,
+   `statement_type` and `section` are what the site printed (`สอบทาน` vs `Reviewed`,
+   `ไตรมาสที่ 2` vs `Q2`). They are deliberately not translated — the payload is recorded, not
+   rewritten. Key your comparisons on `category`, `year` and `as_of`.
+
+> **Known gap:** the `Receive Date` column of the 56-1/56-2 sections has no Thai mapping yet, so a
+> Thai 56-1 listing returns `receive_date=None` while every other field populates. The Thai
+> spelling of that header has not been observed in a captured page, and a guessed header would map
+> silently to the wrong column.
+
+## Completeness: what the site said vs what you got
+
+Each results section states its own record count (`( 27 record(s) found)` /
+`(จำนวนรายการที่พบ 27 รายการ)`). That number is kept:
+
+```python
+docs.reported_counts          # {'financial_statement': 6, 'key_financial_ratio': 2, 'mda': 2}
+docs.completeness()           # {'financial_statement': (6, 6), ...}  -> (held, site's number)
+```
+
+A shortfall is **not** automatically an error: a long section is truncated behind a "view more"
+link, so with `follow_view_more=False` the site's number is legitimately larger. It is there as a
+cross-check — a section reporting 27 records that yields 0 documents is the shape of a bug.
+
+## Errors
+
+`ParseError` (a subclass of `FetchError`, so existing handlers keep working) is raised when a page
+carries data rows and **none** of them can be classified — the signature of a site-side change.
+An issuer with no filings still returns an empty list and does **not** raise: the check keys on
+unrecognised section headings, not on emptiness.
+
 ## Document categories
 
 `DocumentCategory` values (pass as enum members or their string values):

@@ -18,8 +18,14 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
+      # The SEC listing fixtures are response bodies captured VERBATIM -- byte ranges of what the
+      # server sent, with their sha256 recorded in fixtures_sec/README.md. These two hooks rewrite
+      # a file's trailing bytes, which would break both the byte-exactness and those hashes. The
+      # live pages genuinely end without a newline; that is data, not untidiness.
       - id: trailing-whitespace
+        exclude: ^tests/services/sec/fixtures_sec/.*\.html$
       - id: end-of-file-fixer
+        exclude: ^tests/services/sec/fixtures_sec/.*\.html$
       - id: check-yaml
       - id: check-toml
       - id: check-added-large-files

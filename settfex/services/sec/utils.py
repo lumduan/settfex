@@ -178,18 +178,91 @@ def parse_report_tables(html: str) -> list[ReportRow]:
 # Value coercers
 # ---------------------------------------------------------------------------
 
+# Thai digits ๐-๙ (U+0E50..U+0E59). `\d` in a str pattern is Unicode-aware, so re.search finds
+# them -- but `datetime.strptime` is NOT, so a Thai-digit date silently parsed to None. Normalize
+# before any parse rather than relying on that asymmetry.
+_THAI_DIGITS = str.maketrans("๐๑๒๓๔๕๖๗๘๙", "0123456789")
+
+# Buddhist era: B.E. = C.E. + 543. The Thai pages state years as 2568/2569.
+_BUDDHIST_ERA_OFFSET = 543
+
+# Keyed on the VALUE's magnitude, never on the requested language -- the English page serves Thai
+# values too (`งบรวม`, "3 เดือน"), so `lang` is not a reliable signal for what era a cell is in.
+# 2400 B.E. is 1857 C.E., and a Gregorian 2400 is centuries beyond any filing, so the two ranges
+# cannot collide in this data.
+_BUDDHIST_ERA_MIN = 2400
+
+
+def normalize_thai_digits(value: str) -> str:
+    """Return ``value`` with Thai numerals ๐-๙ replaced by their ASCII equivalents."""
+    return value.translate(_THAI_DIGITS)
+
+
+def to_christian_year(year: int) -> int:
+    """Convert a Buddhist-era year to C.E.; return a year that is already C.E. unchanged.
+
+    The test is the value's magnitude (``>= 2400``), not the page language, because the SEC's
+    English pages carry Thai-language cells as well.
+    """
+    return year - _BUDDHIST_ERA_OFFSET if year >= _BUDDHIST_ERA_MIN else year
+
+
+# The record-count marker a section heading carries, one form per language. NOTE the English
+# form has no space before the closing parenthesis on the live page -- "( 27 record(s) found)" --
+# so a pattern that requires one matches nothing at all.
+_SECTION_COUNT_MARKERS = (
+    re.compile(r"\s*\(\s*([\d,]+)\s*record\(s\)\s*found\s*\)\s*$", re.IGNORECASE),
+    re.compile(r"\s*\(\s*จำนวนรายการที่พบ\s*([\d,]+)\s*รายการ\s*\)\s*$"),
+)
+
+
+def split_section_count(heading: str) -> tuple[str, int | None]:
+    """Split a section heading into its text and the record count it states about itself.
+
+    ``"Finanacial Statements ( 27 record(s) found)"`` and
+    ``"งบการเงิน (จำนวนรายการที่พบ 27 รายการ)"`` both give ``("…", 27)``; a heading with no
+    marker gives ``(heading, None)``.
+
+    The count is the total **available** for that section, which is not the same as the number of
+    rows in this response: a long section is truncated behind a "view more" link. So it is a
+    completeness signal, not a row-count assertion.
+    """
+    text = heading.strip()
+    for marker in _SECTION_COUNT_MARKERS:
+        match = marker.search(text)
+        if match:
+            return marker.sub("", text).strip(), int(match.group(1).replace(",", ""))
+    return text, None
+
 
 def parse_dmy_date(value: str | None) -> date | None:
-    """Parse a dd/MM/yyyy result-cell date; return None for blank/unparseable input."""
+    """Parse a dd/MM/yyyy result-cell date; return None for blank/unparseable input.
+
+    Handles Thai numerals and Buddhist-era years: ``"๓๐/๐๖/๒๕๖๙"`` and ``"30/06/2569"`` both give
+    ``date(2026, 6, 30)``. Without the era conversion a B.E. date does not fail -- ``strptime``
+    accepts year 2569 -- it silently yields a date 543 years in the future.
+    """
     if not value:
         return None
-    text = value.strip()
+    text = normalize_thai_digits(value.strip())
     if not text:
         return None
     try:
-        return datetime.strptime(text, "%d/%m/%Y").date()
+        parsed = datetime.strptime(text, "%d/%m/%Y").date()
     except ValueError:
         return None
+    year = to_christian_year(parsed.year)
+    return parsed if year == parsed.year else parsed.replace(year=year)
+
+
+def parse_year(value: str | None) -> int | None:
+    """Parse a reporting-year cell, converting Buddhist-era and Thai numerals to a C.E. year.
+
+    Separate from :func:`parse_int` on purpose: an era rule hidden inside something named
+    "parse_int" would be a trap for the next caller. This one says what it does.
+    """
+    parsed = parse_int(normalize_thai_digits(value) if value else value)
+    return None if parsed is None else to_christian_year(parsed)
 
 
 def parse_int(value: str | None) -> int | None:
