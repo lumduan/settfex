@@ -34,6 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   because whitespace in a `.md` file is precisely what `ci.yml`'s filter skips. pre-commit itself
   comes from the dev group, so CI runs the locked version. This is the eighth `setup-uv` step and
   is pinned at 0.12.17 with the rest.
+- `.pre-commit-config.yaml` uses the hook id **`ruff-check`** instead of `ruff`. The bare `ruff`
+  id is a legacy alias upstream — it still works and still runs `ruff check`, but it announced
+  itself as `ruff (legacy alias)` in every run, including the new CI job's log. Verified the id
+  resolves at `rev: v0.16.8`; the hook now prints `ruff check`.
 - **The monthly drift report now watches the two hand-maintained pins it previously only claimed
   to watch** (`dependency-drift.yml`). uv is not a lock entry, so `uv tree --outdated` is blind to
   the `version:` input on `setup-uv`; the workflow printed that pin as a hardcoded literal and
