@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- **ruff 0.16.5 → 0.16.8** (dev group). The hand-applied 2-place bump — Dependabot
+  server-side-ignores ruff (PR #88) — with the `.pre-commit-config.yaml` rev moved in lockstep.
+  The lock diff moved only ruff (no dependency closure); `ruff check .` and `ruff format --check .`
+  both reported **zero findings and zero reformats**, and 0.16.6/0.16.7/0.16.8 carry no
+  formatter-default change touching Markdown, so `extend-exclude = ["*.md"]` is unaffected.
+- **The monthly drift report now watches the two hand-maintained pins it previously only claimed
+  to watch** (`dependency-drift.yml`). uv is not a lock entry, so `uv tree --outdated` is blind to
+  the `version:` input on `setup-uv`; the workflow printed that pin as a hardcoded literal and
+  compared it to nothing. It now compares the pin against the latest uv release, flags the seven
+  `setup-uv` steps disagreeing with each other, and checks that `uv.lock` and the pre-commit rev
+  still agree — the half-applied 2-place ruff change that nothing else can fail. The report never
+  fails the job; it reports. Found by reading issue #109: the pin had sat at 0.11.33 for the 53
+  days since uv 0.12.0.
+- **Report bullets are written to a file instead of round-tripping through `${{ }}`.** A status
+  string containing backticks, interpolated into a later `echo "..."`, is command substitution —
+  the pre-existing STALE-lock branch would have rendered as bash *running* `uv lock` inside the
+  report step. It had never fired because the lock had never been stale.
+- `CLAUDE.md`: the uv-pin gotcha said "all six `astral-sh/setup-uv` steps"; there are seven
+  (`dependency-drift.yml` added the seventh). The ruff gotcha no longer restates the current
+  version — it points at `uv.lock` + `.pre-commit-config.yaml`, which cannot go stale.
+
 ## [0.20.0] - 2026-09-19
 
 ### Added
