@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **SEC document listings returned NOTHING for `lang="th"` — silently** (issue #123).
+  `category_for_section` classified result-section headings with English substring probes only, so
+  every Thai heading returned `None` and `row_to_document` dropped the row at its first statement:
+  no exception, no warning, not even a DEBUG line. An empty list is also the correct answer for an
+  issuer that filed nothing, so **a caller could not tell the two apart** — an agent reports "no
+  Thai filings" with confidence, a bulk archiver completes a Thai backfill having captured zero
+  documents. Verified against five issuer-pairs (PTT ×2 windows, ADVANC, SCB, MOTHER): 27/10/10/9/7
+  documents lost per pair, 0 parsed from 31/12/12/11/10 data rows.
+
+  Classification and `_HEADER_FIELD_MAP` are now bilingual, the Thai half an exact **mirror** of
+  the English half, so the same query in either language yields the same documents. Two traps are
+  pinned by tests: the Thai heading for statements *being revised*
+  (`งบการเงินที่อยู่ระหว่างการแก้ไข`) **contains** the one for financial statements (`งบการเงิน`),
+  so the skip tokens must be tested first; and `รายละเอียด` is one Thai word for three English
+  headers (Details/Link/Description) appearing **twice in one header row**, which is correct
+  precisely because all three are unmapped.
+
+- **Buddhist-era years and Thai numerals in SEC cells.** `parse_year` and `parse_dmy_date` now
+  convert `2568` → `2025` and `30/06/2568` → `2025-06-30`, and normalize `๒๕๖๘`, keyed on the
+  **value's magnitude** (`>= 2400`) rather than on `lang` — the English pages carry Thai cell
+  values too. This was masked by the bug above: Thai rows died before their cells were read, so
+  fixing the header map alone would have replaced an empty list with silent `2568 → 2568 CE`
+  corruption. `parse_int` is deliberately left pure. `๓๐/๐๖/๒๕๖๙` also parses now; it returned
+  `None` before, because `\d` is Unicode-aware but `strptime` is not.
+
+### Added
+
+- **`ParseError`** (a `FetchError` subclass, so `except FetchError` keeps working): raised when a
+  results page carries data rows and none can be classified, naming the unrecognised headings.
+  Pages with no rows, or whose rows are all skipped by design, still return `[]` and never raise —
+  the check keys on unrecognised headings, not on emptiness.
+- **`SecDocumentList.reported_counts` and `completeness()`**: the per-section record count the page
+  states about itself, in both marker forms, which settfex previously deleted in five places. It is
+  the cross-check that caught #123 — a section reporting 27 records and yielding 0 documents is the
+  shape of a bug. Carried across `filter()`, narrowed by category.
+- `settfex.services.sec.utils`: `parse_year`, `split_section_count`, `normalize_thai_digits`,
+  `to_christian_year`.
+- A `debug` breadcrumb per results page — rows parsed / mapped / skipped / no download link /
+  unrecognised. There was previously nothing between "fetched N bytes" and `Listed 0 SEC
+  document(s)` at INFO, wording identical to a successful 40-document listing.
+
 ### Security
 
 - **The session cache directory is now created `0700`, and a loose default one is tightened in
