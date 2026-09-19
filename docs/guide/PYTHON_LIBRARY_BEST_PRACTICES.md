@@ -243,13 +243,13 @@ class StockData(BaseModel):
 
 async def get_stock(symbol: str) -> StockData:
     """Fetch stock data.
-    
+
     Args:
         symbol: Stock symbol to fetch
-        
+
     Returns:
         StockData: Validated stock data
-        
+
     Raises:
         ValueError: If symbol is invalid
     """

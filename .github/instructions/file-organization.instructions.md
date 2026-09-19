@@ -26,4 +26,3 @@ When using AI models such as GPT-4.1, GPT-4o, or any model that cannot directly 
 - Clear, descriptive names indicating purpose
 - Test files MUST match pattern `test_*.py`
 - Example files MUST match pattern `*_example.py`
-
