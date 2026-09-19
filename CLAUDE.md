@@ -285,6 +285,21 @@ dependency refresh; the enforcement tests it references live in `tests/`.)
   `SETTFEX_PROBE_DIR=tmp/live_{before,after} SETTFEX_PROBE_CLEAR_CACHE=1` and diff the shapes;
   `tests/test_impersonate_target.py` additionally pins every shipped impersonate default to the
   installed curl_cffi's accepted-target enumeration.
+  - **Reading the diff (learned the hard way on 0.16.3, 2026-09-19):** diff the **shapes** — added
+    or removed fields, and fields that newly went null. On a **closed market** (any weekend or Thai
+    holiday) SET serves a *frozen* snapshot, so the before/after payloads come back **byte-identical
+    in value**, `marketDateTime` included. That looks exactly like a cache replay and is not one —
+    do not conclude either "clean" or "broken" from value equality. Likewise a big runtime drop
+    between the two runs (18 s → 3 s was observed) is Python bytecode warmup after `uv sync`, not
+    the network.
+  - **The decisive check is a cold-cache fetch, not the probe diff.** `SETTFEX_PROBE_CLEAR_CACHE=1`
+    clears the SessionManager singletons and the on-disk cache, but nothing in the probe output
+    *proves* it did. Confirm separately: `rm -rf ~/.settfex/cache`, then one live `get_*()` call. If
+    it returns 200, a genuinely fresh TLS handshake was accepted by Incapsula with no cached cookie
+    to hide behind — that, not the shape diff, is what clears a fingerprint change. (0.16.3 shipped
+    one: upstream PR #833, *"fix tls_signed_cert_timestamps not applied"*.)
+  - `test_live_set_holidays` fails transiently with a bare HTTP 401 by design (see the holiday
+    gotchas below) — re-run it alone before reading it as a curl_cffi regression.
 - **Golden files are gates, not fixtures:** never regenerate `tests/golden/**` to make a
   dependency bump pass — a diff there IS the finding. Regenerate only for an intended, reviewed
   surface/behavior change (`--regen` entry points in the two test modules).
