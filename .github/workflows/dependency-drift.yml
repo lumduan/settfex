@@ -132,8 +132,9 @@ jobs:
             echo "  (pickle deserialization; empty Fix Versions because no fixed release exists)"
             echo "  cannot be cleared by a bump. It is the only flagged **runtime** dependency —"
             echo "  everything else pip-audit reports is dev/extras. Exploiting it needs write"
-            echo "  access to the cache dir (\`~/.settfex/cache\` by default). This is a decision"
-            echo "  to make once, not a finding to re-triage monthly."
+            echo "  access to the cache dir, which settfex now creates \`0700\` and tightens in place"
+            echo "  (2026-09-19) -- so the exposure is mitigated and the row below is expected to"
+            echo "  stay. Do not re-triage it monthly; revisit only if upstream ships a fix."
             echo "- Bumps follow the **Dependency policy** in CLAUDE.md: one package per commit, full"
             echo "  gates each, and curl_cffi additionally requires the live-probe protocol"
             echo '  (`uv run pytest -m integration --no-cov` before/after with cache clear).'

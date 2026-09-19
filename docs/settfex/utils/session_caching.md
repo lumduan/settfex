@@ -264,6 +264,24 @@ await manager.ensure_initialized()
 └── ...
 ```
 
+### Directory Permissions
+
+The cache directory is created **`0700`** (owner only), and an existing `~/.settfex/cache` left
+looser by an earlier version is tightened in place on the next run, with a log line saying so.
+
+Two reasons, and the second is the sharp one:
+
+1. The cached cookies are credentials — anything that can read them can impersonate your session.
+2. `diskcache` reads cached values back with **pickle**. Anyone who can *write* into this
+   directory can therefore execute code inside your process the next time it reads the cache
+   ([CVE-2025-69872](https://nvd.nist.gov/vuln/detail/CVE-2025-69872)). The advisory has no fixed
+   release — upstream's last release was 2023 — so the directory mode is the mitigation.
+
+A directory **you** passed as `cache_dir` is treated differently: it is created `0700` if new, but
+if it already exists and is group/other-**writable**, settfex logs a warning naming the CVE and
+**leaves the mode alone**. A shared cache may be deliberate, and silently breaking that layout
+would be worse than telling you about it.
+
 ### Cache Statistics
 
 ```python
@@ -321,6 +339,12 @@ manager = SessionManager(
     cache_dir=Path("/tmp/my_cache")
 )
 ```
+
+> ⚠️ A world-writable location such as a bare `/tmp` path is exactly the case
+> [CVE-2025-69872](https://nvd.nist.gov/vuln/detail/CVE-2025-69872) describes — another local
+> account can drop a pickle into the cache and run code in your process. settfex warns when the
+> directory you pass is group/other-writable but will not change permissions you chose. Prefer a
+> directory only your account can write to.
 
 ## Advanced Features
 
