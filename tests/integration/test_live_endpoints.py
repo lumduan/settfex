@@ -17,11 +17,25 @@ Environment knobs (used by the dependency-refresh live-probe protocol):
   dump}`` JSON (with ``dump = model_dump(mode="json")``) into that directory, enabling a
   structural before/after diff across an upgrade.
 - ``SETTFEX_PROBE_CLEAR_CACHE=1``: clears the SessionManager singletons and the on-disk
-  session cache first, so warmup genuinely re-runs with the installed HTTP client instead
-  of replaying cached cookies (cached cookies would mask a TLS-fingerprint regression).
+  session cache (``~/.settfex/cache``) first, so warmup re-runs with the installed HTTP
+  client instead of replaying cached cookies (cached cookies would mask a TLS-fingerprint
+  regression).
+
+**Diff the SHAPES, never the values.** On a closed market — any weekend or Thai holiday —
+SET serves a frozen snapshot, so before/after payloads are byte-identical in value,
+``marketDateTime`` included. That is indistinguishable from a cache replay by inspection,
+so value equality proves nothing in either direction; compare added/removed fields and
+fields that newly went null. A large runtime drop between the two runs is Python bytecode
+warmup after ``uv sync``, not the network.
+
+**What actually clears a fingerprint change is a cold-cache fetch, not this diff.** Nothing
+in the probe output proves the clear above took effect. Confirm it out of band:
+``rm -rf ~/.settfex/cache`` then a single live ``get_*()`` — a 200 means a genuinely fresh
+TLS handshake was accepted by the Incapsula origin with no cached cookie to hide behind.
 
 The holiday endpoint is deliberately probed ONCE with a patient retry config: it answers
-transient bare-401s and degrades under polling (see CLAUDE.md Known Gotchas).
+transient bare-401s and degrades under polling (see CLAUDE.md Known Gotchas). A 401 here is
+that endpoint misbehaving, not a curl_cffi regression — re-run it alone before concluding.
 """
 
 import json
