@@ -32,7 +32,8 @@ uv run mypy settfex/           # strict type checking
 uv run pytest                  # tests + coverage gate
 ```
 
-Or run everything via the pre-commit hooks:
+Or run everything via the pre-commit hooks — **CI runs these on every file of every PR**
+(`.github/workflows/pre-commit.yml`), so a hook that fails locally fails the build:
 
 ```bash
 uv run pre-commit run --all-files
