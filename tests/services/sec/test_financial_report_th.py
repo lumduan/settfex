@@ -21,6 +21,7 @@ import pytest
 from settfex.exceptions import ParseError
 from settfex.services.sec.financial_report import (
     DocumentCategory,
+    FinancialReportService,
     SecDocumentList,
     _map_rows,
     _section_disposition,
@@ -33,6 +34,7 @@ from settfex.services.sec.utils import (
 )
 
 from .fixtures import load_fixture
+from .test_financial_report import _make_fetcher, _resp
 
 PAIRS = [
     ("th_ptt_fs_h1_2025.html", "en_ptt_fs_h1_2025.html"),
@@ -303,3 +305,36 @@ class TestLanguageSpecificDownloads:
             d.file_id for d in _documents("en_ptt_fs_h1_2025.html").documents if d.file_kind is None
         }
         assert th and th == en
+
+
+class TestRequestedCategoriesOnly:
+    """`completeness()` must not report a shortfall for a section nobody asked for."""
+
+    @pytest.mark.asyncio
+    async def test_counts_cover_only_the_requested_categories(self) -> None:
+        """A single "FS" search returns three sections; asking for one must report one.
+
+        Found on the live site: querying only financial statements still surfaced
+        `key_financial_ratio: (0, 2)` and `mda: (0, 2)` — sections that were filtered out on
+        request, reported as if two documents had gone missing. Pure noise in the one primitive
+        meant to make a real shortfall visible.
+        """
+        from unittest.mock import patch
+
+        from .fixtures import REPORT_PAGE_HTML
+
+        async def router(
+            url, headers=None, *, method="GET", json_body=None, data=None, decode_text=True
+        ):
+            return _resp(
+                load_fixture("th_ptt_fs_h1_2025.html") if method == "POST" else REPORT_PAGE_HTML
+            )
+
+        with patch("settfex.services.sec.financial_report.AsyncDataFetcher") as cls:
+            _make_fetcher(cls, router)
+            docs = await FinancialReportService().fetch_documents(
+                "uid", types="financial_statement", lang="th", follow_view_more=False
+            )
+
+        assert set(docs.reported_counts) == {"financial_statement"}
+        assert docs.completeness() == {"financial_statement": (6, 6)}

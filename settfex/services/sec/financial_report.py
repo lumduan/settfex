@@ -653,10 +653,15 @@ class FinancialReportService:
         html, url = await self._run_search(
             fetcher, code, unique_id, company_name, date_from, date_to, lang
         )
+        wanted_values = {c.value for c in wanted}
         mapped = _map_rows(
             parse_report_tables(html), unique_id, company_name=company_name, source=url
         )
-        reported = dict(mapped.reported_counts)
+        # Only for the categories the caller asked for. A single "FS" search returns the
+        # financial-statement, Key Financial Ratio and MD&A sections together, so without this
+        # `completeness()` would report 0-of-2 for sections that were filtered out on request --
+        # a shortfall that is pure noise, in the one place meant to make a real shortfall visible.
+        reported = {k: v for k, v in mapped.reported_counts.items() if k in wanted_values}
         inline = [d for d in mapped.documents if d.category in wanted]
         if not follow_view_more:
             return inline, reported
@@ -688,7 +693,7 @@ class FinancialReportService:
                     company_name=company_name,
                     source=url,
                 )
-                reported.update(vm.reported_counts)
+                reported.update({k: v for k, v in vm.reported_counts.items() if k in wanted_values})
                 replacements[cat] = [d for d in vm.documents if d.category == cat]
 
         result = [d for d in inline if d.category not in replacements]
