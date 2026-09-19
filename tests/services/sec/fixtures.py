@@ -6,6 +6,8 @@ Name/Year/Receive Date; some rows link via /public/idisc/Download?FILEID=…, ot
 /ipos/Common/IPOSGetFile.aspx?id=…
 """
 
+from pathlib import Path
+
 DL = "https://market.sec.or.th/public/idisc/Download?FILEID="
 IPOS = "https://market.sec.or.th/ipos/Common/IPOSGetFile.aspx?id="
 
@@ -123,3 +125,13 @@ COMPANY_SEARCH_MULTI_JSON = [
     },
     {"Text": "PTT PUBLIC COMPANY LIMITED", "Value": "0000001111", "Flag": True},
 ]
+
+
+def load_fixture(name: str) -> str:
+    """Read a derived SEC listing fixture from ``fixtures_sec/``.
+
+    Decoded explicitly as UTF-8 because the captured bodies carry no charset declaration — the
+    site sends it in the Content-Type header — which is also what ``AsyncDataFetcher`` does with
+    the live response. See ``fixtures_sec/README.md`` for provenance and source hashes.
+    """
+    return (Path(__file__).parent / "fixtures_sec" / name).read_text(encoding="utf-8")

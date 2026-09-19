@@ -140,6 +140,7 @@
         "FetchError",
         "SymbolNotFoundError",
         "StaleDataError",
+        "ParseError",
         "InvalidSymbolError",
         "InvalidLanguageError",
         "InvalidDateError",
@@ -220,6 +221,50 @@
           "mro": [
             "settfex.exceptions.InvalidSymbolError",
             "builtins.ValueError",
+            "builtins.Exception",
+            "builtins.BaseException",
+            "builtins.object"
+          ]
+        },
+        "ParseError": {
+          "bases": [
+            "settfex.exceptions.FetchError"
+          ],
+          "kind": "exception",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "message",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "url",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "int | None",
+                  "default": "None",
+                  "name": "rows_parsed",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "list[str] | None",
+                  "default": "None",
+                  "name": "unknown_sections",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            }
+          },
+          "mro": [
+            "settfex.exceptions.ParseError",
+            "settfex.exceptions.FetchError",
             "builtins.Exception",
             "builtins.BaseException",
             "builtins.object"
@@ -321,6 +366,7 @@
         "InvalidLanguageError",
         "InvalidSymbolError",
         "NoReturn",
+        "ParseError",
         "StaleDataError",
         "SymbolNotFoundError",
         "raise_for_status",
@@ -1202,6 +1248,24 @@
           ],
           "kind": "class",
           "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "Iterable[SecDocument]",
+                  "default": "<tuple>",
+                  "name": "iterable",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "Mapping[str, int] | None",
+                  "default": "None",
+                  "name": "reported_counts",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            },
             "available_years": {
               "kind": "function",
               "params": [
@@ -1218,6 +1282,11 @@
               "kind": "function",
               "params": [],
               "returns": "list[DocumentCategory]"
+            },
+            "completeness": {
+              "kind": "function",
+              "params": [],
+              "returns": "dict[str, tuple[int, int]]"
             },
             "filter": {
               "kind": "function",
@@ -1313,6 +1382,8 @@
         "FinancialReportService",
         "InvalidDateError",
         "Language",
+        "Literal",
+        "ParseError",
         "ReportRow",
         "SEC_BASE_URL",
         "SEC_FINANCIAL_REPORT_ENDPOINT",
@@ -1334,10 +1405,11 @@
         "get_sec_documents",
         "normalize_language",
         "parse_dmy_date",
-        "parse_int",
         "parse_report_tables",
+        "parse_year",
         "resolve_company",
-        "row_to_document"
+        "row_to_document",
+        "split_section_count"
       ],
       "functions": {
         "category_for_section": {
@@ -1615,9 +1687,13 @@
         "build_sec_headers",
         "classify_download_href",
         "extract_aspnet_tokens",
+        "normalize_thai_digits",
         "parse_dmy_date",
         "parse_int",
-        "parse_report_tables"
+        "parse_report_tables",
+        "parse_year",
+        "split_section_count",
+        "to_christian_year"
       ],
       "functions": {
         "build_sec_headers": {
@@ -1660,6 +1736,17 @@
           ],
           "returns": "dict[str, str]"
         },
+        "normalize_thai_digits": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "str",
+              "name": "value",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "str"
+        },
         "parse_dmy_date": {
           "kind": "function",
           "params": [
@@ -1692,6 +1779,39 @@
             }
           ],
           "returns": "list[ReportRow]"
+        },
+        "parse_year": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "str | None",
+              "name": "value",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "int | None"
+        },
+        "split_section_count": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "str",
+              "name": "heading",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "tuple[str, int | None]"
+        },
+        "to_christian_year": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "int",
+              "name": "year",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "int"
         }
       }
     },

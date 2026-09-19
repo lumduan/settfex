@@ -277,8 +277,29 @@ def category_for_section(heading: str) -> DocumentCategory | None:
 
 
 # Result column header (lower-cased) -> SecDocument field. Sections differ: financial
-# statements use Name/Year/Status/Type/Period/As Of; MD&A uses Date/Time/Heading/Link.
+# statements use Name/Year/Status/Type/Period/As Of; MD&A uses Date/Time/Heading/Link; Key
+# Financial Ratio REORDERS the columns it shares with financial statements (Year moves from
+# position 2 to 5, and Business Type stands where Status does). Matching on the header NAME
+# rather than the column index is what makes that reordering a non-event.
+#
+# The Thai half is an exact MIRROR of the English half: the same fields, no more and no fewer,
+# so the same page in either language produces the same document. Terms observed on the English
+# pages that map to nothing (Details, Link, Description, Time, Company Name, Order Date,
+# Reviewed Financial Statement) are deliberately absent from BOTH halves.
+#
+# That omission is what resolves `รายละเอียด`, which is one Thai word for three English headers
+# -- Details, Link and Description -- and appears TWICE IN ONE HEADER ROW on the ordered-to-amend
+# table (Thai `['ชื่อ', 'รายละเอียด', 'รายละเอียด']` against English
+# `['Name', 'Description', 'Details']`). A flat dict cannot distinguish those three, but it does
+# not have to: all three are unmapped in English, so "no entry" is the right answer in all three
+# places. Do not add it.
+#
+# GAP, deliberate: `Receive Date` (56-1/56-2 sections) has no Thai counterpart here. The captured
+# corpus is FS searches only, so the Thai spelling was never observed -- and a guessed header is
+# worse than a missing one, because it would map silently to the wrong column if wrong. A Thai
+# 56-1 listing therefore still yields `receive_date=None`. See the gotcha in CLAUDE.md.
 _HEADER_FIELD_MAP: dict[str, str] = {
+    # English
     "name": "company_name",
     "heading": "title",
     "year": "year",
@@ -289,6 +310,16 @@ _HEADER_FIELD_MAP: dict[str, str] = {
     "date": "as_of",
     "receive date": "receive_date",
     "business type": "business_type",
+    # Thai -- every pair VERIFIED 5/5 issuer-pairs by column position in the captured corpus
+    "ชื่อ": "company_name",
+    "หัวข้อข่าว": "title",
+    "ประจำปี": "year",
+    "ประเภทงบ": "status",
+    "ชนิดงบ": "statement_type",
+    "งวด": "period",
+    "สิ้นสุดวันที่": "as_of",
+    "วันที่": "as_of",
+    "ประเภทธุรกิจ": "business_type",
 }
 
 
