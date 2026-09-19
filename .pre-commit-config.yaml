@@ -8,7 +8,7 @@ repos:
   # [tool.ruff] extend-exclude = ["*.md"] (and ruff-pre-commit does not pass .md files
   # unless types_or opts in), so doc code samples are never reformatted.
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.5
+    rev: v0.16.8
     hooks:
       - id: ruff
         args: [--fix]
