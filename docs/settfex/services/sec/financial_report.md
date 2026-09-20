@@ -229,6 +229,27 @@ files.requested                            # unique files attempted (duplicates 
 Before that, a failed item was logged and dropped from the result, so a partial batch was shaped
 exactly like a complete one.
 
+> ⚠️ **Read `.failed` from the object `download_all` returned.** `DownloadResult` is a `list`
+> subclass, so the failure report lives on the instance — and **every operation that derives a new
+> list drops it**: slicing, `sorted()`, `list()`, concatenation and comprehensions all return a
+> plain `list` with no `.failed`, `.requested` or `.is_complete`, and nothing warns.
+> `copy.copy()` is the one exception. So `for f in sorted(files)` silently gives up the report:
+> check `files.is_complete` first, then sort.
+
+### Old-format filings live on another host, behind an indirection
+
+Some pre-2014 financial statements link to `capital.sec.or.th` instead of IDISC. That URL answers a
+2 KB HTML page whose entire body is a JavaScript redirect to a **server-minted** zip, so
+`download()` resolves it (one extra request) and returns the real archive. Two consequences:
+
+* **The minted target is single-use** — the same filing mints `/tmp/0653XP.zip`, `/tmp/0653sD.zip`,
+  `/tmp/0653V1.zip` on successive requests. `file_url` therefore stays the stable indirection URL;
+  never store the `/tmp/…` one.
+* **The container sha256 is not an identity for these.** Re-fetching the same filing legitimately
+  yields different container bytes — 12 bytes of 334,498, the Info-ZIP pack timestamp — while every
+  member payload is byte-identical. **Judge integrity per member, not by hashing the zip.** An
+  archive that keys on the container hash will see a re-fetch as a new or corrupted object.
+
 ### Tuning downloads (timeout & concurrency)
 
 Form 56‑1/56‑2 "One Reports" are large (**15–25 MB**). Downloads default to a **180 s** per-file
