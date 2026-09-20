@@ -366,13 +366,18 @@ class TestHolidayService:
         assert isinstance(data, list)
         assert data[0] == {"date": "2026-01-01T00:00:00+07:00", "description": "New Year's Day"}
 
-    async def test_empty_list_response(self, mock_fetcher):
-        """An empty array is a valid, empty calendar - not an error."""
+    async def test_empty_list_response_raises(self, mock_fetcher):
+        """Changed in 0.24.0: an empty array is NOT a valid calendar.
+
+        A year this endpoint serves always has holidays -- it answers an unserved year with 401,
+        not with an empty list. An empty calendar would make `is_holiday()` False for every date,
+        i.e. silently assert that the market never closes, which is worse than an error for
+        anything computing trading days.
+        """
         mock_fetcher.fetch.return_value = _response([])
 
-        calendar = await HolidayService().fetch_holidays(2026)
-
-        assert calendar.count == 0
+        with pytest.raises(ResponseParseError, match="empty holiday calendar"):
+            await HolidayService().fetch_holidays(2026)
 
 
 @pytest.mark.asyncio

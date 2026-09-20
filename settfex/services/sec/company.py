@@ -20,6 +20,7 @@ from settfex.services.sec.constants import (
 from settfex.services.sec.utils import build_sec_headers
 from settfex.services.set.stock.utils import Language, normalize_language
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
+from settfex.utils.parsing import ResponseParseError
 
 
 class CompanyMatch(BaseModel):
@@ -69,8 +70,13 @@ async def search_companies(
         data: Any = await fetcher.fetch_json(url, headers=headers, method="POST", json_body=body)
 
     if not isinstance(data, list):
-        logger.warning(f"Unexpected company-search payload type: {type(data).__name__}")
-        return []
+        # Returning [] here made a malformed response indistinguishable from "no such company",
+        # which is the whole of D10 in three lines.
+        error_msg = (
+            f"Expected a list response from the SEC company search, got {type(data).__name__}"
+        )
+        logger.error(error_msg)
+        raise ResponseParseError(error_msg)
     matches = [CompanyMatch.model_validate(item) for item in data]
     logger.info(f"Found {len(matches)} company match(es) for {query!r}")
     return matches

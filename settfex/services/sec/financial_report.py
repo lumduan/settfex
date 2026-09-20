@@ -21,6 +21,7 @@ from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from settfex.exceptions import (
+    CompanyNotFoundError,
     FetchError,
     HTTPStatusError,
     IncompleteListingError,
@@ -1450,8 +1451,13 @@ async def get_sec_documents(
     """
     company = await resolve_company(query, lang, config=config)
     if company is None:
-        logger.warning(f"No SEC company matched query={query!r}; returning no documents")
-        return SecDocumentList()
+        # Raised, not returned as []. A lookup that FAILED now raises from the fetch layer, so
+        # reaching here means the search succeeded and matched nothing -- a fact about the input.
+        # Returning an empty list conflated the two and let a backfill record the window as
+        # covered either way (D10).
+        error_msg = f"No SEC issuer matched {query!r}"
+        logger.error(error_msg)
+        raise CompanyNotFoundError(error_msg)
     service = FinancialReportService(config=config)
     return await service.fetch_documents(
         company.unique_id,

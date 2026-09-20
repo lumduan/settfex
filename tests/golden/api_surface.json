@@ -143,12 +143,27 @@
         "ParseError",
         "IncompleteListingError",
         "HTTPStatusError",
+        "CompanyNotFoundError",
         "InvalidSymbolError",
         "InvalidLanguageError",
         "InvalidDateError",
         "raise_for_status"
       ],
       "classes": {
+        "CompanyNotFoundError": {
+          "bases": [
+            "builtins.ValueError"
+          ],
+          "kind": "exception",
+          "methods": {},
+          "mro": [
+            "settfex.exceptions.CompanyNotFoundError",
+            "builtins.ValueError",
+            "builtins.Exception",
+            "builtins.BaseException",
+            "builtins.object"
+          ]
+        },
         "FetchError": {
           "bases": [
             "builtins.Exception"
@@ -470,6 +485,7 @@
       },
       "constants": {},
       "exports": [
+        "CompanyNotFoundError",
         "FetchError",
         "HTTPStatusError",
         "IncompleteListingError",
@@ -650,6 +666,7 @@
         "CompanyMatch",
         "FetcherConfig",
         "Language",
+        "ResponseParseError",
         "SEC_BASE_URL",
         "SEC_COMPANY_SEARCH_ENDPOINT",
         "SEC_REFERER",
@@ -1837,6 +1854,7 @@
         "AsyncDataFetcher",
         "CATEGORY_TO_REPORT_TYPE",
         "CodeFailure",
+        "CompanyNotFoundError",
         "DocumentCategory",
         "FetchError",
         "FetcherConfig",
@@ -4252,6 +4270,7 @@
         "Language",
         "MAX_YEAR",
         "MIN_YEAR",
+        "ResponseParseError",
         "SET_BASE_URL",
         "SET_HOLIDAY_ENDPOINT",
         "decode_json",
@@ -5392,8 +5411,7 @@
             "index_industry_sectors": {
               "alias": "indexIndustrySectors",
               "annotation": "list[settfex.services.set.index.info.IndexInfo]",
-              "default_factory": "list",
-              "required": false
+              "required": true
             }
           },
           "kind": "pydantic_model",
@@ -5605,8 +5623,7 @@
             "indices": {
               "alias": null,
               "annotation": "list[settfex.services.set.index.list.IndexSymbol]",
-              "default_factory": "list",
-              "required": false
+              "required": true
             }
           },
           "kind": "pydantic_model",
@@ -5797,6 +5814,7 @@
         "IndexListService",
         "IndexSymbol",
         "Language",
+        "ResponseParseError",
         "SET_BASE_URL",
         "SET_INDEX_LIST_ENDPOINT",
         "get_index_list",
@@ -6655,8 +6673,7 @@
             "average": {
               "alias": null,
               "annotation": "settfex.services.set.stock.analyst_consensus.ConsensusStatistic | None",
-              "default": "None",
-              "required": false
+              "required": true
             },
             "consensuses": {
               "alias": null,
@@ -6673,20 +6690,17 @@
             "high": {
               "alias": null,
               "annotation": "settfex.services.set.stock.analyst_consensus.ConsensusStatistic | None",
-              "default": "None",
-              "required": false
+              "required": true
             },
             "low": {
               "alias": null,
               "annotation": "settfex.services.set.stock.analyst_consensus.ConsensusStatistic | None",
-              "default": "None",
-              "required": false
+              "required": true
             },
             "median": {
               "alias": null,
               "annotation": "settfex.services.set.stock.analyst_consensus.ConsensusStatistic | None",
-              "default": "None",
-              "required": false
+              "required": true
             },
             "next_year": {
               "alias": "nextYear",
@@ -7127,8 +7141,7 @@
             "overall": {
               "alias": null,
               "annotation": "list[settfex.services.set.stock.analyst_consensus.ConsensusOverall]",
-              "default_factory": "list",
-              "required": false
+              "required": true
             }
           },
           "kind": "pydantic_model",
@@ -8206,6 +8219,7 @@
         "FetcherConfig",
         "InvalidSymbolError",
         "Language",
+        "ResponseParseError",
         "SET_BASE_URL",
         "SET_CORPORATE_ACTION_ENDPOINT",
         "decode_json",
@@ -9210,6 +9224,7 @@
         "InvalidSymbolError",
         "Language",
         "Literal",
+        "ResponseParseError",
         "SET_BASE_URL",
         "SET_FINANCIAL_BALANCE_SHEET_ENDPOINT",
         "SET_FINANCIAL_CASH_FLOW_ENDPOINT",
@@ -10078,6 +10093,7 @@
         "FetcherConfig",
         "Inav",
         "InvalidSymbolError",
+        "ResponseParseError",
         "SET_BASE_URL",
         "SET_STOCK_INFO_ENDPOINT",
         "StockInfo",
@@ -10771,6 +10787,7 @@
         "PricePerformanceData",
         "PricePerformanceMetrics",
         "PricePerformanceService",
+        "ResponseParseError",
         "SET_BASE_URL",
         "SET_PRICE_PERFORMANCE_ENDPOINT",
         "decode_json",
@@ -12835,6 +12852,7 @@
         "FetcherConfig",
         "InvalidSymbolError",
         "Language",
+        "ResponseParseError",
         "SET_BASE_URL",
         "SET_TRADING_STAT_ENDPOINT",
         "TradingStat",
@@ -15444,6 +15462,7 @@
         "FetchError",
         "FetchResponse",
         "FetcherConfig",
+        "HTTPStatusError",
         "decode_json"
       ],
       "functions": {}

@@ -38,7 +38,11 @@ from settfex.exceptions import FetchError, raise_for_status
 from settfex.services.set.constants import SET_BASE_URL, SET_HOLIDAY_ENDPOINT
 from settfex.services.set.stock.utils import Language, normalize_language
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig, FetchResponse
-from settfex.utils.parsing import decode_json, validate_list_or_raise
+from settfex.utils.parsing import (
+    ResponseParseError,
+    decode_json,
+    validate_list_or_raise,
+)
 
 # Thailand observes no DST, so the API's fixed +07:00 offset is equivalent to Asia/Bangkok. Kept as
 # a ZoneInfo rather than a fixed offset so "the current year in Bangkok" comes from the real zone.
@@ -372,6 +376,17 @@ class HolidayService:
         holidays = validate_list_or_raise(
             Holiday, data, context=f"set holidays {resolved_year} ({lang})"
         )
+        if not holidays:
+            # A year this endpoint serves always has holidays -- it answers an unserved year with
+            # 401, not with an empty list. Returning an empty calendar would make `is_holiday()`
+            # False for every date, i.e. silently assert that the market never closes. Guarded in
+            # the service rather than with a model constraint, so the message can say why.
+            error_msg = (
+                f"SET returned an empty holiday calendar for {resolved_year}, which a served year "
+                f"never has -- an empty calendar would make every day look like a trading day"
+            )
+            logger.error(error_msg)
+            raise ResponseParseError(error_msg)
         calendar = HolidayCalendar(year=resolved_year, lang=lang, holidays=holidays)
 
         logger.info(f"Successfully fetched {calendar.count} holiday(s) for {resolved_year}")

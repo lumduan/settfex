@@ -114,6 +114,9 @@ class TestTFEXUnderlyingPriceService:
             '"statisticsAsOf":"2026-06-17T00:00:00+07:00","pe":15.39,"pbv":1.53}'
         )
         fake_response = Mock()
+        # fetch_json checks the status before decoding (0.24.0), so the mock must carry a real
+        # one -- a bare Mock() compares as neither 2xx nor not-2xx.
+        fake_response.status_code = 200
         fake_response.text = body
         with (
             patch.object(AsyncDataFetcher, "fetch", AsyncMock(return_value=fake_response)),

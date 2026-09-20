@@ -12,7 +12,7 @@ from settfex.exceptions import InvalidSymbolError, raise_for_status
 from settfex.services.set.constants import SET_BASE_URL, SET_PRICE_PERFORMANCE_ENDPOINT
 from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
-from settfex.utils.parsing import decode_json, validate_or_raise
+from settfex.utils.parsing import ResponseParseError, decode_json, validate_or_raise
 
 
 class PricePerformanceMetrics(BaseModel):
@@ -157,7 +157,7 @@ class PricePerformanceService:
             if not isinstance(data, dict):
                 error_msg = f"Expected dict response, got {type(data).__name__}"
                 logger.error(error_msg)
-                raise ValueError(error_msg)
+                raise ResponseParseError(error_msg)
 
             # Validate required keys
             required_keys = {"stock", "sector", "market"}
@@ -165,7 +165,7 @@ class PricePerformanceService:
                 missing = required_keys - data.keys()
                 error_msg = f"Missing required keys in response: {missing}"
                 logger.error(error_msg)
-                raise ValueError(error_msg)
+                raise ResponseParseError(error_msg)
 
             # Validate using Pydantic (context-rich on failure)
             price_performance = validate_or_raise(
@@ -247,7 +247,7 @@ class PricePerformanceService:
             if not isinstance(data, dict):
                 error_msg = f"Expected dict response, got {type(data).__name__}"
                 logger.error(error_msg)
-                raise ValueError(error_msg)
+                raise ResponseParseError(error_msg)
 
             logger.debug(f"Raw response keys: {data.keys()}")
             return data

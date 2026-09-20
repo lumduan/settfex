@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from settfex.services.sec.company import CompanyMatch, resolve_company, search_companies
+from settfex.utils.parsing import ResponseParseError
 from tests.services.sec.fixtures import COMPANY_SEARCH_JSON, COMPANY_SEARCH_MULTI_JSON
 
 
@@ -49,13 +50,19 @@ class TestSearchCompanies:
         assert kwargs["json_body"] == {"lang": "en", "content": "CPALL"}
 
     @pytest.mark.asyncio
-    async def test_non_list_payload_returns_empty(self) -> None:
+    async def test_non_list_payload_raises_rather_than_returning_empty(self) -> None:
+        """Changed in 0.24.0 (D10): a malformed payload is no longer "no matches".
+
+        Returning [] for a shape the search never produces made a broken response
+        indistinguishable from "no such issuer" — and `resolve_company` turns [] into None, so the
+        confusion propagated all the way to an empty document list.
+        """
         _patch_company_fetcher({"unexpected": "shape"})
         try:
-            matches = await search_companies("CPALL")
+            with pytest.raises(ResponseParseError):
+                await search_companies("CPALL")
         finally:
             patch.stopall()
-        assert matches == []
 
 
 class TestResolveCompany:

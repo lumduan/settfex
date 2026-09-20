@@ -27,6 +27,7 @@ __all__ = [
     "ParseError",
     "IncompleteListingError",
     "HTTPStatusError",
+    "CompanyNotFoundError",
     "InvalidSymbolError",
     "InvalidLanguageError",
     "InvalidDateError",
@@ -214,6 +215,21 @@ class HTTPStatusError(FetchError):
         super().__init__(message, status_code=status_code, symbol=symbol)
         self.url = url
         self.report_code = report_code
+
+
+class CompanyNotFoundError(ValueError):
+    """No SEC issuer matched the query.
+
+    An **input** error, not a :class:`FetchError`: the request succeeded and the site answered
+    honestly that it knows no such issuer. Deliberately separate from a fetch failure, because
+    conflating the two is what made this worth fixing — ``get_sec_documents`` used to return an
+    empty list for *both*, so "this issuer does not exist" and "the lookup broke" were the same
+    answer, and a backfill recorded the window as covered either way (settfex D10, issue #131).
+
+    Subclasses :class:`ValueError`, like the other input errors (``InvalidSymbolError``,
+    ``InvalidDateError``, ``InvalidLanguageError``), so it is caught by handlers for bad input and
+    **not** by ``except FetchError``.
+    """
 
 
 class InvalidSymbolError(ValueError):

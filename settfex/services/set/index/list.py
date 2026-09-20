@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from settfex.services.set.constants import SET_BASE_URL, SET_INDEX_LIST_ENDPOINT
 from settfex.services.set.stock.utils import Language, normalize_language
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
-from settfex.utils.parsing import validate_list_or_raise
+from settfex.utils.parsing import ResponseParseError, validate_list_or_raise
 
 
 class IndexSymbol(BaseModel):
@@ -47,9 +47,11 @@ class IndexListResponse(BaseModel):
     - ``SECTOR``: sector indices (SET only), each with its parent industry in ``parent_index``
     """
 
-    indices: list[IndexSymbol] = Field(
-        default_factory=list, description="All index directory entries"
-    )
+    # Required, with no default. An envelope whose only field defaults to an empty list validates
+    # ANY JSON object -- an error payload included -- into a successful-looking empty result, which
+    # is the second half of the silent-loss rule in issue #135. Required is not non-empty: a genuine
+    # `{...: []}` still validates; only a missing key fails.
+    indices: list[IndexSymbol] = Field(description="All index directory entries")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -193,6 +195,16 @@ class IndexListService:
 
             # The payload is a bare JSON array of index entries
             indices = validate_list_or_raise(IndexSymbol, data, context="set index-list")
+            if not indices:
+                # The market's index directory is never empty -- it is a static ~55-entry list of
+                # SET/mai indices, industries and sectors. An empty array is therefore a broken or
+                # substituted response, not "no indices", and returning it would be the silent
+                # loss of issue #135 with nothing to cross-check it against.
+                error_msg = (
+                    "SET returned an empty index directory, which it never legitimately does"
+                )
+                logger.error(error_msg)
+                raise ResponseParseError(error_msg)
             response = IndexListResponse(indices=indices)
 
             logger.info(f"Successfully fetched {response.count} index entries from SET API")

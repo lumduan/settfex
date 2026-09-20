@@ -5,7 +5,7 @@ from datetime import date
 
 import pytest
 
-from settfex.exceptions import InvalidDateError
+from settfex.exceptions import CompanyNotFoundError, FetchError, InvalidDateError
 from settfex.services.sec.company import CompanyMatch
 from settfex.services.sec.financial_report import (
     DocumentCategory,
@@ -324,15 +324,26 @@ class TestGetSecDocuments:
         assert len(docs) == 2 and docs[0].category == DocumentCategory.FORM_56_1
 
     @pytest.mark.asyncio
-    async def test_unresolved_company_returns_empty(self) -> None:
+    async def test_unresolved_company_raises_an_input_error(self) -> None:
+        """Changed in 0.24.0 (D10): a no-match raises instead of returning an empty list.
+
+        `CompanyNotFoundError` is a ValueError, NOT a FetchError, and the distinction is the fix:
+        the request succeeded and the site answered that it knows no such issuer, which is a fact
+        about the input. Returning [] made that identical to a lookup that broke, so a backfill
+        recorded the window as covered either way.
+        """
         from unittest.mock import AsyncMock, patch
 
-        with patch(
-            "settfex.services.sec.financial_report.resolve_company",
-            new=AsyncMock(return_value=None),
+        with (
+            patch(
+                "settfex.services.sec.financial_report.resolve_company",
+                new=AsyncMock(return_value=None),
+            ),
+            pytest.raises(CompanyNotFoundError) as excinfo,
         ):
-            docs = await get_sec_documents("NOPE")
-        assert docs == [] and isinstance(docs, SecDocumentList)
+            await get_sec_documents("NOPE")
+        assert "NOPE" in str(excinfo.value)
+        assert not isinstance(excinfo.value, FetchError), "an input error, not a fetch failure"
 
 
 def _doc(category: DocumentCategory, year: int | None, *, section: str = "S") -> SecDocument:

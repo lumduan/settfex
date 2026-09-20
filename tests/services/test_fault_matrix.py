@@ -38,7 +38,7 @@ from unittest.mock import patch
 
 import pytest
 
-from settfex.exceptions import FetchError
+from settfex.exceptions import CompanyNotFoundError, FetchError
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetchResponse
 
 
@@ -66,6 +66,49 @@ FAULTS: dict[str, Any] = {
     "200+[]": lambda: _resp("[]", 200),
     # A non-2xx that still carries valid JSON — the case a JSON parser cannot catch.
     "503+json": lambda: _resp('{"message":"Service Unavailable"}', 503),
+}
+
+#: Endpoints whose payload is a bare JSON array, where ``200+[]`` is a **legitimate empty answer**
+#: rather than a fault — so that one cell is asserted as a normal result instead of as an error.
+#:
+#: Each entry is (entry point, evidence). Classified from **live payloads on 2026-09-20**, not from
+#: a blanket rule, because the expectation going in was wrong for one of them:
+#:
+#:   get_board_of_directors was expected to raise, on the reasoning that a listed company always
+#:   has a board. True of companies — but this endpoint takes ANY symbol, and an ETF is a fund with
+#:   no board. `1DIV` (ETF), `SCBSET` (unit trust) and `AAOI03` (DR) all answer HTTP 200 with an
+#:   empty list. That is ~508 symbols by the stock list's own census (493 DR + 13 ETF + 2 unit
+#:   trust); raising would have broken every one of them.
+#:
+#: The premise behind the wider worry does not hold here either: all six answer an **invalid**
+#: symbol with HTTP 404 → ``SymbolNotFoundError``, so an empty list never means "bad symbol". The
+#: general "invalid input must not look like empty data" class stays on #135, where
+#: ``ConsensusOverallResponse`` still answers an unknown symbol with ``overall: []``.
+EMPTY_IS_LEGITIMATE: dict[str, str] = {
+    "get_corporate_actions": "live: JAS-W4 (warrant) and CPALL-F both return 0",
+    "get_board_of_directors": "live: 1DIV (ETF), SCBSET (unit trust), AAOI03 (DR) return 0",
+    "get_balance_sheet": "live: JAS-W4, GOOG80 (DR), CPALL-F return 0",
+    "get_income_statement": "live: same securities as the balance sheet return 0",
+    "get_cash_flow": "live: same securities as the balance sheet return 0",
+    # INFERRED, not observed: every security type probed returned 3 periods, so an empty result was
+    # never seen. It is not demonstrably impossible, so the current behaviour is pinned rather than
+    # asserted to be correct — if it ever returns [], this is where to revisit.
+    "get_trading_stats": "INFERRED — legitimate but unobserved; 3 periods for every type probed",
+}
+
+#: Cells where a **documented input error** is the correct answer, so I2's "must be a FetchError"
+#: does not apply. Keyed by (entry point, fault) with the reason, so the exemption is a recorded
+#: classification rather than a loosened invariant.
+#:
+#: ``get_sec_documents`` with ``200+[]``: the SEC company search's payload *is* a bare array, and
+#: an empty one is the site answering honestly that it knows no such issuer. That is a fact about
+#: the INPUT, not a fetch failure — and separating the two is the entire point of D10, since
+#: returning ``[]`` for both let a backfill record a window as covered either way.
+INPUT_ERROR_IS_CORRECT: dict[tuple[str, str], tuple[type[Exception], str]] = {
+    ("get_sec_documents", "200+[]"): (
+        CompanyNotFoundError,
+        "an empty company-search array means no such issuer, which is an input error by design",
+    ),
 }
 
 #: (module, entry point, positional args). Covers every module-level public ``get_*`` that can be
@@ -125,14 +168,25 @@ ENTRY_POINTS: list[tuple[str, str, tuple[Any, ...]]] = [
 #:                                              - one request per year; covered in the ThaiBMA suite
 
 
-def _ids() -> list[str]:
-    return [f"{name}[{fault}]" for _, name, _ in ENTRY_POINTS for fault in FAULTS]
+CASES = [
+    (module, name, args, fault)
+    for module, name, args in ENTRY_POINTS
+    for fault in FAULTS
+    if not (fault == "200+[]" and name in EMPTY_IS_LEGITIMATE)
+]
+
+#: The cells narrowed out of the matrix above, asserted here instead — so the classification is a
+#: documented decision with a test behind it, not a deleted row.
+EMPTY_CASES = [
+    (module, name, args) for module, name, args in ENTRY_POINTS if name in EMPTY_IS_LEGITIMATE
+]
 
 
-CASES = [(module, name, args, fault) for module, name, args in ENTRY_POINTS for fault in FAULTS]
-
-
-@pytest.mark.parametrize(("module", "name", "args", "fault"), CASES, ids=_ids())
+@pytest.mark.parametrize(
+    ("module", "name", "args", "fault"),
+    CASES,
+    ids=[f"{name}[{fault}]" for _, name, _, fault in CASES],
+)
 @pytest.mark.asyncio
 async def test_a_fault_never_returns_a_result(
     module: str, name: str, args: tuple[Any, ...], fault: str
@@ -150,12 +204,24 @@ async def test_a_fault_never_returns_a_result(
     async def fake_fetch(self: Any, url: str, headers: Any = None, **kwargs: Any) -> FetchResponse:
         return FAULTS[fault]()
 
+    expected_input_error = INPUT_ERROR_IS_CORRECT.get((name, fault))
+
     with patch.object(AsyncDataFetcher, "fetch", fake_fetch):
         try:
             result = await entry(*args)
         except FetchError:
+            assert expected_input_error is None, (
+                f"{name}/{fault} is classified as an input error but raised a FetchError"
+            )
             return  # I1 and I2 both satisfied
         except Exception as exc:  # noqa: BLE001 - the matrix is here to classify these
+            if expected_input_error is not None:
+                kind, reason = expected_input_error
+                assert isinstance(exc, kind), (
+                    f"{name}/{fault} should raise {kind.__name__} ({reason}), "
+                    f"got {type(exc).__name__}"
+                )
+                return  # a documented input error, not a fault
             pytest.fail(
                 f"I2: {name} raised {type(exc).__name__} for {fault}, which is not a FetchError "
                 f"and so escapes the documented handler: {exc}"
@@ -165,3 +231,33 @@ async def test_a_fault_never_returns_a_result(
         f"I1: {name} RETURNED {type(result).__name__} for {fault} instead of raising — a broken "
         f"upstream is indistinguishable from an empty result."
     )
+
+
+@pytest.mark.parametrize(
+    ("module", "name", "args"),
+    EMPTY_CASES,
+    ids=[name for _, name, _ in EMPTY_CASES],
+)
+@pytest.mark.asyncio
+async def test_a_bare_empty_array_is_a_result_not_a_fault(
+    module: str, name: str, args: tuple[Any, ...]
+) -> None:
+    """The narrowed cells: these endpoints' payload IS a JSON array, so ``[]`` means "none".
+
+    Pinned rather than dropped. Each classification carries its evidence in
+    :data:`EMPTY_IS_LEGITIMATE`, and `get_trading_stats` is marked INFERRED there because an empty
+    result was never observed — this pins its current behaviour rather than claiming it is right.
+
+    An empty list here is not the silent-loss bug: a fault on these endpoints arrives as a status
+    or an unparseable body, both covered by the matrix above, and an invalid symbol arrives as a
+    404. ``[]`` is left with exactly one meaning.
+    """
+    entry = getattr(importlib.import_module(module), name)
+
+    async def fake_fetch(self: Any, url: str, headers: Any = None, **kwargs: Any) -> FetchResponse:
+        return FAULTS["200+[]"]()
+
+    with patch.object(AsyncDataFetcher, "fetch", fake_fetch):
+        result = await entry(*args)
+
+    assert result == [], f"{name}: {EMPTY_IS_LEGITIMATE[name]}"

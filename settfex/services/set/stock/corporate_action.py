@@ -10,7 +10,7 @@ from settfex.exceptions import InvalidSymbolError, raise_for_status
 from settfex.services.set.constants import SET_BASE_URL, SET_CORPORATE_ACTION_ENDPOINT
 from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
-from settfex.utils.parsing import decode_json, validate_list_or_raise
+from settfex.utils.parsing import ResponseParseError, decode_json, validate_list_or_raise
 
 
 class CorporateAction(BaseModel):
@@ -179,7 +179,7 @@ class CorporateActionService:
             if not isinstance(data, list):
                 error_msg = f"Expected list response, got {type(data).__name__}"
                 logger.error(error_msg)
-                raise ValueError(error_msg)
+                raise ResponseParseError(error_msg)
 
             # Validate each corporate action using Pydantic (context-rich on failure)
             corporate_actions = validate_list_or_raise(
@@ -268,7 +268,7 @@ class CorporateActionService:
             if not isinstance(data, list):
                 error_msg = f"Expected list response, got {type(data).__name__}"
                 logger.error(error_msg)
-                raise ValueError(error_msg)
+                raise ResponseParseError(error_msg)
 
             logger.debug(f"Raw response contains {len(data)} corporate action(s)")
             return data
