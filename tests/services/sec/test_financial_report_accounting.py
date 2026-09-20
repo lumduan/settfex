@@ -147,29 +147,57 @@ class TestDropReasonTaxonomy:
         )
 
 
-class TestThirdDownloadShape:
+class TestOtherDownloadShapes:
     """Found BY the loss accounting, on the live site, after the issue said it never had been.
 
     The reporting issue's corpus scan looked at 39 captured pages and found **zero** natural
-    instances of a lost row, so its P1 example had to be derived. The first live run of the new
-    probe found two: CPALL's 2026 Q1/Q2 Key Financial Ratio rows link through a third URL shape,
-    ``/public/idisc/Views/FinancialStatementDownload?query=<blob>``, which `classify_download_href`
-    did not recognise — so two real, downloadable filings were being dropped in silence. The URL
-    answers `application/zip` with the actual PDFs inside (verified live, 134 KB).
+    instances of a lost row, so its P1 example had to be derived. Live runs of the new accounting
+    found **two shapes in two runs**, both on Key Financial Ratio rows and both real downloads:
 
-    The blob is opaque: no path, no extension, so there is nothing to derive a `file_kind` from.
+    * ``/public/idisc/Views/FinancialStatementDownload?query=<blob>`` — CPALL's 2026 Q1/Q2 rows.
+      Answers `application/zip`, a 134 KB package of the real PDFs.
+    * ``/public/idisc/views/viewdoc?…&TransId=<id>&FileSeq=<n>`` — CPALL's 2018/2019 rows, only
+      reachable through a wide window. Answers `application/.tif`, a 36 KB scan of the original.
+
+    Neither URL states a file type, so `file_kind` is None for both — `Content-Disposition` names
+    the file at download time. The lesson is in `classify_download_href`'s docstring: the
+    allowlist will keep growing, and the accounting is what makes the next addition visible.
     """
 
-    URL = (
+    FSDL = (
         "https://market.sec.or.th/public/idisc/Views/FinancialStatementDownload"
         "?query=GSDdpphMAUrdyKpAaZSrzewJvvZPnzr5NL0bvRh%2fekk%3d"
     )
+    VIEWDOC = (
+        "https://market.sec.or.th/public/idisc/views/viewdoc?SystemCode=KFRS&SubSystemCode=KFRS"
+        "&TransCode=KFR&TransId=25630000003875&FileSeq=1&FileContentFlag=submit"
+    )
+    URL = FSDL
 
     def test_it_is_recognised_as_a_download(self) -> None:
-        url, file_id, file_kind = classify_download_href(self.URL)
-        assert url == self.URL
+        url, file_id, file_kind = classify_download_href(self.FSDL)
+        assert url == self.FSDL
         assert file_id == "fsdl:GSDdpphMAUrdyKpAaZSrzewJvvZPnzr5NL0bvRh/ekk="
         assert file_kind is None, "an opaque query blob states no file type"
+
+    def test_the_scanned_original_shape_is_recognised_too(self) -> None:
+        url, file_id, file_kind = classify_download_href(self.VIEWDOC)
+        assert url == self.VIEWDOC
+        assert file_id == "viewdoc:25630000003875-1"
+        assert file_kind is None, "the URL does not say it is a TIFF; Content-Disposition does"
+
+    def test_the_view_more_link_is_still_not_a_download(self) -> None:
+        """The allowlist must not creep into "any link is a file".
+
+        Both new shapes live under /public/idisc/ with a query string, exactly like the "display
+        all results" link — so a rule loose enough to catch them generically would turn every
+        truncated section's navigation row into a phantom filing.
+        """
+        view_more = (
+            "https://market.sec.or.th/public/idisc/en/ViewMore/fs-kf"
+            "?UniqueIdReference=0000003875&DateFrom=20150101&DateTo=20261231"
+        )
+        assert classify_download_href(view_more) == ("", None, None)
 
     def test_a_row_using_it_becomes_a_document(self) -> None:
         """The live shape, spliced into a real fixture row in place of its own anchor."""

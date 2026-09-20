@@ -734,6 +734,10 @@
           "type": "str",
           "value": "ctl00_CPH_pnlControl"
         },
+        "SEC_VIEWDOC_ENDPOINT": {
+          "type": "str",
+          "value": "/public/idisc/views/viewdoc"
+        },
         "SEC_VIEWMORE_DATE_FORMAT": {
           "type": "str",
           "value": "%Y%m%d"
@@ -768,6 +772,7 @@
         "SEC_REPORT_TYPE_FORM_56_2",
         "SEC_REPORT_TYPE_KEY_FINANCIAL_RATIO",
         "SEC_RESULT_PANEL_ID",
+        "SEC_VIEWDOC_ENDPOINT",
         "SEC_VIEWMORE_DATE_FORMAT",
         "SEC_VIEWMORE_ENDPOINT",
         "SEC_VIEWMORE_SLUGS"

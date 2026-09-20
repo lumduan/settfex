@@ -164,12 +164,17 @@ async def test_live_sec_listing_parses_cleanly(lang: str):
     Both are zero on every captured page in the test corpus, so either going non-zero is a
     real site change and is exactly what a live probe is for. Run in both languages because
     the header map has a separate entry per language: one half can rot while the other works.
+
+    **The window and the category set are load-bearing, not incidental.** A narrow, recent
+    window over two categories passed while two Key Financial Ratio rows from 2018/2019 were
+    being dropped: old filings use old download-URL shapes, and only a wide window reaches
+    them. All five categories, back to 2015, is the smallest query that covers every shape
+    known to exist.
     """
     t0 = time.perf_counter()
     docs = await get_sec_documents(
         "CPALL",
-        types=["financial_statement", "form_56_1"],
-        from_date="01/01/2023",
+        from_date="01/01/2015",
         to_date="31/12/2026",
         lang=lang,
     )
@@ -186,9 +191,9 @@ async def test_live_sec_listing_parses_cleanly(lang: str):
 
     # P4: the Thai 56-1/56-2 `Receive Date` column was unmapped until #127, so this was None
     # on the Thai side while the English side had it.
-    annual = [d for d in docs if d.category.value == "form_56_1" and d.year]
-    assert annual, "expected 56-1 filings in this window"
-    assert all(d.receive_date is not None for d in annual), "56-1 rows carry a Receive Date"
+    annual = [d for d in docs if d.category.value in ("form_56_1", "form_56_2") and d.year]
+    assert annual, "expected annual-report filings in this window"
+    assert all(d.receive_date is not None for d in annual), "56-x rows carry a Receive Date"
     assert all(2000 < d.receive_date.year < 2100 for d in annual), "B.E. must be converted"
 
     _record(

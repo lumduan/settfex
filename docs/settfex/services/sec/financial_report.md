@@ -270,7 +270,7 @@ returned (the only way to get them).
 | `as_of` | `date \| None` | Row date ('As Of' for statements, 'Date' for MD&A) |
 | `receive_date` | `date \| None` | Filing date (56-1/56-2) |
 | `file_url` | `str` | Absolute download URL |
-| `file_id` | `str \| None` | FILEID path, or a synthetic `'ipos:<id>'` / `'fsdl:<blob>'` for the other two download shapes |
+| `file_id` | `str \| None` | FILEID path, or a synthetic `'ipos:<id>'` / `'fsdl:<blob>'` / `'viewdoc:<id>-<n>'` for the other three download shapes |
 | `file_kind` | `str \| None` | `'zip'`/`'pdf'`/… |
 
 ### `CompanyMatch`
@@ -355,6 +355,7 @@ GET  /public/idisc/{lang}/ViewMore/{slug}?...        -> complete section (fs-nor
 GET  /public/idisc/Download?FILEID=<path>            -> zip/pdf bytes
 GET  /ipos/Common/IPOSGetFile.aspx?id=<id>&sq=0&v=10 -> zip bytes
 GET  /public/idisc/Views/FinancialStatementDownload?query=<blob> -> zip bytes (recent KFR rows)
+GET  /public/idisc/views/viewdoc?...&TransId=<id>&FileSeq=<n>    -> TIFF bytes (older KFR rows)
 ```
 `{TYPE}` ∈ `FS` (statements + KFR + MD&A) · `R561` · `R562` · `KFR`.
 

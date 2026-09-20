@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   asked for. A **partial** loss warns and is carried in the return value — raising there would turn
   one bad row in a long listing into no listing at all.
 
-- **SEC's third download-URL shape was dropping live Key Financial Ratio filings** — found *by*
+- **Two of SEC's four download-URL shapes were dropping live Key Financial Ratio filings** — found *by*
   the loss accounting above, on its first live run, and worth stating plainly because it
   contradicts the reporting issue's own evidence. That issue scanned 39 captured pages, found
   **zero** natural instances of a dropped row, and said P1 "has not been observed in the wild";
@@ -36,10 +36,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `/public/idisc/Views/FinancialStatementDownload?query=<opaque blob>`, a shape
   `classify_download_href` did not recognise, so both rows fell through to "not a download link"
   and disappeared. The URL answers `application/zip` with a 134 KB package of the real PDFs
-  (verified live 2026-09-20), so these were recoverable documents, not a cosmetic gap. Mapped now
-  as `file_id="fsdl:<blob>"`, `file_kind=None` — the blob is opaque, so no type can be derived.
-  A captured corpus can only show what was captured; the new live probe is what will surface the
-  next one.
+  (verified live 2026-09-20), so these were recoverable documents, not a cosmetic gap.
+
+  Mapping that one and widening the probe surfaced a **fourth** shape on the same section:
+  CPALL's 2018 and 2019 KFR rows link through `/public/idisc/views/viewdoc?…&TransId=&FileSeq=`,
+  which answers `application/.tif` — a 36 KB scan of the original filing. Old filings use old URL
+  shapes, so only a wide window reaches them; a narrow recent window passed clean while those two
+  rows were being dropped. Both are mapped now (`file_id="fsdl:<blob>"` / `"viewdoc:<id>-<n>"`,
+  `file_kind=None` — neither URL states a type). After the fix a CPALL 2015–2026 listing returns
+  **177 documents with `completeness()` exact in all five categories**; `key_financial_ratio` had
+  been `(13, 15)`.
+
+  The allowlist is deliberately *not* generalised to "any /public/idisc/ link with a query": the
+  "display all results" ViewMore link has exactly that shape and would become a phantom filing in
+  every truncated section. A captured corpus can only show what was captured; the loss accounting
+  and the live probe are what will surface the next shape.
 
 - **Thai 56-1/56-2 listings dropped `receive_date` silently** (issue #127 P4). `_HEADER_FIELD_MAP`
   mapped the English `Receive Date` and had no Thai key, so a Thai annual-report listing returned
@@ -78,8 +89,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   HTML rather than JSON, so a site change makes it return *fewer records* instead of failing —
   which no other probe can catch. It asserts the parser's own accounting (`no_link == 0`,
   `unmapped_headers == []`, `is_balanced`) in **both languages**, because the header map has a
-  separate entry per language and one half can rot while the other works. It is what found the
-  download-shape loss above.
+  separate entry per language and one half can rot while the other works, and over **all five
+  categories back to 2015**, because old filings use old download-URL shapes and a narrow recent
+  window cannot see them. It is what found both download-shape losses above.
 
 ### Changed
 
