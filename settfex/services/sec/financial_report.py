@@ -15,13 +15,14 @@ from datetime import date, datetime
 from enum import StrEnum
 from html import unescape
 from typing import Literal
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from settfex.exceptions import (
     FetchError,
+    HTTPStatusError,
     IncompleteListingError,
     InvalidDateError,
     ParseError,
@@ -119,6 +120,36 @@ def _coerce_category(value: DocumentCategory | str) -> DocumentCategory:
     return value if isinstance(value, DocumentCategory) else DocumentCategory(value)
 
 
+#: How many unlinked hrefs a single category keeps as a sample. Small on purpose: this is a lead
+#: for a bug report, not an archive of the page.
+_UNLINKED_HREF_CAP = 20
+
+
+def _sample_unlinked(hrefs: Sequence[str], cap: int = _UNLINKED_HREF_CAP) -> list[str]:
+    """Sample dropped-row hrefs for DIVERSITY first, then fill to ``cap`` in order.
+
+    One href per distinct ``(host, path)`` comes first, and only then are the remaining slots
+    filled. The reason is the whole point of keeping them at all: every unknown download shape so
+    far -- ``fsdl``, ``viewdoc``, ``capfin`` -- was found by a human looking at a dropped row's
+    URL. A naive "first 20" would let twenty instances of one already-known shape crowd out the
+    single instance of a new one, which is exactly the row worth seeing.
+    """
+    first_of_kind: dict[tuple[str, str], str] = {}
+    for href in hrefs:
+        parsed = urlparse(href)
+        first_of_kind.setdefault((parsed.hostname or "", parsed.path), href)
+    sample = list(first_of_kind.values())[:cap]
+    if len(sample) < cap:
+        chosen = set(sample)
+        for href in hrefs:
+            if len(sample) >= cap:
+                break
+            if href not in chosen:
+                sample.append(href)
+                chosen.add(href)
+    return sample
+
+
 class RowTally(BaseModel):
     """What became of one section's rows: one document, or one of three reasons it is not.
 
@@ -138,6 +169,11 @@ class RowTally(BaseModel):
     no_link: int = Field(
         default=0, description="A data row that should have carried a download link and did not"
     )
+    unlinked_hrefs: list[str] = Field(
+        default_factory=list,
+        description="Sample of the hrefs behind `no_link`, diversity-first and capped; `no_link` "
+        "remains the true total",
+    )
 
     def plus(self, other: RowTally) -> RowTally:
         """Return the element-wise sum of two tallies (used when merging search codes)."""
@@ -147,7 +183,28 @@ class RowTally(BaseModel):
             placeholders=self.placeholders + other.placeholders,
             navigation=self.navigation + other.navigation,
             no_link=self.no_link + other.no_link,
+            # Re-sampled rather than concatenated, so a merge cannot exceed the cap or lose the
+            # diversity property the sample exists for.
+            unlinked_hrefs=_sample_unlinked([*self.unlinked_hrefs, *other.unlinked_hrefs]),
         )
+
+
+class CodeFailure(BaseModel):
+    """One report-code search that failed, and why.
+
+    Deliberately the same shape as
+    :class:`~settfex.services.sec.download.FailedDownload`: one pattern for "what did not make it",
+    whether the thing that did not make it was a file or a whole search.
+    """
+
+    code: str = Field(description="The ddlReportType code, e.g. 'R562'")
+    categories: list[str] = Field(
+        default_factory=list, description="The requested categories this code would have returned"
+    )
+    error: str = Field(description="The exception message")
+    error_type: str = Field(description="The exception class name, e.g. 'HTTPStatusError'")
+    status_code: int | None = Field(default=None, description="HTTP status, when the cause was one")
+    url: str | None = Field(default=None, description="The URL involved, when known")
 
 
 class ListingAccounting(BaseModel):
@@ -185,6 +242,10 @@ class ListingAccounting(BaseModel):
         default_factory=list,
         description="Read sections whose heading has no record-count marker — not checkable",
     )
+    failed_codes: list[CodeFailure] = Field(
+        default_factory=list,
+        description="Report-code searches that failed while their siblings succeeded",
+    )
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -218,8 +279,14 @@ class ListingAccounting(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def has_losses(self) -> bool:
-        """True if anything was lost or not understood — the one flag worth branching on."""
-        return bool(self.no_link or self.unknown_sections or self.unmapped_headers)
+        """True if anything was lost or not understood — the one flag worth branching on.
+
+        Includes a failed report code since 0.23.0: a search that never ran is the largest loss of
+        all, and this flag is what callers branch on.
+        """
+        return bool(
+            self.no_link or self.unknown_sections or self.unmapped_headers or self.failed_codes
+        )
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -260,6 +327,11 @@ class ListingAccounting(BaseModel):
             for name in getattr(other, attribute):
                 if name not in merged:
                     merged.append(name)
+        seen = {(f.code, f.error) for f in self.failed_codes}
+        for failure in other.failed_codes:
+            if (failure.code, failure.error) not in seen:
+                self.failed_codes.append(failure)
+                seen.add((failure.code, failure.error))
 
 
 class SecDocumentList(list[SecDocument]):
@@ -268,6 +340,19 @@ class SecDocumentList(list[SecDocument]):
     It **is** a plain list — indexing, iteration, ``len()``, slicing and passing it to
     ``download_sec_documents(...)`` all work unchanged. The extra methods make the common
     "see which years exist → pick a subset → download them" flow a one-liner.
+
+    .. warning::
+       **Deriving a new list drops the accounting** (issue #134, whose scope now covers this type
+       as well as ``DownloadResult``). ``accounting`` and ``reported_counts`` live on the instance,
+       so slicing, ``sorted()``, ``list()``, concatenation and comprehensions return a plain
+       ``list`` without them — 6 of 8 ordinary operations. ``copy.copy()`` and :meth:`filter` are
+       the exceptions; ``filter`` survives only because it was wired through deliberately.
+
+       This matters more since 0.23.0, because ``accounting.failed_codes`` records *which report
+       code failed*, so ``sorted(docs, …)`` would discard that too. Every failed code is therefore
+       **also logged at WARNING** — a log line cannot be sliced away. Read the accounting off the
+       object ``fetch_documents`` returned, before deriving anything from it. A redesign that
+       removes the edge is breaking and is tracked for a later release.
     """
 
     def __init__(
@@ -368,15 +453,42 @@ class SecDocumentList(list[SecDocument]):
         )
 
     def summary(self) -> str:
-        """A ready-to-``print()`` block of the available years per category."""
+        """A ready-to-``print()`` block of the available years per category.
+
+        A failed report code is appended, because a summary that lists only what arrived reads as
+        success when a whole search is missing — the same reason the listing's log line stopped
+        being derived from ``len()``.
+        """
         by_cat = self.years_by_category()
-        if not by_cat:
+        lines = []
+        if by_cat:
+            width = max(len(k) for k in by_cat)
+            lines = [
+                f"{cat:<{width}} : {', '.join(str(y) for y in years) or '-'}"
+                for cat, years in by_cat.items()
+            ]
+        elif not self.accounting.failed_codes:
             return "(no documents)"
-        width = max(len(k) for k in by_cat)
-        return "\n".join(
-            f"{cat:<{width}} : {', '.join(str(y) for y in years) or '-'}"
-            for cat, years in by_cat.items()
-        )
+        for failure in self.accounting.failed_codes:
+            lines.append(
+                f"FAILED {failure.code} ({', '.join(failure.categories) or 'no category'}): "
+                f"{failure.error_type}: {failure.error}"
+            )
+        return "\n".join(lines)
+
+    def __repr__(self) -> str:
+        """Show the losses, so a REPL or a log line cannot make a partial result look whole."""
+        parts = [f"{len(self)} document(s)"]
+        if self.accounting.failed_codes:
+            parts.append(
+                f"FAILED code(s): {', '.join(f.code for f in self.accounting.failed_codes)}"
+            )
+        if self.accounting.no_link:
+            parts.append(f"{self.accounting.no_link} row(s) lost")
+        short = {k for k, (held, said) in self.completeness().items() if held < said}
+        if short:
+            parts.append(f"short in {sorted(short)}")
+        return f"<SecDocumentList {' | '.join(parts)}>"
 
 
 def _clean_section(heading: str) -> str:
@@ -606,7 +718,7 @@ def _require_ok(status_code: int, url: str, code: str) -> None:
     error page parsed to zero rows and was returned as an empty list -- indistinguishable from an
     issuer with no filings, and worse than a parse bug because it is intermittent.
 
-    Raised as a plain :class:`FetchError`, **not** through ``raise_for_status``: that helper maps
+    Raised as :class:`HTTPStatusError`, **not** through ``raise_for_status``: that helper maps
     404 to ``SymbolNotFoundError`` and would consult the symbol suggester, which is wrong here.
     The unique_id was already resolved, so a 404 on this endpoint means the route or the host is
     wrong, not that an issuer does not exist -- the same reasoning that gives the DR-profile and
@@ -620,7 +732,7 @@ def _require_ok(status_code: int, url: str, code: str) -> None:
         f"indistinguishable from an issuer that filed nothing."
     )
     logger.error(message)
-    raise FetchError(message, status_code=status_code)
+    raise HTTPStatusError(message, status_code=status_code, url=url, report_code=code)
 
 
 def _require_listing_page(html: str, url: str, code: str) -> None:
@@ -746,6 +858,7 @@ def _map_rows(
     unknown: dict[str, None] = {}  # ordered set
     unmapped: dict[str, None] = {}
     unverifiable: dict[str, None] = {}
+    unlinked: dict[str, list[str]] = {}
     for row in rows:
         heading = str(row["section"])
         category, disposition = _section_disposition(heading)
@@ -777,10 +890,16 @@ def _map_rows(
         if document is None:
             reason = _drop_reason(row, reported=count)
             setattr(tally, reason, getattr(tally, reason) + 1)
+            if reason == "no_link":
+                # Kept whole here and sampled once at the end -- the diversity rule needs to see
+                # every candidate before it can choose.
+                unlinked.setdefault(category.value, []).append(str(row.get("href") or ""))
             continue
         tally.documents += 1
         result.documents.append(document)
 
+    for category_value, hrefs in unlinked.items():
+        accounting.by_category[category_value].unlinked_hrefs = _sample_unlinked(hrefs)
     accounting.unknown_sections = list(unknown)
     accounting.unmapped_headers = list(unmapped)
     accounting.unverifiable_sections = list(unverifiable)
@@ -857,6 +976,9 @@ def _escalate_losses(
                 message,
                 url=source,
                 rows_parsed=accounting.rows,
+                # Inherited from ParseError and never passed until 0.23.0, so it was always [] on
+                # this subclass -- a field that looked answered and was not.
+                unknown_sections=accounting.unknown_sections,
                 lost_rows=lost,
                 reported=reported_counts,
             )
@@ -935,6 +1057,25 @@ def _format_sec_date(value: date | str | None, param_name: str) -> str:
         logger.error(error_msg)
         raise InvalidDateError(error_msg) from exc
     return text
+
+
+def _code_failure(
+    code: str,
+    error: BaseException,
+    categories: list[DocumentCategory],
+    wanted: set[DocumentCategory],
+) -> CodeFailure:
+    """Describe one failed report code, in data rather than in prose."""
+    return CodeFailure(
+        code=code,
+        categories=sorted(
+            c.value for c in categories if c in wanted and CATEGORY_TO_REPORT_TYPE[c] == code
+        ),
+        error=str(error),
+        error_type=type(error).__name__,
+        status_code=getattr(error, "status_code", None),
+        url=getattr(error, "url", None),
+    )
 
 
 def _log_listing_summary(
@@ -1035,7 +1176,11 @@ class FinancialReportService:
         wanted = set(categories)
 
         async with AsyncDataFetcher(config=self.config) as fetcher:
-            results = await asyncio.gather(
+            # return_exceptions=True: one code failing must not discard the documents its siblings
+            # already parsed. `gather` without it propagates the first exception before the line
+            # that collects them is ever reached, which turned a partial, well-accounted failure
+            # into a total, unrecoverable one (issue #132).
+            outcomes = await asyncio.gather(
                 *(
                     self._search_code(
                         fetcher,
@@ -1049,14 +1194,59 @@ class FinancialReportService:
                         wanted,
                     )
                     for code in codes
-                )
+                ),
+                return_exceptions=True,
             )
-        docs = [d for group, _, _ in results for d in group]
+
+        docs: list[SecDocument] = []
         reported: dict[str, int] = {}
         accounting = ListingAccounting()
-        for _, counts, part in results:
+        failures: list[tuple[str, BaseException]] = []
+        for code, outcome in zip(codes, outcomes, strict=True):
+            if isinstance(outcome, BaseException):
+                # Only a FetchError is a "failed code". Anything else is a bug in settfex, and
+                # laundering it into an accounting entry would bury it.
+                if not isinstance(outcome, FetchError):
+                    raise outcome
+                failures.append((code, outcome))
+                accounting.failed_codes.append(_code_failure(code, outcome, categories, wanted))
+                # A log line cannot be sliced away, and `accounting` can -- see the
+                # SecDocumentList note in its docstring. So the failure is stated here too.
+                logger.warning(
+                    f"SEC report code {code!r} failed and was skipped: "
+                    f"{type(outcome).__name__}: {outcome}. Its sibling code(s) kept their "
+                    f"documents; see `accounting.failed_codes` on the returned list."
+                )
+                continue
+            group, counts, part = outcome
+            docs.extend(group)
             reported.update(counts)
             accounting.absorb(part)
+
+        if failures and len(failures) == len(codes):
+            # Every code failed, so there is nothing partial to return -- raise the first cause,
+            # with its own type and traceback intact. Deliberately NOT an ExceptionGroup:
+            # `except FetchError` does not catch one, so it would silently break every existing
+            # handler.
+            #
+            # "First" means first in REPORT-CODE order, not first to fail in time: `gather`
+            # returns results positionally, so this is deterministic and two identical runs raise
+            # the same cause.
+            #
+            # The other causes would otherwise be lost, which would break the rule the rest of
+            # this work is built on -- the caller can always tell which code failed and why. They
+            # ride along as PEP 678 notes: visible in the traceback and in `__notes__`, with no
+            # new type, no changed signature, and `except FetchError` still catching it.
+            first_code, first_error = failures[0]
+            for code, error in failures[1:]:
+                first_error.add_note(
+                    f"SEC report code {code!r} also failed: {type(error).__name__}: {error}"
+                )
+            logger.error(
+                f"Every requested SEC report code failed for uid={unique_id}: "
+                + "; ".join(f"{c}={type(e).__name__}" for c, e in failures)
+            )
+            raise first_error
         listing = SecDocumentList(docs, reported_counts=reported, accounting=accounting)
         _log_listing_summary(listing, unique_id=unique_id, follow_view_more=follow_view_more)
         return listing
@@ -1176,13 +1366,26 @@ class FinancialReportService:
             vm_targets.append((cat, urljoin(SEC_BASE_URL, unescape(href))))
 
         if vm_targets:
+            # Same reasoning as the per-code gather: one "display all results" page failing at the
+            # transport level must cost its own section's completeness, not the whole call. The
+            # response-level cases (non-2xx, not-a-listing) already degrade below.
             pages = await asyncio.gather(
                 *(
                     fetcher.fetch(url, headers=build_sec_headers(referer=SEC_REFERER))
                     for _, url in vm_targets
-                )
+                ),
+                return_exceptions=True,
             )
             for (cat, url), page in zip(vm_targets, pages, strict=True):
+                if isinstance(page, BaseException):
+                    if not isinstance(page, FetchError):
+                        raise page
+                    logger.warning(
+                        f"The 'display all results' page for report code {code!r} at {url} could "
+                        f"not be fetched ({type(page).__name__}: {page}). Keeping the truncated "
+                        f"inline rows for that section; `completeness()` will show the shortfall."
+                    )
+                    continue
                 # A ViewMore page holds the COMPLETE list for its section and REPLACES the inline
                 # rows, so an unusable one here does not merely add nothing -- on 0.22.0 it
                 # silently deleted the whole section, the inline rows included.

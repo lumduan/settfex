@@ -26,6 +26,7 @@ __all__ = [
     "StaleDataError",
     "ParseError",
     "IncompleteListingError",
+    "HTTPStatusError",
     "InvalidSymbolError",
     "InvalidLanguageError",
     "InvalidDateError",
@@ -160,6 +161,11 @@ class IncompleteListingError(ParseError):
     ``lost_rows`` is how many rows were dropped that way; ``reported`` is what the page said each
     section holds. Subclasses :class:`ParseError`, so ``except ParseError`` and
     ``except FetchError`` handlers keep working.
+
+    ``unknown_sections`` is inherited from :class:`ParseError` and, until 0.23.0, this subclass had
+    no way to accept it — so it was **always** ``[]`` here, a field that looked answered and was
+    not. A page can lose every row to a missing download link *and* carry a heading nobody
+    recognises, and that combination is worth seeing.
     """
 
     def __init__(
@@ -168,12 +174,46 @@ class IncompleteListingError(ParseError):
         *,
         url: str | None = None,
         rows_parsed: int | None = None,
+        unknown_sections: list[str] | None = None,
         lost_rows: int | None = None,
         reported: dict[str, int] | None = None,
     ) -> None:
-        super().__init__(message, url=url, rows_parsed=rows_parsed)
+        super().__init__(
+            message, url=url, rows_parsed=rows_parsed, unknown_sections=unknown_sections
+        )
         self.lost_rows = lost_rows
         self.reported = dict(reported or {})
+
+
+class HTTPStatusError(FetchError):
+    """A request returned a non-2xx status, with the context needed to act on it.
+
+    :class:`FetchError` already carries ``status_code``, so this adds no new *capability* — what it
+    adds is a place for the two facts a caller otherwise has to scrape out of the message string:
+    which URL, and which report code. An archive recording "the R562 search failed" should not have
+    to parse prose to do it, which is the same failure mode this family of fixes keeps closing.
+
+    Deliberately **not** raised via ``raise_for_status``: that helper maps 404 to
+    :class:`SymbolNotFoundError` and consults the symbol suggester, which is wrong on an endpoint
+    where the identifier was already resolved — a 404 there means the route or the host is wrong,
+    not that an issuer does not exist. (The same reasoning gives the DR-profile and
+    analyst-consensus endpoints their own handling; see CLAUDE.md's Known Gotchas.)
+
+    Subclasses :class:`FetchError`, so ``except FetchError`` keeps working.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        url: str | None = None,
+        report_code: str | None = None,
+        symbol: str | None = None,
+    ) -> None:
+        super().__init__(message, status_code=status_code, symbol=symbol)
+        self.url = url
+        self.report_code = report_code
 
 
 class InvalidSymbolError(ValueError):

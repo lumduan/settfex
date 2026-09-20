@@ -134,7 +134,21 @@ docs.accounting.navigation       # "display all results" rows — how a long sec
 docs.accounting.unmapped_headers # columns the site serves that map to no field
 docs.accounting.has_losses       # the one flag worth branching on
 docs.accounting.by_category      # the same tally per DocumentCategory
+docs.accounting.failed_codes     # report-code searches that failed while their siblings succeeded
+docs.accounting.by_category["financial_statement"].unlinked_hrefs   # a capped sample of the URLs
+                                                                    # behind no_link, for reporting
 ```
+
+> ⚠️ **After a call that returned normally, check `has_losses` before treating the result as
+> complete.** Since 0.23.0 one failing report code no longer takes the whole call down with it —
+> its siblings keep their documents and the failure is recorded on `failed_codes` (and logged at
+> WARNING). An exception is therefore no longer how a partial failure announces itself.
+> `repr(docs)` and `summary()` both state it.
+
+> ⚠️ **Read the accounting off the object `fetch_documents` returned.** `SecDocumentList` is a
+> `list` subclass, so slicing, `sorted()`, `list()`, concatenation and comprehensions return a
+> plain `list` and drop `.accounting` / `.reported_counts` — the same sharp edge `DownloadResult`
+> has (issue #134 covers both). `copy.copy()` and `.filter()` are the exceptions.
 
 The three drop reasons used to share one counter, so the only one that is a defect looked exactly
 like the two that are the site working normally. They are separated because `no_link` is the signal
@@ -146,6 +160,9 @@ worth escalating and the other two must never be able to trigger it.
 carries data rows and **none** of them can be classified — the signature of a site-side change.
 An issuer with no filings still returns an empty list and does **not** raise: the check keys on
 unrecognised section headings, not on emptiness.
+
+`HTTPStatusError` (a subclass of `FetchError`) is raised for a non-2xx on any listing leg, carrying
+`status_code`, `url` and `report_code` as data rather than as message text.
 
 `IncompleteListingError` (a subclass of `ParseError`) is its sibling: rows classified fine and
 then **every** usable one was dropped for want of a download link. Deliberately

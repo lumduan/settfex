@@ -130,10 +130,19 @@ listing where **every** usable row was lost raises `IncompleteListingError` rath
 transport: a failed request raises `FetchError`, and a body that is not a listing page raises
 `ParseError`, instead of parsing to zero rows and looking like "this issuer filed nothing".
 
-One thing deliberately does **not** raise: a broken "display all results" page. That section keeps
-its truncated inline rows and the shortfall shows in `completeness()` — so check that before
-treating a section as complete. As of 2026-09-20 SEC's Thai `fs-kf` page answers HTTP 500, which is
-an upstream bug, not a settfex one.
+Two things deliberately do **not** raise. A broken "display all results" page: that section keeps
+its truncated inline rows and the shortfall shows in `completeness()`. And **one failing report
+code**: the others keep their documents, and the failure is recorded on
+`docs.accounting.failed_codes` (with a WARNING). So after a call that returned normally, check
+`docs.accounting.has_losses` before treating the result as complete — an exception is no longer how
+a partial failure announces itself. `repr(docs)` states it too.
+
+As of 2026-09-20 SEC's Thai `fs-kf` page answers HTTP 500, which is an upstream bug, not a settfex
+one; it shows up as a `key_financial_ratio` shortfall on Thai listings.
+
+⚠️ Read `.accounting` / `.reported_counts` off the object `get_sec_documents` returned: like
+`DownloadResult`, `SecDocumentList` is a `list` subclass, so slicing, `sorted()`, `list()` and
+comprehensions return a plain `list` and silently drop them.
 
 `download_sec_documents(...)` returns a `DownloadResult` — a list of the files that downloaded,
 which also carries `.failed` (each with its target and reason) and `.is_complete`. Check it before

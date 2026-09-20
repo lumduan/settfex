@@ -7,6 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-09-20
+
+### Fixed
+
+- **One failing report code discarded the successfully parsed documents of every other code**
+  (issue #132). `fetch_documents` defaults to all five categories, which collapse to three
+  `ddlReportType` codes run through `asyncio.gather` **without** `return_exceptions=True` — so the
+  first exception propagated before the line that collects the results was ever reached, and a
+  total loss in the `R562` search threw away the `FS` documents that had parsed perfectly well in
+  the same call.
+
+  The irony is worth stating, because it is the whole argument: 0.22.0 added
+  `IncompleteListingError` so a caller could tell loss from emptiness, and this `gather` discarded
+  the evidence of what *did* parse at the exact moment of raising it.
+
+  The rule is the one this module already uses twice — **a partial loss reports, a total loss
+  raises**: one code failing keeps its siblings' documents, records a `CodeFailure` and warns;
+  every code failing re-raises the first cause with its type and traceback intact. Anything that is
+  **not** a `FetchError` propagates untouched — a bug in settfex must not be laundered into an
+  accounting row, where it would be buried in a field most callers never read.
+
+  Deliberately **not** an `ExceptionGroup`, despite requiring Python 3.11+: `except FetchError`
+  does not catch one, so it would silently break every existing handler. When every code fails the
+  other causes ride along as **PEP 678 notes** on the raised one, so "the caller can always tell
+  which code failed and why" holds even in the total-failure case — with no new type, no changed
+  signature, and the traceback intact. "First" means first in **report-code order**, not first to
+  fail in time: `gather` returns positionally, so two identical runs raise the same cause.
+
+- **The same gather problem one level down**, on the "display all results" pages. 0.22.1 made a
+  failing ViewMore *response* degrade; a transport exception in that gather still killed the whole
+  call. It now degrades the same way: keep the section's truncated inline rows, warn, and let
+  `completeness()` show the shortfall.
+
+- **`IncompleteListingError` could not carry `unknown_sections`.** The field is inherited from
+  `ParseError`, but the subclass's `__init__` never accepted it, so it was **always `[]`** — a
+  field that looked answered and was not. A page can lose every row to a missing download link
+  *and* carry a heading nobody recognises; that combination is now visible.
+
+### Added
+
+- **`HTTPStatusError(FetchError)`** with `url` and `report_code`. `FetchError.status_code` already
+  distinguished a transport failure from an HTTP one; what was missing was somewhere for the two
+  facts a caller otherwise had to scrape out of the message string. An archive recording "the R562
+  search failed" should not have to parse prose to do it.
+
+- **`ListingAccounting.failed_codes`** — a list of `CodeFailure` (`code`, `categories`, `error`,
+  `error_type`, `status_code`, `url`), deliberately the same shape as `FailedDownload` from #128:
+  one pattern for "what did not make it", whether it was a file or a whole search. `has_losses` is
+  true when it is non-empty, because a search that never ran is the largest loss there is.
+
+- **`RowTally.unlinked_hrefs`** — a capped sample of the hrefs behind `no_link`, the smaller half of
+  issue #133. Every unknown download shape so far (`fsdl`, `viewdoc`, `capfin`) was found by a human
+  looking at a dropped row's URL, and each time that meant re-parsing the page by hand. The sample
+  is **diversity-first**: one href per distinct `(host, path)` before the cap of 20 is spent, so
+  twenty instances of an already-known shape can never crowd out the single instance of a new one —
+  which is precisely the row worth seeing. `no_link` remains the true total.
+
+- **`SecDocumentList.__repr__`**, and a failed-codes block in `summary()`. A summary that lists only
+  what arrived reads as success when an entire search is missing.
+
+### Changed
+
+- ⚠️ **Callers that relied on an exception to detect a partial failure must now check
+  `has_losses` / `accounting.failed_codes`.** Before 0.23.0, one report code failing raised and took
+  everything with it; now the call returns the documents that parsed. That is the point of the fix —
+  but a `try/except FetchError` that treated "no exception" as "complete" will now see a partial
+  result as a whole one. Every failed code is also logged at WARNING, which is the signal that
+  cannot be lost.
+
+### Documentation
+
+- **Issue #134's scope now covers `SecDocumentList`, not only `DownloadResult`** — verified: 6 of 8
+  ordinary list operations (slicing, `sorted()`, `list()`, concatenation, comprehensions) return a
+  plain `list` and drop `.accounting` and `.reported_counts`; `copy.copy()` and `filter()` are the
+  exceptions, and `filter()` only because 0.22.0 wired it through deliberately. This matters more
+  now that `failed_codes` rides on that same attribute, which is why each failed code is *also*
+  logged. Interim warning on the class and in the docs; the redesign is breaking and covers both
+  types as one decision.
+
+
 ## [0.22.2] - 2026-09-20
 
 ### Fixed
