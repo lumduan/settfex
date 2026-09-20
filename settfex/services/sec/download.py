@@ -12,7 +12,7 @@ import asyncio
 import re
 from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, overload
 from urllib.parse import unquote, urljoin, urlparse
 
 from loguru import logger
@@ -162,8 +162,18 @@ class DownloadResult(BaseModel):
     def __contains__(self, item: object) -> bool:
         return item in self.files
 
+    @overload
+    def __getitem__(self, index: int) -> DownloadedFile: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> DownloadResult: ...
+
     def __getitem__(self, index: int | slice) -> DownloadedFile | DownloadResult:
-        """Integer indexing yields a file; slicing yields a **model**, never a bare list."""
+        """Integer indexing yields a file; slicing yields a **model**, never a bare list.
+
+        Overloaded for the same reason as ``SecDocumentList.__getitem__``: without it every
+        ``files[0].filename`` is a ``union-attr`` error for any consumer running mypy strict.
+        """
         if isinstance(index, slice):
             return DownloadResult(
                 files=self.files[index], failed=list(self.failed), requested=self.requested

@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import StrEnum
 from html import unescape
-from typing import Literal
+from typing import Literal, overload
 from urllib.parse import urljoin, urlparse
 
 from loguru import logger
@@ -442,8 +442,22 @@ class SecDocumentList(BaseModel):
     def __contains__(self, item: object) -> bool:
         return item in self.documents
 
+    @overload
+    def __getitem__(self, index: int) -> SecDocument: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> SecDocumentList: ...
+
     def __getitem__(self, index: int | slice) -> SecDocument | SecDocumentList:
-        """Integer indexing yields a document; slicing yields a **model**, never a bare list."""
+        """Integer indexing yields a document; slicing yields a **model**, never a bare list.
+
+        The overloads are not decoration. Without them the annotation collapses to the union, and
+        **every** consumer call is a type error under mypy strict -- ``docs[0].year`` reports
+        "Item SecDocumentList of SecDocument | SecDocumentList has no attribute year", and
+        ``docs[:5].accounting`` reports the mirror image. settfex ships ``py.typed``, so its hints
+        are a shipped interface, not an internal convenience; the library itself never indexes
+        these containers, which is exactly why an internally-green ``mypy settfex/`` said nothing.
+        """
         if isinstance(index, slice):
             return SecDocumentList(
                 documents=self.documents[index],
