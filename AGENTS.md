@@ -251,6 +251,16 @@ network call, so they always mean your arguments are wrong, never that the API i
 
 ---
 
+## Communication language
+
+- All prose you write is in English: reports and chat replies to the operator, commit messages,
+  PR descriptions, GitHub issues and comments, docs, ADRs, and code comments.
+- Thai appears only as verbatim source data: document titles, labels (e.g. `สอบทาน`), company
+  names, URLs, quoted page text, and fixture contents. Keep it exactly as the source has it —
+  never translate or transliterate the data itself.
+- When a Thai value's meaning matters to the reader, add an English gloss next to it:
+  `สอบทาน` (reviewed).
+
 ## Working on the repo itself
 
 ```bash
