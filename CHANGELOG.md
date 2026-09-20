@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.2] - 2026-09-20
+
+### Fixed
+
+- **56-1 and 56-2 sections truncated even with `follow_view_more=True`, because their
+  "display all results" slugs were unmapped.** `_CATEGORY_FOR_VIEWMORE_SLUG` covered `fs-norm`,
+  `fs-kf` and `fs-mda` — the three sections a single `FS` search returns — and nothing else. A
+  56-1 or 56-2 section over the site's ~10-row inline cap therefore linked to its complete list
+  through a slug the map did not recognise, and the link was skipped.
+
+  0.22.0's own notes predicted this and said the shortfall WARNING would be what surfaced it. It
+  was, from the other side of the API: a consumer read `completeness()` and reported 10 of 12 on a
+  Thai 56-1. Both slugs were then **live-probed rather than guessed** (CPALL / PTT / SCB × th / en,
+  2026-09-20), which is how the second one was found at all.
+
+  The gap was larger than first reported, and not Thai-only. Over a 2000–2026 window:
+
+  | Listing | Before | After |
+  |---|---|---|
+  | CPALL 56-1 `th` | 11 of 23 | **23 of 23** |
+  | PTT 56-1 `th` | 11 of 25 | **25 of 25** |
+  | PTT 56-2 `th` | 10 of 15 | **15 of 15** |
+  | PTT 56-2 `en` | 10 of 15 | **15 of 15** |
+
+  Note the `fs-` prefix is the site's own and is **not** a category hint — `fs-r561` is served by
+  the 56-1 search, not the FS one — so a mapping keyed on the prefix would be wrong.
+
+  No API change: the mapping is module-private, and the public `SEC_VIEWMORE_SLUGS` constant (which
+  has no caller, and so would not notice itself going stale) is updated to match, with a test
+  pinning the two equal. The generated API surface is byte-identical to 0.22.1.
+
+
 ## [0.22.1] - 2026-09-20
 
 ### Fixed

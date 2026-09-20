@@ -880,10 +880,21 @@ def _escalate_losses(
         )
 
 
+# Every slug the site serves a "display all results" page under. The `fs-` prefix is the site's,
+# not a category hint: `fs-r561` and `fs-r562` belong to the 56-1 / 56-2 searches, not to the FS
+# one. Live-probed 2026-09-20 across CPALL/PTT/SCB in both languages.
+#
+# The last two were MISSING until 0.22.2, so a 56-1 or 56-2 section over the ~10-row inline cap
+# was truncated even with `follow_view_more=True`. 0.22.0's notes predicted exactly this and said
+# the shortfall WARNING would surface it; it did, from a downstream consumer reading
+# `completeness()`. Scale, with a 2000-2026 window: CPALL Thai 56-1 served 11 of 23, PTT Thai 56-1
+# 11 of 25, PTT 56-2 10 of 15 in BOTH languages -- so this was never a Thai-only gap.
 _CATEGORY_FOR_VIEWMORE_SLUG: dict[str, DocumentCategory] = {
     "fs-norm": DocumentCategory.FINANCIAL_STATEMENT,
     "fs-kf": DocumentCategory.KEY_FINANCIAL_RATIO,
     "fs-mda": DocumentCategory.MDA,
+    "fs-r561": DocumentCategory.FORM_56_1,
+    "fs-r562": DocumentCategory.FORM_56_2,
 }
 
 _VIEWMORE_HREF = re.compile(r'href="([^"]*?/ViewMore/([a-z0-9-]+)[^"]*)"', re.IGNORECASE)
