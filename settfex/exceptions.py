@@ -25,6 +25,7 @@ __all__ = [
     "SymbolNotFoundError",
     "StaleDataError",
     "ParseError",
+    "IncompleteListingError",
     "InvalidSymbolError",
     "InvalidLanguageError",
     "InvalidDateError",
@@ -142,6 +143,37 @@ class ParseError(FetchError):
         self.url = url
         self.rows_parsed = rows_parsed
         self.unknown_sections = list(unknown_sections or [])
+
+
+class IncompleteListingError(ParseError):
+    """A listing page carried real rows and every one of them was lost before it became a record.
+
+    The sibling of :class:`ParseError`. That one fires when rows cannot be *classified*; this one
+    fires when they classify fine and then vanish for another reason — on the SEC IDISC listing,
+    a data row whose download link is missing. Both describe the same hazard: an empty result that
+    is indistinguishable from an issuer who filed nothing.
+
+    Deliberately narrow. A **partial** loss does not raise — it is reported on the returned model
+    and logged, because a partial result is still usable and the loss is no longer silent. This
+    fires only when the loss is total, which is the case the caller cannot otherwise detect.
+
+    ``lost_rows`` is how many rows were dropped that way; ``reported`` is what the page said each
+    section holds. Subclasses :class:`ParseError`, so ``except ParseError`` and
+    ``except FetchError`` handlers keep working.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        url: str | None = None,
+        rows_parsed: int | None = None,
+        lost_rows: int | None = None,
+        reported: dict[str, int] | None = None,
+    ) -> None:
+        super().__init__(message, url=url, rows_parsed=rows_parsed)
+        self.lost_rows = lost_rows
+        self.reported = dict(reported or {})
 
 
 class InvalidSymbolError(ValueError):

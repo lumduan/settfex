@@ -279,7 +279,14 @@ def classify_download_href(href: str | None) -> tuple[str, str | None, str | Non
 
     - IDISC downloads: ``/public/idisc/Download?FILEID=<path>`` → file_id=<path>, kind from ext.
     - IPOS downloads:  ``/ipos/Common/IPOSGetFile.aspx?id=<id>`` → file_id="ipos:<id>", kind=None.
+    - FS-package downloads: ``/public/idisc/Views/FinancialStatementDownload?query=<blob>`` →
+      file_id="fsdl:<blob>", kind=None. The blob is opaque, so nothing can be derived from it.
     Relative hrefs are resolved against the SEC base URL.
+
+    Anything else returns ``("", None, None)`` and the row produces no document — which is the
+    drop path issue #127 is about, so a shape that is missing here is silent data loss, not a
+    cosmetic gap. The third shape above was found exactly that way: by the loss accounting firing
+    on a live CPALL listing (see ``ListingAccounting.no_link``).
     """
     if not href:
         return "", None, None
@@ -293,5 +300,7 @@ def classify_download_href(href: str | None) -> tuple[str, str | None, str | Non
         return absolute, file_id, kind
     if parsed.path.lower().endswith("iposgetfile.aspx") and "id" in query:
         return absolute, f"ipos:{query['id'][0]}", None
+    if parsed.path.lower().endswith("financialstatementdownload") and "query" in query:
+        return absolute, f"fsdl:{query['query'][0]}", None
     # Not a recognized download link (e.g. a "display all results" ViewMore link) — not a doc.
     return "", None, None

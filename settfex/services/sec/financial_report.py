@@ -18,9 +18,9 @@ from typing import Literal
 from urllib.parse import urljoin
 
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-from settfex.exceptions import InvalidDateError, ParseError
+from settfex.exceptions import IncompleteListingError, InvalidDateError, ParseError
 from settfex.services.sec.company import resolve_company
 from settfex.services.sec.constants import (
     SEC_BASE_URL,
@@ -114,6 +114,148 @@ def _coerce_category(value: DocumentCategory | str) -> DocumentCategory:
     return value if isinstance(value, DocumentCategory) else DocumentCategory(value)
 
 
+class RowTally(BaseModel):
+    """What became of one section's rows: one document, or one of three reasons it is not.
+
+    ``rows == documents + placeholders + navigation + no_link`` — every row lands in exactly one
+    bucket, which is the point: before this, all three "not a document" outcomes shared a single
+    counter and only one of them is a defect.
+    """
+
+    rows: int = Field(default=0, description="Data rows seen for this category")
+    documents: int = Field(default=0, description="Rows that became a SecDocument")
+    placeholders: int = Field(
+        default=0, description="'Data not found' / 'ไม่พบข้อมูล' rows — the site saying it has none"
+    )
+    navigation: int = Field(
+        default=0, description="'Display all results' ViewMore rows — a link to a page, not a file"
+    )
+    no_link: int = Field(
+        default=0, description="A data row that should have carried a download link and did not"
+    )
+
+    def plus(self, other: RowTally) -> RowTally:
+        """Return the element-wise sum of two tallies (used when merging search codes)."""
+        return RowTally(
+            rows=self.rows + other.rows,
+            documents=self.documents + other.documents,
+            placeholders=self.placeholders + other.placeholders,
+            navigation=self.navigation + other.navigation,
+            no_link=self.no_link + other.no_link,
+        )
+
+
+class ListingAccounting(BaseModel):
+    """Where every row and column of a listing went — the parser's own account of itself.
+
+    This is the second of two independent cross-checks, and the two answer different questions.
+    :meth:`SecDocumentList.completeness` compares what we hold against **the number the site
+    printed**, so a shortfall there is usually legitimate "view more" truncation. This one is
+    internal: it says what the parser did with each row it actually received, and needs no
+    record-count marker at all. ``no_link``, ``unknown_sections`` and ``unmapped_headers`` are
+    defects; ``skipped``, ``placeholders`` and ``navigation`` are rows dropped on purpose.
+
+    The totals are **computed fields**, so they survive ``model_dump()`` into JSON or Parquet
+    rather than being recomputed by every consumer.
+    """
+
+    rows: int = Field(default=0, description="Data rows this listing was built from")
+    skipped: int = Field(
+        default=0, description="Rows in revision-tracking sections — dropped by design"
+    )
+    unknown_rows: int = Field(
+        default=0, description="Rows in sections that could not be classified"
+    )
+    by_category: dict[str, RowTally] = Field(
+        default_factory=dict, description="Per-category row tally, keyed by category value"
+    )
+    unknown_sections: list[str] = Field(
+        default_factory=list, description="Section headings that could not be classified"
+    )
+    unmapped_headers: list[str] = Field(
+        default_factory=list,
+        description="Column headers in a read section that map to no field and are not ignored",
+    )
+    unverifiable_sections: list[str] = Field(
+        default_factory=list,
+        description="Read sections whose heading has no record-count marker — not checkable",
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    def _sum(self, attribute: str) -> int:
+        return sum(getattr(tally, attribute) for tally in self.by_category.values())
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def documents(self) -> int:
+        """Rows that became a document."""
+        return self._sum("documents")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def placeholders(self) -> int:
+        """Rows that were the site's own "nothing here" placeholder."""
+        return self._sum("placeholders")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def navigation(self) -> int:
+        """Rows that were a "display all results" link rather than a filing."""
+        return self._sum("navigation")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def no_link(self) -> int:
+        """Rows lost: a real data row whose download link was missing."""
+        return self._sum("no_link")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def has_losses(self) -> bool:
+        """True if anything was lost or not understood — the one flag worth branching on."""
+        return bool(self.no_link or self.unknown_sections or self.unmapped_headers)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def is_balanced(self) -> bool:
+        """``rows == skipped + unknown_rows + Σ by_category[*].rows`` — the accounting identity."""
+        return self.rows == self.skipped + self.unknown_rows + self._sum("rows")
+
+    def absorb(self, other: ListingAccounting) -> None:
+        """Add another page's accounting into this one (one search code per page)."""
+        self.rows += other.rows
+        self.skipped += other.skipped
+        self.unknown_rows += other.unknown_rows
+        for key, tally in other.by_category.items():
+            current = self.by_category.get(key)
+            self.by_category[key] = tally if current is None else current.plus(tally)
+        self._merge_names(other)
+
+    def supersede(self, category: str, other: ListingAccounting) -> None:
+        """Replace one category's tally with the ViewMore page's, which holds the complete list.
+
+        The inline rows for that category are not *also* returned — they are replaced — so adding
+        both would double-count them and break :attr:`is_balanced`.
+        """
+        previous = self.by_category.pop(category, None)
+        if previous is not None:
+            self.rows -= previous.rows
+        replacement = other.by_category.get(category)
+        if replacement is not None:
+            self.by_category[category] = replacement
+            self.rows += replacement.rows
+        self._merge_names(other)
+
+    def _merge_names(self, other: ListingAccounting) -> None:
+        """Union the diagnostic name lists, preserving first-seen order."""
+        for attribute in ("unknown_sections", "unmapped_headers", "unverifiable_sections"):
+            merged: list[str] = getattr(self, attribute)
+            for name in getattr(other, attribute):
+                if name not in merged:
+                    merged.append(name)
+
+
 class SecDocumentList(list[SecDocument]):
     """A ``list[SecDocument]`` with convenience helpers for years / categories / filtering.
 
@@ -127,6 +269,7 @@ class SecDocumentList(list[SecDocument]):
         iterable: Iterable[SecDocument] = (),
         *,
         reported_counts: Mapping[str, int] | None = None,
+        accounting: ListingAccounting | None = None,
     ) -> None:
         super().__init__(iterable)
         self.reported_counts: dict[str, int] = dict(reported_counts or {})
@@ -135,6 +278,14 @@ class SecDocumentList(list[SecDocument]):
         This describes the **sections the search returned**, not this list's contents, and it
         stays true after filtering — which is the point: you compare what you have against what
         the site said existed. See :meth:`completeness`.
+        """
+        self.accounting: ListingAccounting = accounting or ListingAccounting()
+        """What the parser did with every row and column it received.
+
+        The other half of the cross-check, and deliberately not folded into
+        :attr:`reported_counts`: that one is the **site's** number, this one is **ours**. A
+        shortfall against the site's number is usually truncation; a non-zero
+        ``accounting.no_link`` is always a loss. See :class:`ListingAccounting`.
         """
 
     def completeness(self) -> dict[str, tuple[int, int]]:
@@ -204,6 +355,10 @@ class SecDocumentList(list[SecDocument]):
                 if (cat is None or d.category == cat) and (year is None or d.year == year)
             ),
             reported_counts=counts,
+            # Carried whole, for the same reason: it describes the PARSE that produced these
+            # documents, which no client-side filter can change. Narrowing it would hide a loss
+            # from exactly the caller who narrowed the result.
+            accounting=self.accounting,
         )
 
     def summary(self) -> str:
@@ -294,10 +449,11 @@ def category_for_section(heading: str) -> DocumentCategory | None:
 # not have to: all three are unmapped in English, so "no entry" is the right answer in all three
 # places. Do not add it.
 #
-# GAP, deliberate: `Receive Date` (56-1/56-2 sections) has no Thai counterpart here. The captured
-# corpus is FS searches only, so the Thai spelling was never observed -- and a guessed header is
-# worse than a missing one, because it would map silently to the wrong column if wrong. A Thai
-# 56-1 listing therefore still yields `receive_date=None`. See the gotcha in CLAUDE.md.
+# `Receive Date` was the one gap left by the #123 work: the corpus behind it was FS searches only,
+# so the Thai spelling was never observed and a guessed header was refused. It was OBSERVED on
+# 2026-09-21 -- `วันที่ได้รับข้อมูล`, in the same column position as the English header on PTT 56-1,
+# PTT 56-2 and ADVANC 56-1 -- and is mapped below. Era handling already turns `12/03/2569` into
+# `2026-03-12`, which is exactly what the English page yields for the same filing (issue #127 P4).
 _HEADER_FIELD_MAP: dict[str, str] = {
     # English
     "name": "company_name",
@@ -319,8 +475,33 @@ _HEADER_FIELD_MAP: dict[str, str] = {
     "งวด": "period",
     "สิ้นสุดวันที่": "as_of",
     "วันที่": "as_of",
+    "วันที่ได้รับข้อมูล": "receive_date",
     "ประเภทธุรกิจ": "business_type",
 }
+
+# Headers that appear in a MAPPED section, carry no value this model records, and are therefore
+# ignored on purpose. Anything outside this set and `_HEADER_FIELD_MAP` is reported (never raised):
+# an unmodelled column is "the site has more than we model", not lost data, so it must not be able
+# to fail a listing -- but it must not be invisible either, because that is how P4 survived.
+#
+# Deliberately ABSENT, and not an oversight: `Description`, `Company Name`, `Order Date`,
+# `Reviewed Financial Statement`, `ชื่อบริษัท`, `วันที่สั่งการ/ขอผ่อนผัน` and
+# `งบการเงินที่ต้องแก้ไข/ขอผ่อนผัน`. Every one of them occurs ONLY in the revision-tracking sections,
+# whose rows are skipped before a single cell is read, so they never reach this check. Adding them
+# would make the ignore-list look like it covers more than it does.
+_IGNORED_HEADERS: frozenset[str] = frozenset(
+    {
+        "details",
+        "รายละเอียด",  # one Thai word for Details/Link/Description -- see the note above
+        "link",
+        "time",
+        "เวลา",
+    }
+)
+
+# A results row that states the section is empty, in either language. It is not a dropped document:
+# the section reports 0 records and this row is the site saying so.
+_EMPTY_ROW_MARKERS = ("data not found", "ไม่พบข้อมูล")
 
 
 def row_to_document(
@@ -374,17 +555,64 @@ def row_to_document(
     )
 
 
+# The path fragment of a "display all results" link. A row whose only anchor points there is
+# navigation, not a filing -- it is how the site truncates a long section, and counting it as a
+# lost document would make every truncated section look like a defect.
+_VIEWMORE_PATH_MARKER = "/viewmore/"
+
+
+def _drop_reason(row: ReportRow, *, reported: int | None) -> str:
+    """Why a row produced no document: 'placeholders', 'navigation' or 'no_link' (a real loss).
+
+    Before this existed the three shared one counter, so the only one that is a defect was
+    indistinguishable from the two that are the site working normally.
+    """
+    href = str(row.get("href") or "").lower()
+    if _VIEWMORE_PATH_MARKER in href:
+        return "navigation"
+    text = " ".join(str(cell) for cell in row["cells"]).strip().lower()
+    if not text or reported == 0 or any(marker in text for marker in _EMPTY_ROW_MARKERS):
+        return "placeholders"
+    return "no_link"
+
+
 # ViewMore slug -> the category whose complete list that page holds.
 @dataclass
 class _MapResult:
-    """What one results page yielded, and why the rest of it did not."""
+    """What one results page yielded, and why the rest of it did not.
+
+    The legacy scalars (``rows`` / ``skipped`` / ``no_href`` / ``unknown_sections``) are views onto
+    :attr:`accounting`, so there is one set of numbers rather than two that can drift apart.
+    """
 
     documents: list[SecDocument] = field(default_factory=list)
-    rows: int = 0
-    skipped: int = 0  # revision-tracking sections -- dropped on purpose
-    no_href: int = 0  # "Data not found" placeholders and rows without a download link
-    unknown_sections: list[str] = field(default_factory=list)
+    accounting: ListingAccounting = field(default_factory=ListingAccounting)
     reported_counts: dict[str, int] = field(default_factory=dict)
+
+    @property
+    def rows(self) -> int:
+        """Data rows parsed from the page."""
+        return self.accounting.rows
+
+    @property
+    def skipped(self) -> int:
+        """Rows in revision-tracking sections — dropped on purpose."""
+        return self.accounting.skipped
+
+    @property
+    def no_href(self) -> int:
+        """Rows that produced no document for want of a usable download link.
+
+        The sum of the three reasons, kept as one number for continuity. Branch on
+        ``accounting.no_link`` instead: this one is non-zero on perfectly healthy pages.
+        """
+        acc = self.accounting
+        return acc.placeholders + acc.navigation + acc.no_link
+
+    @property
+    def unknown_sections(self) -> list[str]:
+        """Section headings that could not be classified."""
+        return self.accounting.unknown_sections
 
 
 def _map_rows(
@@ -393,16 +621,26 @@ def _map_rows(
     *,
     company_name: str | None,
     source: str,
+    wanted: set[DocumentCategory] | None = None,
 ) -> _MapResult:
-    """Map parsed rows to documents, tallying every drop, and escalate an all-unknown page.
+    """Map parsed rows to documents, account for every drop, and escalate a total loss.
 
-    The tally exists because a row used to vanish three different ways behind one ``None``: a
+    The accounting exists because a row used to vanish three different ways behind one ``None``: a
     section we skip deliberately, a placeholder row with no download link, and a heading we do
     not recognise at all. Only the third is a defect, and it was indistinguishable from the other
-    two -- and from an issuer with no filings.
+    two -- and from an issuer with no filings. ``no_href`` is now split again, because the "no
+    download link" bucket was itself three things (see :func:`_drop_reason`).
+
+    ``wanted`` scopes the escalation to the categories the caller asked for; ``None`` means all. A
+    single "FS" search returns three sections, so without it a loss in a section that was filtered
+    out on request would raise for a caller who never wanted it.
     """
-    result = _MapResult(rows=len(rows))
+    result = _MapResult()
+    accounting = result.accounting
+    accounting.rows = len(rows)
     unknown: dict[str, None] = {}  # ordered set
+    unmapped: dict[str, None] = {}
+    unverifiable: dict[str, None] = {}
     for row in rows:
         heading = str(row["section"])
         category, disposition = _section_disposition(heading)
@@ -410,29 +648,49 @@ def _map_rows(
         if count is not None and category is not None:
             result.reported_counts[category.value] = count
         if disposition == "skipped":
-            result.skipped += 1
+            accounting.skipped += 1
             continue
         if disposition == "unknown":
             unknown.setdefault(text, None)
+            accounting.unknown_rows += 1
             continue
+        if category is None:  # unreachable: 'mapped' always carries a category
+            accounting.unknown_rows += 1  # ...but still account for the row if it ever happens
+            continue
+        tally = accounting.by_category.setdefault(category.value, RowTally())
+        tally.rows += 1
+        # Column coverage, for READ sections only. A header inside a revision-tracking section is
+        # never consulted, so reporting it would be noise -- see the note on _IGNORED_HEADERS.
+        for header in row["headers"]:
+            name = str(header).strip()
+            key = name.lower()
+            if key and key not in _HEADER_FIELD_MAP and key not in _IGNORED_HEADERS:
+                unmapped.setdefault(name, None)
+        if count is None:
+            unverifiable.setdefault(text, None)
         document = row_to_document(row, unique_id, company_name=company_name)
         if document is None:
-            result.no_href += 1
+            reason = _drop_reason(row, reported=count)
+            setattr(tally, reason, getattr(tally, reason) + 1)
             continue
+        tally.documents += 1
         result.documents.append(document)
 
-    result.unknown_sections = list(unknown)
+    accounting.unknown_sections = list(unknown)
+    accounting.unmapped_headers = list(unmapped)
+    accounting.unverifiable_sections = list(unverifiable)
     logger.debug(
-        f"Parsed {result.rows} row(s) from {source}: {len(result.documents)} mapped, "
-        f"{result.skipped} skipped (revision-tracking), {result.no_href} without a download "
-        f"link, {len(result.unknown_sections)} unrecognised section(s)"
+        f"Parsed {accounting.rows} row(s) from {source}: {len(result.documents)} mapped, "
+        f"{accounting.skipped} skipped (revision-tracking), {accounting.placeholders} placeholder, "
+        f"{accounting.navigation} navigation, {accounting.no_link} without a download link, "
+        f"{len(accounting.unknown_sections)} unrecognised section(s)"
     )
 
-    if result.unknown_sections:
-        listed = ", ".join(repr(h) for h in result.unknown_sections)
+    if accounting.unknown_sections:
+        listed = ", ".join(repr(h) for h in accounting.unknown_sections)
         if not result.documents:
             message = (
-                f"{result.rows} row(s) parsed from {source} but NONE could be classified; "
+                f"{accounting.rows} row(s) parsed from {source} but NONE could be classified; "
                 f"unrecognised section heading(s): {listed}. The page structure or its language "
                 f"may have changed. This is raised rather than returned as an empty list because "
                 f"an empty list is indistinguishable from an issuer with no filings."
@@ -441,15 +699,80 @@ def _map_rows(
             raise ParseError(
                 message,
                 url=source,
-                rows_parsed=result.rows,
-                unknown_sections=result.unknown_sections,
+                rows_parsed=accounting.rows,
+                unknown_sections=accounting.unknown_sections,
             )
         logger.warning(
-            f"{len(result.unknown_sections)} unrecognised section heading(s) in {source} were "
+            f"{len(accounting.unknown_sections)} unrecognised section heading(s) in {source} were "
             f"dropped: {listed}. {len(result.documents)} document(s) from the recognised sections "
             f"were kept."
         )
+
+    _escalate_losses(accounting, result.reported_counts, source=source, wanted=wanted)
     return result
+
+
+def _escalate_losses(
+    accounting: ListingAccounting,
+    reported_counts: dict[str, int],
+    *,
+    source: str,
+    wanted: set[DocumentCategory] | None,
+) -> None:
+    """Raise on a total loss, warn on a partial one, and name every column we did not understand.
+
+    The severity ladder is the one the unrecognised-heading check already uses, for the same
+    reason: an empty result is the case a caller cannot diagnose, a partial result is one they can
+    act on once the loss is named. Raising on a single lost row would turn one bad row in a long
+    listing into no listing at all.
+    """
+    in_scope = (
+        accounting.by_category
+        if wanted is None
+        else {k: v for k, v in accounting.by_category.items() if k in {c.value for c in wanted}}
+    )
+    lost = sum(tally.no_link for tally in in_scope.values())
+    kept = sum(tally.documents for tally in in_scope.values())
+    if lost:
+        sections = ", ".join(
+            f"{name} ({tally.no_link} of {tally.rows})"
+            for name, tally in in_scope.items()
+            if tally.no_link
+        )
+        if not kept:
+            message = (
+                f"{accounting.rows} row(s) parsed from {source} and every usable one was dropped "
+                f"for want of a download link: {sections}. The site reports "
+                f"{reported_counts or 'no'} record(s) for these sections, so this is a loss, not "
+                f"an empty result — raised rather than returned as an empty list because the two "
+                f"are otherwise indistinguishable."
+            )
+            logger.error(message)
+            raise IncompleteListingError(
+                message,
+                url=source,
+                rows_parsed=accounting.rows,
+                lost_rows=lost,
+                reported=reported_counts,
+            )
+        logger.warning(
+            f"{lost} row(s) in {source} carried no download link and were dropped: {sections}. "
+            f"{kept} document(s) were kept — see `accounting.no_link` on the returned list."
+        )
+
+    if accounting.unmapped_headers:
+        logger.warning(
+            f"{len(accounting.unmapped_headers)} column header(s) in {source} map to no field and "
+            f"are not on the ignore-list: "
+            f"{', '.join(repr(h) for h in accounting.unmapped_headers)}. Any value in those "
+            f"columns is dropped; the site may have added a column."
+        )
+    if accounting.unverifiable_sections:
+        logger.warning(
+            f"{len(accounting.unverifiable_sections)} section(s) in {source} carry no record-count "
+            f"marker, so completeness cannot be checked for them: "
+            f"{', '.join(repr(h) for h in accounting.unverifiable_sections)}."
+        )
 
 
 _CATEGORY_FOR_VIEWMORE_SLUG: dict[str, DocumentCategory] = {
@@ -496,6 +819,51 @@ def _format_sec_date(value: date | str | None, param_name: str) -> str:
         logger.error(error_msg)
         raise InvalidDateError(error_msg) from exc
     return text
+
+
+def _log_listing_summary(
+    listing: SecDocumentList, *, unique_id: str, follow_view_more: bool
+) -> None:
+    """Emit the caller-facing summary, derived from the accounting rather than from ``len()``.
+
+    This is where :meth:`SecDocumentList.completeness` finally gets an internal caller. The
+    cross-check existed from 0.21.0 and nothing in the package ran it, so the one line an operator
+    actually sees said "Listed 0 SEC document(s)" in the same words, at the same level, as a
+    complete success.
+
+    Two different shortfalls are deliberately given two different levels. With
+    ``follow_view_more=False`` a section truncated behind "display all results" is *expected* to
+    fall short of the site's number -- warning about what the caller asked for trains people to
+    ignore warnings. With ``follow_view_more=True`` the ViewMore page holds the complete list, so a
+    residual shortfall has nothing left to explain it and is worth a warning.
+    """
+    accounting = listing.accounting
+    total_reported = sum(listing.reported_counts.values())
+    short = {k: v for k, v in listing.completeness().items() if v[0] < v[1]}
+    head = f"Listed {len(listing)} SEC document(s) for uid={unique_id}"
+
+    if accounting.has_losses:
+        logger.warning(
+            f"{head}, but the parse was not clean: {accounting.no_link} row(s) lost to a missing "
+            f"download link, {len(accounting.unknown_sections)} unrecognised section(s), "
+            f"{len(accounting.unmapped_headers)} unmapped column(s). The site reports "
+            f"{total_reported} record(s). Inspect `.accounting` on the returned list."
+        )
+        return
+    if short and follow_view_more:
+        logger.warning(
+            f"{head} of {total_reported} the site reports; short in {sorted(short)} even after "
+            f"following the 'display all results' pages, which should have returned each section "
+            f"in full. Compare `.completeness()` on the returned list."
+        )
+        return
+    if short:
+        logger.info(
+            f"{head} of {total_reported} the site reports; {sorted(short)} truncated because "
+            f"follow_view_more=False. Pass follow_view_more=True for the complete sections."
+        )
+        return
+    logger.info(f"{head} (the site reports {total_reported})")
 
 
 class FinancialReportService:
@@ -567,12 +935,15 @@ class FinancialReportService:
                     for code in codes
                 )
             )
-        docs = [d for group, _ in results for d in group]
+        docs = [d for group, _, _ in results for d in group]
         reported: dict[str, int] = {}
-        for _, counts in results:
+        accounting = ListingAccounting()
+        for _, counts, part in results:
             reported.update(counts)
-        logger.info(f"Listed {len(docs)} SEC document(s) for uid={unique_id}")
-        return SecDocumentList(docs, reported_counts=reported)
+            accounting.absorb(part)
+        listing = SecDocumentList(docs, reported_counts=reported, accounting=accounting)
+        _log_listing_summary(listing, unique_id=unique_id, follow_view_more=follow_view_more)
+        return listing
 
     async def fetch_documents_raw(
         self,
@@ -648,15 +1019,20 @@ class FinancialReportService:
         lang: Language,
         follow_view_more: bool,
         wanted: set[DocumentCategory],
-    ) -> tuple[list[SecDocument], dict[str, int]]:
+    ) -> tuple[list[SecDocument], dict[str, int], ListingAccounting]:
         """Run one search code, map rows, and (optionally) complete sections via ViewMore."""
         html, url = await self._run_search(
             fetcher, code, unique_id, company_name, date_from, date_to, lang
         )
         wanted_values = {c.value for c in wanted}
         mapped = _map_rows(
-            parse_report_tables(html), unique_id, company_name=company_name, source=url
+            parse_report_tables(html),
+            unique_id,
+            company_name=company_name,
+            source=url,
+            wanted=wanted,
         )
+        accounting = mapped.accounting
         # Only for the categories the caller asked for. A single "FS" search returns the
         # financial-statement, Key Financial Ratio and MD&A sections together, so without this
         # `completeness()` would report 0-of-2 for sections that were filtered out on request --
@@ -664,7 +1040,7 @@ class FinancialReportService:
         reported = {k: v for k, v in mapped.reported_counts.items() if k in wanted_values}
         inline = [d for d in mapped.documents if d.category in wanted]
         if not follow_view_more:
-            return inline, reported
+            return inline, reported, accounting
 
         # Follow each ViewMore link whose category is wanted; its page holds the COMPLETE list
         # for that section, so it replaces the truncated inline rows for that category.
@@ -692,14 +1068,18 @@ class FinancialReportService:
                     unique_id,
                     company_name=company_name,
                     source=url,
+                    wanted=wanted,
                 )
                 reported.update({k: v for k, v in vm.reported_counts.items() if k in wanted_values})
                 replacements[cat] = [d for d in vm.documents if d.category == cat]
+                # The ViewMore page holds the COMPLETE list for this section, so it replaces
+                # the truncated inline rows -- in the accounting too, or they double-count.
+                accounting.supersede(cat.value, vm.accounting)
 
         result = [d for d in inline if d.category not in replacements]
         for docs in replacements.values():
             result.extend(docs)
-        return result, reported
+        return result, reported, accounting
 
 
 async def get_sec_documents(

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
@@ -66,6 +66,56 @@ class DownloadedFile(BaseModel):
         return path
 
 
+class FailedDownload(BaseModel):
+    """One target that could not be downloaded, and why.
+
+    A failed item used to leave the batch as ``None`` and be filtered out, so a partial batch was
+    shaped exactly like a complete one and "I downloaded the filings" and "I downloaded some of the
+    filings" had the same return value. The reason survives here instead of only in a log line.
+    """
+
+    target: str = Field(description="The resolved download URL (or the raw target string)")
+    document: SecDocument | None = Field(
+        default=None, description="The source SecDocument, when the target was one"
+    )
+    error: str = Field(description="The exception message")
+    error_type: str = Field(description="The exception class name, e.g. 'FetchError'")
+
+
+class DownloadResult(list[DownloadedFile]):
+    """The files a bulk download produced, **plus the ones it could not**.
+
+    It **is** a ``list[DownloadedFile]`` — ``len()``, iteration, indexing, slicing and passing it
+    on all behave exactly as the plain list did, so this is additive. What is new is that a partial
+    batch can now be told from a complete one without parsing logs:
+
+        >>> files = await sec.download_all(docs)
+        >>> if not files.is_complete:
+        ...     print([f.target for f in files.failed])
+
+    Same shape as :class:`~settfex.services.sec.financial_report.SecDocumentList`, for the same
+    reason: the extra information rides along instead of breaking every existing caller.
+    """
+
+    def __init__(
+        self,
+        iterable: Iterable[DownloadedFile] = (),
+        *,
+        failed: Sequence[FailedDownload] = (),
+        requested: int | None = None,
+    ) -> None:
+        super().__init__(iterable)
+        self.failed: list[FailedDownload] = list(failed)
+        """Every target that raised, with its reason. Empty on a complete batch."""
+        self.requested: int = len(self) + len(self.failed) if requested is None else requested
+        """How many unique files were attempted (duplicates already collapsed)."""
+
+    @property
+    def is_complete(self) -> bool:
+        """True when every attempted download succeeded."""
+        return not self.failed
+
+
 def _filename_from_disposition(disposition: str, fallback: str) -> str:
     """Extract a filename from a Content-Disposition header (handles both SEC variants)."""
     if disposition:
@@ -80,8 +130,13 @@ def _filename_from_disposition(disposition: str, fallback: str) -> str:
 
 
 def _fallback_filename(file_url: str, document: SecDocument | None) -> str:
-    """Best-effort filename when Content-Disposition is absent."""
-    if document and document.file_id and not document.file_id.startswith("ipos:"):
+    """Best-effort filename when Content-Disposition is absent.
+
+    A real FILEID is a path (``dat/news/…/0737FIN.zip``) whose last segment is the filename.
+    The synthetic ids — ``ipos:<id>``, ``fsdl:<blob>`` — are not paths and must not be sliced
+    like one; the colon is what tells them apart, since a FILEID path never contains one.
+    """
+    if document and document.file_id and ":" not in document.file_id:
         return document.file_id.rsplit("/", 1)[-1]
     path = urlparse(file_url).path
     base = path.rsplit("/", 1)[-1]
@@ -198,7 +253,7 @@ class DocumentDownloadService:
         continue_on_error: bool = True,
         keep_bytes: bool | None = None,
         progress: bool = False,
-    ) -> list[DownloadedFile]:
+    ) -> DownloadResult:
         """
         Download many documents concurrently (bounded), optionally saving each to ``dest_dir``.
 
@@ -211,8 +266,8 @@ class DocumentDownloadService:
                 from :meth:`list_documents` can be passed as-is.
             dest_dir: If set, each file is written here (created if needed).
             max_concurrency: Max simultaneous downloads (default 3 — big files share bandwidth).
-            continue_on_error: If True (default) a failed item is logged and skipped; if False
-                the first failure propagates.
+            continue_on_error: If True (default) a failed item is recorded on the result's
+                ``.failed`` and skipped; if False the first failure propagates.
             keep_bytes: Whether to keep each file's bytes on the returned ``DownloadedFile``.
                 Default (``None``) keeps bytes only when NOT saving to disk; when ``dest_dir`` is
                 set the bytes are dropped after saving (``content=b""``, ``path`` set) to bound
@@ -220,7 +275,9 @@ class DocumentDownloadService:
             progress: Show a tqdm progress bar if the optional ``progress`` extra is installed.
 
         Returns:
-            The successfully downloaded files (one per unique URL; order not guaranteed).
+            A :class:`DownloadResult` — a ``list[DownloadedFile]`` of the successes (one per unique
+            URL; order not guaranteed) that also carries ``.failed``, ``.requested`` and
+            ``.is_complete``, so a partial batch can be told from a complete one.
         """
         # Dedupe by resolved URL, preserving first-seen order.
         unique: list[SecDocument | str] = []
@@ -239,20 +296,26 @@ class DocumentDownloadService:
         keep = keep_bytes if keep_bytes is not None else (dest_dir is None)
         semaphore = asyncio.Semaphore(max(1, max_concurrency))
         results: list[DownloadedFile] = []
+        failures: list[FailedDownload] = []
         bar = _make_progress_bar(len(unique)) if progress else None
 
         async with AsyncDataFetcher(config=self.config) as fetcher:
 
-            async def one(target: SecDocument | str) -> DownloadedFile | None:
+            async def one(target: SecDocument | str) -> DownloadedFile | FailedDownload:
                 async with semaphore:
                     try:
                         dl = await self.download(target, fetcher=fetcher)
                     except Exception as exc:  # noqa: BLE001 - tolerant batch download
                         if not continue_on_error:
                             raise
-                        label = target.file_url if isinstance(target, SecDocument) else target
-                        logger.warning(f"Skipping download that failed ({label}): {exc}")
-                        return None
+                        url, document = self._resolve_url(target)
+                        logger.warning(f"Skipping download that failed ({url}): {exc}")
+                        return FailedDownload(
+                            target=url,
+                            document=document,
+                            error=str(exc),
+                            error_type=type(exc).__name__,
+                        )
                     if dest_dir is not None:
                         dl.save(dest_dir)
                     if not keep:
@@ -261,16 +324,26 @@ class DocumentDownloadService:
 
             tasks = [asyncio.create_task(one(t)) for t in unique]
             for coro in asyncio.as_completed(tasks):
-                dl = await coro
+                outcome = await coro
                 if bar is not None:
                     bar.update(1)
-                if dl is not None:
-                    results.append(dl)
+                if isinstance(outcome, FailedDownload):
+                    failures.append(outcome)
+                else:
+                    results.append(outcome)
 
         if bar is not None:
             bar.close()
-        logger.info(f"Downloaded {len(results)}/{len(unique)} document(s)")
-        return results
+        if failures:
+            logger.warning(
+                f"Downloaded {len(results)}/{len(unique)} document(s); {len(failures)} failed and "
+                f"are on the result's `.failed` (targets: "
+                f"{', '.join(f.target for f in failures[:3])}"
+                f"{', …' if len(failures) > 3 else ''})"
+            )
+        else:
+            logger.info(f"Downloaded {len(results)}/{len(unique)} document(s)")
+        return DownloadResult(results, failed=failures, requested=len(unique))
 
 
 def _make_progress_bar(total: int) -> Any | None:
@@ -317,12 +390,13 @@ async def download_sec_documents(
     timeout: int | None = None,
     progress: bool = False,
     config: FetcherConfig | None = None,
-) -> list[DownloadedFile]:
+) -> DownloadResult:
     """
     Convenience: download many SEC documents concurrently (optionally saving to ``dest_dir``).
 
     Duplicate targets sharing a URL are downloaded once. ``timeout`` sets the per-file timeout
-    (default 180s). See :meth:`DocumentDownloadService.download_all` for the rest.
+    (default 180s). Returns a :class:`DownloadResult` — still a list of the successes, and also
+    carrying ``.failed``. See :meth:`DocumentDownloadService.download_all` for the rest.
     """
     service = DocumentDownloadService(config=config, timeout=timeout)
     return await service.download_all(

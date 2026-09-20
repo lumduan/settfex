@@ -19,7 +19,8 @@ Environment knobs (used by the dependency-refresh live-probe protocol):
 - ``SETTFEX_PROBE_CLEAR_CACHE=1``: clears the SessionManager singletons and the on-disk
   session cache (``~/.settfex/cache``) first, so warmup re-runs with the installed HTTP
   client instead of replaying cached cookies (cached cookies would mask a TLS-fingerprint
-  regression).
+  regression). The SEC probe records its ``ListingAccounting`` rather than the document list
+  (``SecDocumentList`` is a plain list, not a model), which is also the part worth diffing.
 
 **Diff the SHAPES, never the values.** On a closed market — any weekend or Thai holiday —
 SET serves a frozen snapshot, so before/after payloads are byte-identical in value,
@@ -48,6 +49,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from settfex.services.sec import get_sec_documents
 from settfex.services.set import (
     get_highlight_data,
     get_holidays,
@@ -144,6 +146,59 @@ async def test_live_set_holidays():
     assert calendar.year == datetime.now(ZoneInfo("Asia/Bangkok")).year
     assert calendar.count >= 10
     _record("set_holidays", calendar, elapsed, count=calendar.count)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lang", ["en", "th"])
+async def test_live_sec_listing_parses_cleanly(lang: str):
+    """The SEC listing is the one service here whose payload is HTML, not JSON.
+
+    Every other probe fails loudly if the payload shape moves. This one cannot: the parser's
+    job is to turn tables into records, and a renamed column or a changed link shape makes it
+    return *fewer* records rather than raise — which is the whole subject of issues #123/#127.
+    So the assertion is on the parser's own accounting, not just on the count:
+
+    * ``no_link == 0`` — the site served a data row whose download link we could not resolve.
+    * ``unmapped_headers == []`` — the site serves a column this library does not model.
+
+    Both are zero on every captured page in the test corpus, so either going non-zero is a
+    real site change and is exactly what a live probe is for. Run in both languages because
+    the header map has a separate entry per language: one half can rot while the other works.
+    """
+    t0 = time.perf_counter()
+    docs = await get_sec_documents(
+        "CPALL",
+        types=["financial_statement", "form_56_1"],
+        from_date="01/01/2023",
+        to_date="31/12/2026",
+        lang=lang,
+    )
+    elapsed = time.perf_counter() - t0
+    accounting = docs.accounting
+
+    assert len(docs) > 0, "CPALL has filed; an empty list here is the bug this probe exists for"
+    assert accounting.no_link == 0, f"the live site served {accounting.no_link} unlinked row(s)"
+    assert not accounting.unmapped_headers, (
+        f"market.sec.or.th now serves column(s) settfex does not model: "
+        f"{accounting.unmapped_headers}"
+    )
+    assert accounting.is_balanced, "every parsed row must land in exactly one bucket"
+
+    # P4: the Thai 56-1/56-2 `Receive Date` column was unmapped until #127, so this was None
+    # on the Thai side while the English side had it.
+    annual = [d for d in docs if d.category.value == "form_56_1" and d.year]
+    assert annual, "expected 56-1 filings in this window"
+    assert all(d.receive_date is not None for d in annual), "56-1 rows carry a Receive Date"
+    assert all(2000 < d.receive_date.year < 2100 for d in annual), "B.E. must be converted"
+
+    _record(
+        f"sec_listing_{lang}",
+        accounting,
+        elapsed,
+        lang=lang,
+        documents=len(docs),
+        completeness=docs.completeness(),
+    )
 
 
 @pytest.mark.asyncio
