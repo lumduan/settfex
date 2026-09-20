@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-09-20
+
 ### Fixed
 
 - **A SEC listing could lose every row and still return `[]` with nothing raised** (issue #127 P1).
@@ -94,6 +96,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   window cannot see them. It is what found both download-shape losses above.
 
 ### Changed
+
+- ⚠️ **Upgrade note — a SEC listing can now RAISE where it returned `[]`.** When a page's rows
+  classify correctly and then *every* usable one is dropped for want of a download link,
+  `get_sec_documents` / `fetch_documents` raise `IncompleteListingError` instead of returning an
+  empty list. That is the point of the fix — the two were indistinguishable — but a caller that
+  treated `[]` as "this issuer filed nothing" now needs to handle the exception. It subclasses
+  `ParseError`, which subclasses `FetchError`, so an existing `except FetchError` already covers
+  it. A **partial** loss still returns normally; see `accounting.no_link`.
+
+- ⚠️ **Upgrade note — `download_all` and `download_sec_documents` now return `DownloadResult`,
+  not `list[DownloadedFile]`.** It *is* a `list[DownloadedFile]` subclass, so `len()`, iteration,
+  indexing, slicing and passing it on are unchanged and no runtime behaviour differs. Two things
+  do: an explicit `-> list[DownloadedFile]` annotation on your own wrapper is now narrower than
+  what it returns, and `type(result) is list` is `False` (`isinstance` is still `True`).
 
 - **The SEC listing summary is derived from the accounting, not from `len(docs)`** (issue #127 P2
   and P3). `Listed 0 SEC document(s)` used to be the same sentence at the same level as a complete
