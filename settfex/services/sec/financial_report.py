@@ -229,7 +229,8 @@ class ListingAccounting(BaseModel):
         self.unknown_rows += other.unknown_rows
         for key, tally in other.by_category.items():
             current = self.by_category.get(key)
-            self.by_category[key] = tally if current is None else current.plus(tally)
+            # Copy rather than alias: the merged accounting outlives the one it absorbed.
+            self.by_category[key] = tally.model_copy() if current is None else current.plus(tally)
         self._merge_names(other)
 
     def supersede(self, category: str, other: ListingAccounting) -> None:
@@ -243,7 +244,7 @@ class ListingAccounting(BaseModel):
             self.rows -= previous.rows
         replacement = other.by_category.get(category)
         if replacement is not None:
-            self.by_category[category] = replacement
+            self.by_category[category] = replacement.model_copy()
             self.rows += replacement.rows
         self._merge_names(other)
 
@@ -555,13 +556,17 @@ def row_to_document(
     )
 
 
+# The three ways a row can produce no document. Named exactly as the RowTally fields they
+# increment, so the counter can be picked by name instead of a three-branch if.
+_DropReason = Literal["placeholders", "navigation", "no_link"]
+
 # The path fragment of a "display all results" link. A row whose only anchor points there is
 # navigation, not a filing -- it is how the site truncates a long section, and counting it as a
 # lost document would make every truncated section look like a defect.
 _VIEWMORE_PATH_MARKER = "/viewmore/"
 
 
-def _drop_reason(row: ReportRow, *, reported: int | None) -> str:
+def _drop_reason(row: ReportRow, *, reported: int | None) -> _DropReason:
     """Why a row produced no document: 'placeholders', 'navigation' or 'no_link' (a real loss).
 
     Before this existed the three shared one counter, so the only one that is a defect was
