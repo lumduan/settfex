@@ -20,7 +20,12 @@ from urllib.parse import urljoin
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-from settfex.exceptions import IncompleteListingError, InvalidDateError, ParseError
+from settfex.exceptions import (
+    FetchError,
+    IncompleteListingError,
+    InvalidDateError,
+    ParseError,
+)
 from settfex.services.sec.company import resolve_company
 from settfex.services.sec.constants import (
     SEC_BASE_URL,
@@ -581,6 +586,88 @@ def _drop_reason(row: ReportRow, *, reported: int | None) -> _DropReason:
     return "no_link"
 
 
+# A listing response is an ASP.NET result panel: a sequence of `card-heading` divs, each with a
+# `<table>`. An error page has neither. Measured over every page this repo holds -- 8 committed
+# fixtures, 3 listing test constants and a real 104 KB ViewMore capture -- every genuine listing
+# body carries at least one of each, INCLUDING the one whose section is genuinely empty (MOTHER's
+# Key Financial Ratio, which reports 0 records). The two error-shaped bodies in the evidence, a
+# real HTTP 505 page and a capital.sec.or.th indirection page, carry neither.
+#
+# NOTE it deliberately does NOT key on `ctl00_CPH_pnlControl` alone: the real ViewMore capture has
+# that id and the trimmed `FS_VIEWMORE_HTML` test constant does not, so a panel-id rule would call
+# a legitimate page an error.
+_LISTING_MARKERS = ("card-heading", "<table")
+
+
+def _require_ok(status_code: int, url: str, code: str) -> None:
+    """Raise ``FetchError`` unless the listing response is 2xx (issue #131).
+
+    The listing path used to read ``response.text`` without ever looking at the status, so an
+    error page parsed to zero rows and was returned as an empty list -- indistinguishable from an
+    issuer with no filings, and worse than a parse bug because it is intermittent.
+
+    Raised as a plain :class:`FetchError`, **not** through ``raise_for_status``: that helper maps
+    404 to ``SymbolNotFoundError`` and would consult the symbol suggester, which is wrong here.
+    The unique_id was already resolved, so a 404 on this endpoint means the route or the host is
+    wrong, not that an issuer does not exist -- the same reasoning that gives the DR-profile and
+    analyst-consensus endpoints their own handling (see CLAUDE.md's Known Gotchas).
+    """
+    if 200 <= status_code < 300:
+        return
+    message = (
+        f"SEC listing request failed: HTTP {status_code} for report code {code!r} "
+        f"at {url}. The response was not parsed — an error page yields zero rows, which is "
+        f"indistinguishable from an issuer that filed nothing."
+    )
+    logger.error(message)
+    raise FetchError(message, status_code=status_code)
+
+
+def _require_listing_page(html: str, url: str, code: str) -> None:
+    """Raise ``ParseError`` when a 2xx body is not a listing page at all (issue #131).
+
+    The status check above catches the evidenced case (a real HTTP 505). This is the companion for
+    an error or interstitial page served with HTTP 200, which no status check can see. It is
+    deliberately the weakest rule that separates the two populations, so that a genuinely empty
+    listing -- the thing that must never raise -- cannot trip it. See :data:`_LISTING_MARKERS`.
+    """
+    lowered = html.lower()
+    if any(marker in lowered for marker in _LISTING_MARKERS):
+        return
+    message = (
+        f"SEC listing response for report code {code!r} at {url} carries no result table and no "
+        f"section heading, so it is not a listing page (HTTP 200 error or interstitial page?). "
+        f"Raised rather than returned as an empty list, which would be indistinguishable from an "
+        f"issuer that filed nothing."
+    )
+    logger.error(message)
+    raise ParseError(message, url=url, rows_parsed=0)
+
+
+def _view_more_is_usable(status_code: int, html: str, url: str, code: str) -> bool:
+    """Is this "display all results" page fit to replace its section's inline rows?
+
+    Returns False (with a WARNING) instead of raising, so a broken ViewMore page costs the caller
+    the *completeness* of one section rather than the whole listing. See the call site for why.
+    """
+    if not 200 <= status_code < 300:
+        logger.warning(
+            f"The 'display all results' page for report code {code!r} at {url} answered HTTP "
+            f"{status_code}. Keeping the truncated inline rows for that section instead of "
+            f"replacing them; `completeness()` will show the shortfall."
+        )
+        return False
+    lowered = html.lower()
+    if not any(marker in lowered for marker in _LISTING_MARKERS):
+        logger.warning(
+            f"The 'display all results' page for report code {code!r} at {url} is not a listing "
+            f"page (no result table, no section heading). Keeping the truncated inline rows for "
+            f"that section; `completeness()` will show the shortfall."
+        )
+        return False
+    return True
+
+
 # ViewMore slug -> the category whose complete list that page holds.
 @dataclass
 class _MapResult:
@@ -640,6 +727,19 @@ def _map_rows(
     single "FS" search returns three sections, so without it a loss in a section that was filtered
     out on request would raise for a caller who never wanted it.
     """
+    if not rows:
+        # Reachable only for a body that looked like a listing and yielded no data row at all.
+        # Within this package that cannot be a real listing: every captured page — including the
+        # ones whose sections are empty — carries at least the revision-tracking placeholder row.
+        # Returning [] here is the exact silent loss of issue #131, one layer below the transport.
+        message = (
+            f"No result rows were parsed from {source}. A SEC listing always carries at least one "
+            f"row, including the placeholder an empty section serves, so this body is not a "
+            f"listing — raised rather than returned as an empty list."
+        )
+        logger.error(message)
+        raise ParseError(message, url=source, rows_parsed=0)
+
     result = _MapResult()
     accounting = result.accounting
     accounting.rows = len(rows)
@@ -987,10 +1087,12 @@ class FinancialReportService:
             f"{SEC_BASE_URL}{SEC_FINANCIAL_REPORT_ENDPOINT.format(lang=lang, report_type=code)}"
         )
         get_resp = await fetcher.fetch(report_url, headers=build_sec_headers(referer=SEC_REFERER))
+        # This leg was already guarded by accident: an error page carries no __VIEWSTATE, so the
+        # check below fired. It reported the wrong cause, though — "the page structure may have
+        # changed" for what was really an HTTP 500 — so the status is now read first.
+        _require_ok(get_resp.status_code, report_url, code)
         tokens = extract_aspnet_tokens(get_resp.text)
         if not tokens.get("__VIEWSTATE"):
-            from settfex.exceptions import FetchError
-
             raise FetchError(
                 "SEC search page returned no __VIEWSTATE token — the page structure may have "
                 "changed, or the request was blocked."
@@ -1011,6 +1113,7 @@ class FinancialReportService:
             method="POST",
             data=form,
         )
+        _require_ok(post_resp.status_code, report_url, code)
         return post_resp.text, report_url
 
     async def _search_code(
@@ -1030,6 +1133,7 @@ class FinancialReportService:
             fetcher, code, unique_id, company_name, date_from, date_to, lang
         )
         wanted_values = {c.value for c in wanted}
+        _require_listing_page(html, url, code)
         mapped = _map_rows(
             parse_report_tables(html),
             unique_id,
@@ -1068,6 +1172,22 @@ class FinancialReportService:
                 )
             )
             for (cat, url), page in zip(vm_targets, pages, strict=True):
+                # A ViewMore page holds the COMPLETE list for its section and REPLACES the inline
+                # rows, so an unusable one here does not merely add nothing -- on 0.22.0 it
+                # silently deleted the whole section, the inline rows included.
+                #
+                # It is DEGRADED rather than raised, which is the same severity ladder the rest of
+                # this module uses: a failed ViewMore is a PARTIAL loss, because the truncated
+                # inline rows are still a real answer -- exactly the one `follow_view_more=False`
+                # would have given. Skipping the replacement keeps them, and the shortfall then
+                # shows up on its own through `completeness()` and the WARNING in
+                # `_log_listing_summary`, which already treats "short even after following the
+                # view-more pages" as the case worth warning about.
+                #
+                # This is not hypothetical: on 2026-09-20 the live Thai `fs-kf` page answered
+                # HTTP 500 on every attempt while the other five slug/language pairs answered 200.
+                if not _view_more_is_usable(page.status_code, page.text, url, code):
+                    continue
                 vm = _map_rows(
                     parse_report_tables(page.text),
                     unique_id,

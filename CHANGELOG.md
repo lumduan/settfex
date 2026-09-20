@@ -7,6 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.1] - 2026-09-20
+
+### Fixed
+
+- **The SEC listing path never checked the HTTP status, so an error page came back as an empty
+  list** (issue #131). `_run_search` returned `post_resp.text` without ever reading
+  `status_code`, so a failed request parsed to zero rows and was returned as `[]` with
+  `has_losses == False` — indistinguishable from an issuer that genuinely filed nothing. Worse
+  than a parse bug, because it is *intermittent*: the same query succeeds an hour later, so a
+  backfill records the window as covered and nothing ever marks the gap. Evidenced by a real
+  **HTTP 505** captured from the listing host on 2026-09-20 (committed as
+  `idisc_505_error_page.html`).
+
+  settfex already had the answer everywhere else — `raise_for_status` at ~25 call sites across SET
+  and ThaiBMA, and an explicit check in `download.py`. `financial_report.py` was the one module
+  that did neither. Two rules now, because a status code cannot see everything:
+
+  - **non-2xx → `FetchError`**, naming the status, the report code and the URL;
+  - **a 2xx body that is no listing page at all → `ParseError`**. The rule is the weakest one that
+    separates the populations (no result table *and* no section heading), because the case that
+    must never trip it is a **genuinely empty listing**. Verified against every page this repo
+    holds, including the one whose section is genuinely empty.
+
+  **Behavior change:** these entry points now raise where they previously returned `[]`. Both are
+  `FetchError` subclasses and both were already documented outcomes of the listing call, so an
+  existing `except FetchError` already covers them.
+
+- **A broken "display all results" page silently deleted its whole section** — found by the fix
+  above, on the live site, the same day. A ViewMore page *replaces* its section's inline rows, and
+  0.22.0 applied that replacement unconditionally: a failing page parsed to zero rows, superseded
+  the tally, and the section vanished with the inline rows included. The live Thai `fs-kf` page
+  answered **HTTP 500 on every attempt** on 2026-09-20 while the other five slug/language pairs
+  answered 200, so a Thai listing was losing its entire Key Financial Ratio section in silence.
+
+  An unusable ViewMore page is now **degraded, not raised**: the truncated inline rows are kept —
+  they are the real answer `follow_view_more=False` would have given — a WARNING names the page
+  and its status, and the shortfall shows through `completeness()`. Raising would cost the caller
+  the whole listing over one section. A CPALL Thai listing that returned 167 documents with a
+  silent hole now returns 177 with `key_financial_ratio: (10, 15)` stated in the result.
+
+- **A fifth download-link shape was unrecognised, so the oldest filings were unreachable**
+  (issue #133). `capital.sec.or.th/…/get_zip_all_public_page.php` carries pre-2014 `.DOC`/`.XLS`
+  filings — the history that cannot be re-derived from anywhere else. 0.22.0 counted those rows as
+  `no_link` and warned (that is #127's mechanism working, and it is how the shape was reported),
+  but could not reach the data.
+
+  It is an **indirection**, so recognising the URL is necessary and not sufficient: it answers a
+  2 KB HTML page whose entire body is a JavaScript redirect to a server-minted zip.
+  `classify_download_href` now returns it as `capfin:<comp_id>-<year>-<period>-<lang>`, and
+  `download()` resolves the redirect (one extra request) and returns the real archive — 334 KB
+  across four members, verified live. Three properties the code respects: the target is **minted
+  per request** (so `file_url` stays the stable indirection URL and the `/tmp/…` one is never
+  stored), it is **per-language** (the Thai request mints a different archive), and the pattern is
+  strict with a live off-host check rather than a decorative one.
+
+### Documentation
+
+- **`DownloadResult` loses `.failed` when you derive a new list** (issue #134). Slicing,
+  `sorted()`, `list()`, concatenation and comprehensions all return a plain `list` without
+  `.failed`, `.requested` or `.is_complete`, because that is what the `list` methods construct;
+  `copy.copy()` is the exception. So `for f in sorted(result)` quietly gives up the failure report
+  that #128 added. Documented on the class and in the service docs for now — removing the edge is
+  a breaking change and is tracked separately.
+
+- **The old-format archives are MEMBER-STABLE, not byte-stable.** Re-fetching the same filing
+  legitimately yields different container bytes — 12 bytes of 334,498, the Info-ZIP pack timestamp
+  — while every member payload is byte-identical. **Judge integrity per member; the container
+  sha256 is not an identity for this shape.** An archive keyed on the container hash will see a
+  re-fetch as a new or corrupted object.
+
+
 ## [0.22.0] - 2026-09-20
 
 ### Fixed

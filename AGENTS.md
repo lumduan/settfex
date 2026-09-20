@@ -126,11 +126,20 @@ window. `docs.accounting` is what the *parser* did with the rows it got: `accoun
 is the one flag to branch on, `accounting.no_link` counts rows whose download link was missing, and
 `accounting.unmapped_headers` names columns the site serves that this library does not model. A
 listing where **every** usable row was lost raises `IncompleteListingError` rather than returning
-`[]`, so an empty list you actually receive means an empty result.
+`[]`, so an empty list you actually receive means an empty result. The same now holds for the
+transport: a failed request raises `FetchError`, and a body that is not a listing page raises
+`ParseError`, instead of parsing to zero rows and looking like "this issuer filed nothing".
+
+One thing deliberately does **not** raise: a broken "display all results" page. That section keeps
+its truncated inline rows and the shortfall shows in `completeness()` — so check that before
+treating a section as complete. As of 2026-09-20 SEC's Thai `fs-kf` page answers HTTP 500, which is
+an upstream bug, not a settfex one.
 
 `download_sec_documents(...)` returns a `DownloadResult` — a list of the files that downloaded,
 which also carries `.failed` (each with its target and reason) and `.is_complete`. Check it before
 reporting a batch as done; dead links on the SEC host arrive as HTML under HTTP 200, not as errors.
+⚠️ Read `.failed` off **that** object: it is a `list` subclass, so slicing, `sorted()`, `list()` and
+comprehensions all return a plain `list` and drop the failure report without warning.
 
 ### ThaiBMA bonds — `from settfex.services.thaibma import ...`
 

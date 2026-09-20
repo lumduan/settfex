@@ -1,8 +1,9 @@
 # SEC listing fixtures — provenance
 
-Derived from the response bodies captured for issues #123 and #127 by
+Derived from the response bodies captured for issues #123, #127, #131 and #133 by
 `tests/services/sec/derive_th_fixtures.py`, which verifies every source sha256 against the
-bundle's `MANIFEST.md` and then slices the result panel out of the original bytes verbatim.
+bundle's `MANIFEST.md` and then either slices the result panel out of the original bytes
+or copies the whole body, verbatim in both cases.
 Nothing here was re-encoded, reformatted or Unicode-normalized, so the Thai text is exactly
 what the server sent.
 
@@ -28,3 +29,5 @@ uv run python tests/services/sec/derive_th_fixtures.py \
 | #127 | `F2_en_PTT_56-1.html` | `20d7949f8e7872efd70a2a336489c12addddbbf4a85e127fe2609a53dd979b75` | `en_ptt_56_1.html` | `dc4ecce003d1ea9a9d8e3a4d219b8a619b5d1f399e8e9214db867988c041b4b1` | 3,334 |
 | #127 | `F5_th_PTT_56-2.html` | `550c78c591164532594dc86adaa1ebd9ade607af18b568159bde54da33d13692` | `th_ptt_56_2.html` | `3942d4f3ab8604ec1445b35b869723a8ed8b88d922bdbc19a5071e8ef9e63e03` | 3,476 |
 | #127 | `F3_en_PTT_56-2.html` | `0be33ee80ad2ec303d699d74d1b9d6ba8fbd5cff33fd0b557e825827deb1548a` | `en_ptt_56_2.html` | `84cec174807540f4e03cdc7a2853bcb96a65a58d2ae5f6293c64e12f6bf64ae1` | 3,056 |
+| #131 | `G5_idisc_505_error_page.html` | `3c6c080037bc084f14cb1cd2a89c09698dd00ad831e2efb0d553618b051d2794` | `idisc_505_error_page.html` | `3c6c080037bc084f14cb1cd2a89c09698dd00ad831e2efb0d553618b051d2794` | 369 |
+| #133 | `G2_capital_indirection_en_2013_p12.html` | `e0e114533be26b36e796880130ce4b3650f20122d0f4164a838faf93498ff35f` | `capital_indirection_en.html` | `e0e114533be26b36e796880130ce4b3650f20122d0f4164a838faf93498ff35f` | 2,263 |

@@ -13,12 +13,12 @@ import re
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
-from settfex.exceptions import FetchError
+from settfex.exceptions import FetchError, ParseError
 from settfex.services.sec.constants import (
     SEC_BASE_URL,
     SEC_DOWNLOAD_ENDPOINT,
@@ -26,7 +26,7 @@ from settfex.services.sec.constants import (
     SEC_REFERER,
 )
 from settfex.services.sec.financial_report import SecDocument
-from settfex.services.sec.utils import build_sec_headers
+from settfex.services.sec.utils import _CAPITAL_HOST, build_sec_headers
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 
 
@@ -95,6 +95,21 @@ class DownloadResult(list[DownloadedFile]):
 
     Same shape as :class:`~settfex.services.sec.financial_report.SecDocumentList`, for the same
     reason: the extra information rides along instead of breaking every existing caller.
+
+    .. warning::
+       **Deriving a new list drops the failure report** (issue #134). ``.failed``, ``.requested``
+       and ``.is_complete`` live on the instance, so every operation that *builds a new list* —
+       slicing, ``sorted()``, ``list()``, concatenation, a comprehension — returns a plain
+       ``list`` without them, and nothing warns::
+
+           for f in sorted(result, key=lambda f: f.size):   # <- .failed is gone from here
+               ...
+           if not result.is_complete:                       # <- read it from the ORIGINAL
+               print([f.target for f in result.failed])
+
+       ``copy.copy(result)`` is the exception and does preserve them. Read the failure report from
+       the object ``download_all`` returned, before deriving anything from it. A redesign that
+       removes this edge is a breaking change and is tracked for a later release.
     """
 
     def __init__(
@@ -165,6 +180,50 @@ def _effective_download_config(config: FetcherConfig | None, timeout: int | None
     return base.model_copy(update={"use_session": False})
 
 
+# The capital.sec.or.th shape answers HTML whose entire body is a JavaScript redirect:
+#
+#     <script language = 'javascript' >
+#             document.location = '/tmp/0653XP.zip';
+#     </script>
+#
+# Strict on purpose, but in two parts rather than one. The pattern pins the assignment and the
+# `.zip` suffix; the HOST and the path are then checked against the page's own origin after the
+# join. Doing it that way keeps the host check LIVE: a pattern that also required the `/tmp/`
+# prefix could never match an absolute URL, so the off-host branch below would have been dead
+# code that looked like a safeguard. Every capture so far is a bare `/tmp/<id>.zip` path.
+_CAPITAL_REDIRECT = re.compile(r"""document\.location\s*=\s*['"]([^'"]+\.zip)['"]""", re.IGNORECASE)
+
+
+def _capital_redirect_target(body: bytes, url: str) -> str:
+    """Resolve the JavaScript indirection to its absolute target, or raise.
+
+    The target is **minted per request** — the same filing yielded ``/tmp/0653XP.zip``,
+    ``/tmp/0653sD.zip`` and ``/tmp/0653V1.zip`` across three captures — so it is resolved at
+    download time and never stored on the listing.
+
+    The page is TIS-620, not UTF-8, so the body is decoded permissively; the line this reads is
+    pure ASCII either way.
+    """
+    text = body.decode("utf-8", "replace")
+    match = _CAPITAL_REDIRECT.search(text)
+    if match is None:
+        raise ParseError(
+            f"The old-format filing page at {url} carried no JavaScript redirect to a zip. Its "
+            f"shape may have changed; raised rather than returning the 2 KB HTML page as if it "
+            f"were the document.",
+            url=url,
+        )
+    target: str = urljoin(url, match.group(1))
+    parsed = urlparse(target)
+    if parsed.hostname != urlparse(url).hostname:
+        raise FetchError(
+            f"The redirect on {url} points off-host, to {target} — refusing to follow it."
+        )
+    if not parsed.path.lower().endswith(".zip"):
+        raise ParseError(f"The redirect on {url} points at {target}, which is not a zip.", url=url)
+    return target
+
+
 class DocumentDownloadService:
     """Download SEC documents to bytes (and optionally disk). Stateless host — no SessionManager."""
 
@@ -212,6 +271,13 @@ class DocumentDownloadService:
         fetcher = fetcher or AsyncDataFetcher(config=self.config)
         try:
             resp = await fetcher.fetch(url, headers=headers, decode_text=False)
+            if resp.status_code == 200 and _CAPITAL_HOST in (urlparse(url).hostname or ""):
+                # The old-format shape is an indirection, so this costs one extra request. It is
+                # done HERE, inside the fetcher's lifetime, rather than on the listing: the target
+                # is minted per request and would be stale by the time anyone used it.
+                url = _capital_redirect_target(resp.content, url)
+                logger.debug(f"Resolved the old-format indirection to {url}")
+                resp = await fetcher.fetch(url, headers=headers, decode_text=False)
         finally:
             if owns_fetcher:
                 await fetcher.__aexit__(None, None, None)
