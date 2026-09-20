@@ -84,6 +84,27 @@ uv run mypy .        # type-check (strict mode)
 - Use pytest fixtures in `conftest.py` for shared setup
 - Maintain coverage at or above the **85%** CI floor (`--cov-fail-under=85` in `pyproject.toml`); currently 86.87%. `--cov-branch` is in the pytest defaults so a local `uv run pytest` reports the same number CI does
 
+### Live probes — politeness budget (these are other people's servers)
+
+Live probing is how almost every real bug in this repo was found, and it is also how you get the
+whole project blocked. **Earned 2026-09-20:** a sweep of 929 symbols against `market.sec.or.th` at
+concurrency 8 drew `curl: (56) Connection reset by peer`, then a WAF block page — **HTTP 200 with
+an HTML body reading `Request Rejected`** — for every subsequent request, for roughly an hour. The
+evidence from that sweep was unusable, and the host stayed hostile long after the script stopped.
+
+- **Concurrency 1** for any sweep over more than a handful of symbols, with **jittered** sleeps
+  (~1-2 s) between requests. The concurrency limits in the services are for a *user's* workload,
+  not for a research sweep.
+- **Set an explicit request budget before starting** — "≤ 60 requests" — and make the script stop
+  at it. A probe with no budget becomes a load test by accident.
+- **Stop at the first WAF signal** and do not retry: a connection reset, an HTTP 200 whose body is
+  a block page, or a 429. Retrying deepens the block, and fast retries deepen it fastest.
+- **A sample beats a census.** 156 symbols across all nine `securityType` codes answered the
+  `resolve_company` question as well as 929 would have, at a sixth of the cost.
+- **A block page is not a parse failure.** It currently surfaces as `ResponseParseError` — right
+  family, wrong diagnosis, and a caller retrying "a bad response" will make things worse. A
+  dedicated `BlockedError` is tracked on #135 for 0.25.0.
+
 ### Documentation
 - Update docs when adding features; include docstrings for all public APIs
 - Keep Jupyter notebook examples up-to-date

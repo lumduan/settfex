@@ -222,8 +222,19 @@ splits: a **partial** gap warns and names `fetch_history()` as where the gap *is
 4. **Add `except AmbiguousCompanyError`** where you resolve issuers from free text or from symbols
    that may not be SEC issuers (ETFs, warrants, DWs). It is a `ValueError`, so a bare
    `except FetchError: retry` will *not* catch it — which is the point.
-5. **`SymbolNotFoundError` from `SecCompany.resolve()` becomes `CompanyNotFoundError`**, and is no
-   longer re-exported from `settfex.services.sec.sec`.
+5. **`SymbolNotFoundError` from `SecCompany.resolve()` becomes `CompanyNotFoundError`.** If you
+   imported it from `settfex.services.sec.sec`, that incidental re-export is gone — import from
+   **`settfex.exceptions`**, which is where every exception in this library is exported from:
+
+   ```python
+   from settfex.exceptions import AmbiguousCompanyError, CompanyNotFoundError   # both live here
+   ```
+
+   Note this crosses the family boundary: `SymbolNotFoundError` is a `FetchError`,
+   `CompanyNotFoundError` is a `ValueError`. A handler that caught the SEC "not found" case via
+   `except FetchError` will stop catching it — deliberately, since retrying never helps. The
+   library still has **two** "not found" taxonomies (SET 404 → `SymbolNotFoundError`, SEC →
+   `CompanyNotFoundError`); unifying them behind a shared base is tracked on #135 for pre-1.0.
 6. **If you construct** `IndexListResponse`, `IndexInfoListResponse`, `ConsensusOverallResponse` or
    `AnalystConsensus` by hand, supply the now-required fields (an empty list is fine).
 
