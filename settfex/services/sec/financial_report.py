@@ -1224,11 +1224,29 @@ class FinancialReportService:
             accounting.absorb(part)
 
         if failures and len(failures) == len(codes):
-            # Every code failed, so there is nothing partial to return and nothing to carry --
-            # raise the first cause, with its own type and traceback intact. Deliberately NOT an
-            # ExceptionGroup: `except FetchError` does not catch one, so it would silently break
-            # every existing handler.
-            raise failures[0][1]
+            # Every code failed, so there is nothing partial to return -- raise the first cause,
+            # with its own type and traceback intact. Deliberately NOT an ExceptionGroup:
+            # `except FetchError` does not catch one, so it would silently break every existing
+            # handler.
+            #
+            # "First" means first in REPORT-CODE order, not first to fail in time: `gather`
+            # returns results positionally, so this is deterministic and two identical runs raise
+            # the same cause.
+            #
+            # The other causes would otherwise be lost, which would break the rule the rest of
+            # this work is built on -- the caller can always tell which code failed and why. They
+            # ride along as PEP 678 notes: visible in the traceback and in `__notes__`, with no
+            # new type, no changed signature, and `except FetchError` still catching it.
+            first_code, first_error = failures[0]
+            for code, error in failures[1:]:
+                first_error.add_note(
+                    f"SEC report code {code!r} also failed: {type(error).__name__}: {error}"
+                )
+            logger.error(
+                f"Every requested SEC report code failed for uid={unique_id}: "
+                + "; ".join(f"{c}={type(e).__name__}" for c, e in failures)
+            )
+            raise first_error
         listing = SecDocumentList(docs, reported_counts=reported, accounting=accounting)
         _log_listing_summary(listing, unique_id=unique_id, follow_view_more=follow_view_more)
         return listing

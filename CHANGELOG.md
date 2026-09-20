@@ -29,7 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   accounting row, where it would be buried in a field most callers never read.
 
   Deliberately **not** an `ExceptionGroup`, despite requiring Python 3.11+: `except FetchError`
-  does not catch one, so it would silently break every existing handler.
+  does not catch one, so it would silently break every existing handler. When every code fails the
+  other causes ride along as **PEP 678 notes** on the raised one, so "the caller can always tell
+  which code failed and why" holds even in the total-failure case — with no new type, no changed
+  signature, and the traceback intact. "First" means first in **report-code order**, not first to
+  fail in time: `gather` returns positionally, so two identical runs raise the same cause.
 
 - **The same gather problem one level down**, on the "display all results" pages. 0.22.1 made a
   failing ViewMore *response* degrade; a transport exception in that gather still killed the whole

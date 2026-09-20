@@ -154,6 +154,56 @@ class TestEveryCodeFailing:
             await _list({"FS": 500, "R561": 500, "R562": 500})
 
     @pytest.mark.asyncio
+    async def test_the_other_causes_ride_along_as_notes(self) -> None:
+        """Raising one cause must not lose the other two.
+
+        GATE B's constraint is that the caller can *always* tell which code failed and why, and
+        re-raising a single exception would quietly drop the rest. PEP 678 notes carry them with
+        no new type, no changed signature and no ExceptionGroup — they show up in the traceback
+        and in `__notes__`, and `except FetchError` still catches it.
+        """
+        with pytest.raises(HTTPStatusError) as excinfo:
+            await _list({"FS": 500, "R561": 502, "R562": 503})
+
+        notes = getattr(excinfo.value, "__notes__", [])
+        assert len(notes) == 2, "one note per OTHER failed code, never for the raised one"
+        joined = " ".join(notes)
+        assert "'R561'" in joined and "502" in joined
+        assert "'R562'" in joined and "503" in joined
+        assert "'FS'" not in joined, "the raised cause is not also a note about itself"
+
+    @pytest.mark.asyncio
+    async def test_first_means_first_in_code_order_not_first_to_fail(self) -> None:
+        """Determinism: two identical runs must raise the same cause.
+
+        `gather` returns results positionally, so the winner is the first failing code in
+        `codes` order — not whichever request happened to lose the race. Here the LAST code fails
+        instantly while the first fails only after yielding several times, so a completion-ordered
+        implementation would raise R562's 503 instead of FS's 500.
+        """
+        import asyncio as _asyncio
+
+        async def slow_500(url, headers=None, *, method="GET", json_body=None, data=None, **kw):
+            code = str((data or {}).get("ctl00$CPH$ddlReportType", ""))
+            if method != "POST":
+                return _resp(REPORT_PAGE_HTML)
+            if code == "FS":
+                for _ in range(20):
+                    await _asyncio.sleep(0)  # lose the race, repeatedly
+                return _resp("<html/>", status=500)
+            return _resp("<html/>", status=503 if code == "R562" else 502)
+
+        for _ in range(3):  # a flake here would mean the order is not actually pinned
+            with patch("settfex.services.sec.financial_report.AsyncDataFetcher") as cls:
+                _make_fetcher(cls, slow_500)
+                with pytest.raises(HTTPStatusError) as excinfo:
+                    await FinancialReportService().fetch_documents(
+                        "uid", types=ACROSS_CODES, follow_view_more=False
+                    )
+            assert excinfo.value.report_code == "FS", "first in code order, not first in time"
+            assert excinfo.value.status_code == 500
+
+    @pytest.mark.asyncio
     async def test_a_single_requested_code_behaves_as_before(self) -> None:
         """With one code, "one failed" and "all failed" are the same event — it must still raise."""
         with patch("settfex.services.sec.financial_report.AsyncDataFetcher") as cls:
