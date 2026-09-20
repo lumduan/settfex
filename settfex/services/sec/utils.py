@@ -279,7 +279,20 @@ def classify_download_href(href: str | None) -> tuple[str, str | None, str | Non
 
     - IDISC downloads: ``/public/idisc/Download?FILEID=<path>`` → file_id=<path>, kind from ext.
     - IPOS downloads:  ``/ipos/Common/IPOSGetFile.aspx?id=<id>`` → file_id="ipos:<id>", kind=None.
+    - FS-package downloads: ``/public/idisc/Views/FinancialStatementDownload?query=<blob>`` →
+      file_id="fsdl:<blob>", kind=None. The blob is opaque, so nothing can be derived from it.
+    - Scanned originals: ``/public/idisc/views/viewdoc?…&TransId=<id>&FileSeq=<n>`` →
+      file_id="viewdoc:<id>-<n>", kind=None (it answers a TIFF, but the URL does not say so).
     Relative hrefs are resolved against the SEC base URL.
+
+    Anything else returns ``("", None, None)`` and the row produces no document — which is the
+    drop path issue #127 is about, so a shape missing here is silent data loss, not a cosmetic
+    gap. **Expect this list to grow**, and do not try to generalise it into "any link is a
+    download": that would swallow the "display all results" ViewMore link and make every
+    truncated section look like a filing. The mechanism that keeps the list honest is the loss
+    accounting, not this function — shapes three and four were both found by
+    ``ListingAccounting.no_link`` firing on a live CPALL listing, after a 39-page captured corpus
+    had shown neither.
     """
     if not href:
         return "", None, None
@@ -293,5 +306,9 @@ def classify_download_href(href: str | None) -> tuple[str, str | None, str | Non
         return absolute, file_id, kind
     if parsed.path.lower().endswith("iposgetfile.aspx") and "id" in query:
         return absolute, f"ipos:{query['id'][0]}", None
+    if parsed.path.lower().endswith("financialstatementdownload") and "query" in query:
+        return absolute, f"fsdl:{query['query'][0]}", None
+    if parsed.path.lower().endswith("viewdoc") and "TransId" in query:
+        return absolute, f"viewdoc:{query['TransId'][0]}-{query.get('FileSeq', ['1'])[0]}", None
     # Not a recognized download link (e.g. a "display all results" ViewMore link) — not a doc.
     return "", None, None

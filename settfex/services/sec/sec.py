@@ -18,6 +18,7 @@ from settfex.services.sec.company import CompanyMatch, resolve_company
 from settfex.services.sec.download import (
     DocumentDownloadService,
     DownloadedFile,
+    DownloadResult,
 )
 from settfex.services.sec.financial_report import (
     DocumentCategory,
@@ -120,8 +121,12 @@ class SecCompany:
         continue_on_error: bool = True,
         keep_bytes: bool | None = None,
         progress: bool = False,
-    ) -> list[DownloadedFile]:
-        """Download many documents concurrently (deduped by URL; optionally saved to disk)."""
+    ) -> DownloadResult:
+        """Download many documents concurrently (deduped by URL; optionally saved to disk).
+
+        The result is a list of the successes that also carries ``.failed`` — see
+        :class:`~settfex.services.sec.download.DownloadResult`.
+        """
         return await self.download_service.download_all(
             targets,
             dest_dir=dest_dir,

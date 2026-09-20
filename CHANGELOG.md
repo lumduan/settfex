@@ -7,6 +7,117 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A SEC listing could lose every row and still return `[]` with nothing raised** (issue #127 P1).
+  `ParseError` was gated on `unknown_sections` being non-empty, which the "row has no download
+  link" path never touches — so a page reporting 10 records across three sections returned an empty
+  list, raised nothing, and logged only at DEBUG. Same class as #123: absence of output was
+  indistinguishable from absence of input.
+
+  The fix is an accounting identity at the parser boundary, and it turned on a distinction that did
+  not exist: the single `no_href` counter conflated a `ไม่พบข้อมูล`/`Data not found` **placeholder**
+  (the site saying the section is empty), a "display all results" **ViewMore navigation row** (how
+  a long section truncates — 24% of live sections do), and a **real data row whose link is gone**.
+  Only the third is a defect. Separated, it is **0 on every real page captured**, which is what
+  lets it be escalated without making ordinary truncation an error.
+
+  A **total** loss now raises `IncompleteListingError` (a `ParseError` subclass, so
+  `except ParseError` / `except FetchError` keep working), scoped to the categories the caller
+  asked for. A **partial** loss warns and is carried in the return value — raising there would turn
+  one bad row in a long listing into no listing at all.
+
+- **Two of SEC's four download-URL shapes were dropping live Key Financial Ratio filings** — found *by*
+  the loss accounting above, on its first live run, and worth stating plainly because it
+  contradicts the reporting issue's own evidence. That issue scanned 39 captured pages, found
+  **zero** natural instances of a dropped row, and said P1 "has not been observed in the wild";
+  its reproduction fixture had to be derived for that reason. The first live listing checked with
+  the new `no_link` counter found two: CPALL's 2026 Q1 and Q2 KFR rows link through
+  `/public/idisc/Views/FinancialStatementDownload?query=<opaque blob>`, a shape
+  `classify_download_href` did not recognise, so both rows fell through to "not a download link"
+  and disappeared. The URL answers `application/zip` with a 134 KB package of the real PDFs
+  (verified live 2026-09-20), so these were recoverable documents, not a cosmetic gap.
+
+  Mapping that one and widening the probe surfaced a **fourth** shape on the same section:
+  CPALL's 2018 and 2019 KFR rows link through `/public/idisc/views/viewdoc?…&TransId=&FileSeq=`,
+  which answers `application/.tif` — a 36 KB scan of the original filing. Old filings use old URL
+  shapes, so only a wide window reaches them; a narrow recent window passed clean while those two
+  rows were being dropped. Both are mapped now (`file_id="fsdl:<blob>"` / `"viewdoc:<id>-<n>"`,
+  `file_kind=None` — neither URL states a type). After the fix a CPALL 2015–2026 listing returns
+  **177 documents with `completeness()` exact in all five categories**; `key_financial_ratio` had
+  been `(13, 15)`.
+
+  The allowlist is deliberately *not* generalised to "any /public/idisc/ link with a query": the
+  "display all results" ViewMore link has exactly that shape and would become a phantom filing in
+  every truncated section. A captured corpus can only show what was captured; the loss accounting
+  and the live probe are what will surface the next shape.
+
+- **Thai 56-1/56-2 listings dropped `receive_date` silently** (issue #127 P4). `_HEADER_FIELD_MAP`
+  mapped the English `Receive Date` and had no Thai key, so a Thai annual-report listing returned
+  `receive_date=None` — the only filing timestamp the model exposes for those forms. 11 dates lost
+  across 2 issuers × 2 forms. 0.21.0 recorded the gap as deliberate because the Thai spelling had
+  never been observed and a guessed header is worse than a missing one; it has now been observed
+  (`วันที่ได้รับข้อมูล`, in the same column position as the English header) and is mapped. Era
+  handling already worked, so `12/03/2569` → `2026-03-12`, exactly what the English page yields.
+
+- **`download_all` dropped its failures from the return value** (issue #128 P5). With
+  `continue_on_error=True` (still the default) a failed item became `None` and was filtered out, so
+  a partial batch was shaped exactly like a complete one and the difference existed only in a log
+  line. It now returns a `DownloadResult`.
+
+### Added
+
+- **`SecDocumentList.accounting`** — a `ListingAccounting` model recording what the parser did with
+  every row and column: `no_link` / `placeholders` / `navigation`, `unknown_rows`,
+  `unknown_sections`, `unmapped_headers`, `unverifiable_sections` (a section whose heading carries
+  no record-count marker, so completeness cannot be checked for it), and the same tally per
+  category. Totals are **computed fields**, so the audit trail survives `model_dump()` into JSON or
+  Parquet. It is the second of two cross-checks and deliberately not folded into the first:
+  `completeness()` compares against **the site's** number, where a shortfall is usually truncation;
+  this one is internal, where `no_link > 0` is always a loss.
+
+- **`DownloadResult`** — a `list[DownloadedFile]` subclass (same trick as `SecDocumentList`, so
+  `len()`, iteration, indexing and pass-through are unchanged) carrying `.failed`
+  (`FailedDownload`: target, source document, error, error type), `.requested` and `.is_complete`.
+  `DocumentDownloadService.download_all`, `download_sec_documents` and `SecCompany.download_all`
+  return it. `continue_on_error=False` still propagates the first failure.
+
+- **`IncompleteListingError`**, exported from `settfex.exceptions`.
+
+- **A live SEC listing probe** (`tests/integration/test_live_endpoints.py`, run with
+  `uv run pytest -m integration --no-cov`). The SEC service is the only one here whose payload is
+  HTML rather than JSON, so a site change makes it return *fewer records* instead of failing —
+  which no other probe can catch. It asserts the parser's own accounting (`no_link == 0`,
+  `unmapped_headers == []`, `is_balanced`) in **both languages**, because the header map has a
+  separate entry per language and one half can rot while the other works, and over **all five
+  categories back to 2015**, because old filings use old download-URL shapes and a narrow recent
+  window cannot see them. It is what found both download-shape losses above.
+
+### Changed
+
+- **The SEC listing summary is derived from the accounting, not from `len(docs)`** (issue #127 P2
+  and P3). `Listed 0 SEC document(s)` used to be the same sentence at the same level as a complete
+  success, although `reported` — the number that contradicts it — was already in scope three lines
+  above. `fetch_documents` now runs `completeness()` itself (P3: it had **no caller anywhere in the
+  package**) and picks the level from the result: a lossy parse warns; a shortfall with
+  `follow_view_more=True` warns, because the ViewMore page should have returned the section in full
+  and nothing is left to explain the gap; a shortfall with `follow_view_more=False` stays at INFO,
+  because that truncation is what the caller asked for.
+
+- **An unmapped column is reported, never raised.** Headers in a section that is actually read are
+  checked against the field map and an explicit 5-entry ignore-list; anything else is named on
+  `accounting.unmapped_headers` and warned about. It does not raise: a column the site adds is
+  "more than we model", not lost data, and failing a listing over it would turn a cosmetic change
+  into an outage. (The reporting issue measured "100% of sections carry an unmapped header", but
+  that counts the revision-tracking sections, whose rows are skipped before a cell is read.
+  Restricted to sections that are read, the corpus serves six, five of which have no model field
+  and the sixth of which was the `receive_date` loss above.)
+
+- `_map_rows` takes a keyword-only `wanted=` (default: all categories) so the escalation is scoped
+  to what was requested — a single `FS` search returns three sections, and PR #125 applied the same
+  principle to `completeness()`.
+
+
 ## [0.21.0] - 2026-09-19
 
 ### Fixed

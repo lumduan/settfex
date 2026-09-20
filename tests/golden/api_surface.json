@@ -141,6 +141,7 @@
         "SymbolNotFoundError",
         "StaleDataError",
         "ParseError",
+        "IncompleteListingError",
         "InvalidSymbolError",
         "InvalidLanguageError",
         "InvalidDateError",
@@ -178,6 +179,57 @@
             }
           },
           "mro": [
+            "settfex.exceptions.FetchError",
+            "builtins.Exception",
+            "builtins.BaseException",
+            "builtins.object"
+          ]
+        },
+        "IncompleteListingError": {
+          "bases": [
+            "settfex.exceptions.ParseError"
+          ],
+          "kind": "exception",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "message",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "url",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "int | None",
+                  "default": "None",
+                  "name": "rows_parsed",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "int | None",
+                  "default": "None",
+                  "name": "lost_rows",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "dict[str, int] | None",
+                  "default": "None",
+                  "name": "reported",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            }
+          },
+          "mro": [
+            "settfex.exceptions.IncompleteListingError",
+            "settfex.exceptions.ParseError",
             "settfex.exceptions.FetchError",
             "builtins.Exception",
             "builtins.BaseException",
@@ -362,6 +414,7 @@
       "constants": {},
       "exports": [
         "FetchError",
+        "IncompleteListingError",
         "InvalidDateError",
         "InvalidLanguageError",
         "InvalidSymbolError",
@@ -427,8 +480,12 @@
         "CompanyMatch",
         "DocumentCategory",
         "DocumentDownloadService",
+        "DownloadResult",
         "DownloadedFile",
+        "FailedDownload",
         "FinancialReportService",
+        "ListingAccounting",
+        "RowTally",
         "SecCompany",
         "SecDocument",
         "SecDocumentList",
@@ -451,8 +508,12 @@
         "CompanyMatch",
         "DocumentCategory",
         "DocumentDownloadService",
+        "DownloadResult",
         "DownloadedFile",
+        "FailedDownload",
         "FinancialReportService",
+        "ListingAccounting",
+        "RowTally",
         "SecCompany",
         "SecDocument",
         "SecDocumentList",
@@ -645,6 +706,10 @@
           "type": "str",
           "value": "ctl00$CPH$btSearch"
         },
+        "SEC_FS_DOWNLOAD_ENDPOINT": {
+          "type": "str",
+          "value": "/public/idisc/Views/FinancialStatementDownload"
+        },
         "SEC_REFERER": {
           "type": "str",
           "value": "https://market.sec.or.th/public/idisc/en/FinancialReport/ALL"
@@ -668,6 +733,10 @@
         "SEC_RESULT_PANEL_ID": {
           "type": "str",
           "value": "ctl00_CPH_pnlControl"
+        },
+        "SEC_VIEWDOC_ENDPOINT": {
+          "type": "str",
+          "value": "/public/idisc/views/viewdoc"
         },
         "SEC_VIEWMORE_DATE_FORMAT": {
           "type": "str",
@@ -696,12 +765,14 @@
         "SEC_FORM_FIELD_DATE_TO",
         "SEC_FORM_FIELD_REPORT_TYPE",
         "SEC_FORM_FIELD_SEARCH",
+        "SEC_FS_DOWNLOAD_ENDPOINT",
         "SEC_REFERER",
         "SEC_REPORT_TYPE_FINANCIAL_STATEMENT",
         "SEC_REPORT_TYPE_FORM_56_1",
         "SEC_REPORT_TYPE_FORM_56_2",
         "SEC_REPORT_TYPE_KEY_FINANCIAL_RATIO",
         "SEC_RESULT_PANEL_ID",
+        "SEC_VIEWDOC_ENDPOINT",
         "SEC_VIEWMORE_DATE_FORMAT",
         "SEC_VIEWMORE_ENDPOINT",
         "SEC_VIEWMORE_SLUGS"
@@ -797,7 +868,7 @@
                   "param_kind": "KEYWORD_ONLY"
                 }
               ],
-              "returns": "list[DownloadedFile]"
+              "returns": "DownloadResult"
             }
           },
           "mro": [
@@ -805,6 +876,46 @@
             "builtins.object"
           ],
           "properties": []
+        },
+        "DownloadResult": {
+          "bases": [
+            "builtins.list"
+          ],
+          "kind": "class",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "Iterable[DownloadedFile]",
+                  "default": "<tuple>",
+                  "name": "iterable",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "Sequence[FailedDownload]",
+                  "default": "<tuple>",
+                  "name": "failed",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "int | None",
+                  "default": "None",
+                  "name": "requested",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            }
+          },
+          "mro": [
+            "settfex.services.sec.download.DownloadResult",
+            "builtins.list",
+            "builtins.object"
+          ],
+          "properties": [
+            "is_complete"
+          ]
         },
         "DownloadedFile": {
           "bases": [
@@ -877,6 +988,47 @@
             "model_extra",
             "model_fields_set"
           ]
+        },
+        "FailedDownload": {
+          "bases": [
+            "pydantic.main.BaseModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "document": {
+              "alias": null,
+              "annotation": "settfex.services.sec.financial_report.SecDocument | None",
+              "default": "None",
+              "required": false
+            },
+            "error": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "error_type": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "target": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {},
+          "mro": [
+            "settfex.services.sec.download.FailedDownload",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
         }
       },
       "constants": {
@@ -906,7 +1058,9 @@
         "AsyncDataFetcher",
         "DEFAULT_DOWNLOAD_TIMEOUT",
         "DocumentDownloadService",
+        "DownloadResult",
         "DownloadedFile",
+        "FailedDownload",
         "FetchError",
         "FetcherConfig",
         "SEC_BASE_URL",
@@ -999,7 +1153,7 @@
               "param_kind": "KEYWORD_ONLY"
             }
           ],
-          "returns": "list[DownloadedFile]"
+          "returns": "DownloadResult"
         }
       }
     },
@@ -1134,6 +1288,179 @@
           ],
           "properties": []
         },
+        "ListingAccounting": {
+          "bases": [
+            "pydantic.main.BaseModel"
+          ],
+          "computed_fields": {
+            "documents": {
+              "annotation": "int"
+            },
+            "has_losses": {
+              "annotation": "bool"
+            },
+            "is_balanced": {
+              "annotation": "bool"
+            },
+            "navigation": {
+              "annotation": "int"
+            },
+            "no_link": {
+              "annotation": "int"
+            },
+            "placeholders": {
+              "annotation": "int"
+            }
+          },
+          "fields": {
+            "by_category": {
+              "alias": null,
+              "annotation": "dict[str, settfex.services.sec.financial_report.RowTally]",
+              "default_factory": "dict",
+              "required": false
+            },
+            "rows": {
+              "alias": null,
+              "annotation": "int",
+              "default": "0",
+              "required": false
+            },
+            "skipped": {
+              "alias": null,
+              "annotation": "int",
+              "default": "0",
+              "required": false
+            },
+            "unknown_rows": {
+              "alias": null,
+              "annotation": "int",
+              "default": "0",
+              "required": false
+            },
+            "unknown_sections": {
+              "alias": null,
+              "annotation": "list[str]",
+              "default_factory": "list",
+              "required": false
+            },
+            "unmapped_headers": {
+              "alias": null,
+              "annotation": "list[str]",
+              "default_factory": "list",
+              "required": false
+            },
+            "unverifiable_sections": {
+              "alias": null,
+              "annotation": "list[str]",
+              "default_factory": "list",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {
+            "absorb": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "ListingAccounting",
+                  "name": "other",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "None"
+            },
+            "supersede": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "category",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "ListingAccounting",
+                  "name": "other",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "None"
+            }
+          },
+          "model_config": {
+            "populate_by_name": true
+          },
+          "mro": [
+            "settfex.services.sec.financial_report.ListingAccounting",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "RowTally": {
+          "bases": [
+            "pydantic.main.BaseModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "documents": {
+              "alias": null,
+              "annotation": "int",
+              "default": "0",
+              "required": false
+            },
+            "navigation": {
+              "alias": null,
+              "annotation": "int",
+              "default": "0",
+              "required": false
+            },
+            "no_link": {
+              "alias": null,
+              "annotation": "int",
+              "default": "0",
+              "required": false
+            },
+            "placeholders": {
+              "alias": null,
+              "annotation": "int",
+              "default": "0",
+              "required": false
+            },
+            "rows": {
+              "alias": null,
+              "annotation": "int",
+              "default": "0",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {
+            "plus": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "RowTally",
+                  "name": "other",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "RowTally"
+            }
+          },
+          "model_config": {},
+          "mro": [
+            "settfex.services.sec.financial_report.RowTally",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
         "SecDocument": {
           "bases": [
             "pydantic.main.BaseModel"
@@ -1262,6 +1589,12 @@
                   "default": "None",
                   "name": "reported_counts",
                   "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "ListingAccounting | None",
+                  "default": "None",
+                  "name": "accounting",
+                  "param_kind": "KEYWORD_ONLY"
                 }
               ],
               "returns": "None"
@@ -1380,11 +1713,14 @@
         "DocumentCategory",
         "FetcherConfig",
         "FinancialReportService",
+        "IncompleteListingError",
         "InvalidDateError",
         "Language",
+        "ListingAccounting",
         "Literal",
         "ParseError",
         "ReportRow",
+        "RowTally",
         "SEC_BASE_URL",
         "SEC_FINANCIAL_REPORT_ENDPOINT",
         "SEC_FORM_DATE_FORMAT",
@@ -1582,7 +1918,7 @@
                   "param_kind": "KEYWORD_ONLY"
                 }
               ],
-              "returns": "list[DownloadedFile]"
+              "returns": "DownloadResult"
             },
             "list_documents": {
               "kind": "coroutine",
@@ -1635,6 +1971,7 @@
         "CompanyMatch",
         "DocumentCategory",
         "DocumentDownloadService",
+        "DownloadResult",
         "DownloadedFile",
         "FetcherConfig",
         "FinancialReportService",

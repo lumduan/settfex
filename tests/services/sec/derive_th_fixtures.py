@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Derive the committed SEC listing fixtures from the captured response bodies of issue #123.
+"""Derive the committed SEC listing fixtures from the captured response bodies of #123 / #127.
 
-Run from the repo root, with the evidence bundle extracted somewhere gitignored::
+Run from the repo root, with the evidence bundles extracted somewhere gitignored. Any number of
+bundle roots may be given; each source is resolved against whichever one carries it::
 
-    uv run python tests/services/sec/derive_th_fixtures.py tmp/issue-123-bundle
+    uv run python tests/services/sec/derive_th_fixtures.py tmp/issue-123-bundle tmp/issue-127-bundle
 
 What this does, and what it deliberately does not do:
 
@@ -35,21 +36,38 @@ from pathlib import Path
 #   MOTHER H1-2025 - the Key Financial Ratio section is present with its heading and header row
 #                    but NO data rows, in both languages. That is a genuine absence of filings,
 #                    and it is the case that must return [] without raising.
+#   PTT 56-1 / 56-2 - the 56-x sections, which carry the `Receive Date` column the FS sections do
+#                     not have. Thai `วันที่ได้รับข้อมูล` was unmapped until #127 P4, so a Thai
+#                     annual report lost its only filing timestamp. NOTE the Thai and English 56-1
+#                     captures are from DIFFERENT windows (3 vs 6 records), so parity must be
+#                     asserted per (form, year), never by comparing counts.
 SELECTED = [
-    ("E3_th_PTT_FS_20250101-20250630", "th_ptt_fs_h1_2025.html"),
-    ("E4_en_PTT_FS_20250101-20250630", "en_ptt_fs_h1_2025.html"),
-    ("E9_th_MOTHER_FS_20250101-20250630", "th_mother_fs_h1_2025.html"),
-    ("E10_en_MOTHER_FS_20250101-20250630", "en_mother_fs_h1_2025.html"),
+    ("E3_th_PTT_FS_20250101-20250630", "th_ptt_fs_h1_2025.html", "#123"),
+    ("E4_en_PTT_FS_20250101-20250630", "en_ptt_fs_h1_2025.html", "#123"),
+    ("E9_th_MOTHER_FS_20250101-20250630", "th_mother_fs_h1_2025.html", "#123"),
+    ("E10_en_MOTHER_FS_20250101-20250630", "en_mother_fs_h1_2025.html", "#123"),
+    ("F1_th_PTT_56-1", "th_ptt_56_1.html", "#127"),
+    ("F2_en_PTT_56-1", "en_ptt_56_1.html", "#127"),
+    ("F5_th_PTT_56-2", "th_ptt_56_2.html", "#127"),
+    ("F3_en_PTT_56-2", "en_ptt_56_2.html", "#127"),
 ]
 
 PANEL_START = '<div id="ctl00_CPH_pnlControl"'
 DEST = Path(__file__).parent / "fixtures_sec"
 
 
-def manifest_hashes(bundle: Path) -> dict[str, str]:
-    """Map ``fixtures/<name>.html`` -> sha256, as recorded by the capture harness."""
-    text = (bundle / "MANIFEST.md").read_text(encoding="utf-8")
-    return dict(re.findall(r"`fixtures/([^`]+)`.*?`([0-9a-f]{64})`", text))
+def manifest_hashes(bundles: list[Path]) -> dict[str, tuple[Path, str]]:
+    """Map ``<name>.html`` -> (source path, sha256), merged across every bundle given.
+
+    Each bundle's ``MANIFEST.md`` is the capture harness's own record; a source is only ever read
+    from the bundle that vouches for its hash.
+    """
+    found: dict[str, tuple[Path, str]] = {}
+    for bundle in bundles:
+        text = (bundle / "MANIFEST.md").read_text(encoding="utf-8")
+        for name, digest in re.findall(r"`fixtures/([^`]+)`.*?`([0-9a-f]{64})`", text):
+            found.setdefault(name, (bundle / "fixtures" / name, digest))
+    return found
 
 
 def extract_panel(html: str, source: str) -> str:
@@ -66,24 +84,29 @@ def extract_panel(html: str, source: str) -> str:
 
 
 def main(argv: list[str]) -> int:
-    bundle = Path(argv[1] if len(argv) > 1 else "tmp/issue-123-bundle")
-    if not (bundle / "MANIFEST.md").exists():
-        print(f"no MANIFEST.md under {bundle}", file=sys.stderr)
-        return 2
+    given = argv[1:] or ["tmp/issue-123-bundle", "tmp/issue-127-bundle"]
+    bundles = [Path(b) for b in given]
+    for bundle in bundles:
+        if not (bundle / "MANIFEST.md").exists():
+            print(f"no MANIFEST.md under {bundle}", file=sys.stderr)
+            return 2
 
-    expected = manifest_hashes(bundle)
+    expected = manifest_hashes(bundles)
     DEST.mkdir(exist_ok=True)
-    rows: list[tuple[str, str, str, str, int]] = []
+    rows: list[tuple[str, str, str, str, int, str]] = []
 
-    for stem, derived_name in SELECTED:
+    for stem, derived_name, issue in SELECTED:
         source_name = f"{stem}.html"
-        source_path = bundle / "fixtures" / source_name
+        if source_name not in expected:
+            print(f"{source_name} is in no bundle's MANIFEST.md", file=sys.stderr)
+            return 1
+        source_path, manifest_hash = expected[source_name]
         raw = source_path.read_bytes()
         actual = hashlib.sha256(raw).hexdigest()
-        if expected.get(source_name) != actual:
+        if manifest_hash != actual:
             print(
                 f"SHA256 MISMATCH for {source_name}\n"
-                f"  manifest {expected.get(source_name)}\n  actual   {actual}",
+                f"  manifest {manifest_hash}\n  actual   {actual}",
                 file=sys.stderr,
             )
             return 1
@@ -98,13 +121,14 @@ def main(argv: list[str]) -> int:
                 derived_name,
                 hashlib.sha256(out.read_bytes()).hexdigest(),
                 len(panel.encode("utf-8")),
+                issue,
             )
         )
         print(f"{source_name} -> {derived_name} ({len(panel.encode('utf-8')):,} bytes)")
 
     readme = [
         "# SEC listing fixtures — provenance\n",
-        "Derived from the response bodies captured for issue #123 by",
+        "Derived from the response bodies captured for issues #123 and #127 by",
         "`tests/services/sec/derive_th_fixtures.py`, which verifies every source sha256 against the",
         "bundle's `MANIFEST.md` and then slices the result panel out of the original bytes verbatim.",
         "Nothing here was re-encoded, reformatted or Unicode-normalized, so the Thai text is exactly",
@@ -115,13 +139,14 @@ def main(argv: list[str]) -> int:
         "`AsyncDataFetcher` does with the live response.\n",
         "Regenerate with:\n",
         "```bash",
-        "uv run python tests/services/sec/derive_th_fixtures.py tmp/issue-123-bundle",
+        "uv run python tests/services/sec/derive_th_fixtures.py \\",
+        "    tmp/issue-123-bundle tmp/issue-127-bundle",
         "```\n",
-        "| Source (bundle) | Source sha256 | Derived | Derived sha256 | Bytes |",
-        "|---|---|---|---|---|",
+        "| Issue | Source (bundle) | Source sha256 | Derived | Derived sha256 | Bytes |",
+        "|---|---|---|---|---|---|",
     ]
-    for src, src_hash, dst, dst_hash, size in rows:
-        readme.append(f"| `{src}` | `{src_hash}` | `{dst}` | `{dst_hash}` | {size:,} |")
+    for src, src_hash, dst, dst_hash, size, issue in rows:
+        readme.append(f"| {issue} | `{src}` | `{src_hash}` | `{dst}` | `{dst_hash}` | {size:,} |")
     readme.append("")
     (DEST / "README.md").write_text("\n".join(readme), encoding="utf-8")
     print(f"wrote {DEST / 'README.md'}")

@@ -23,6 +23,18 @@ SEC_VIEWMORE_ENDPOINT = "/public/idisc/{lang}/ViewMore/{slug}"
 # Per-file download handler — GET ?FILEID=<path> -> zip/pdf bytes (Content-Disposition names it).
 SEC_DOWNLOAD_ENDPOINT = "/public/idisc/Download"
 
+# A THIRD download shape, used by recent Key Financial Ratio rows: GET ?query=<opaque base64>,
+# answering `application/zip` + `Content-Disposition: attachment; filename=FinancialReport.zip`
+# (observed live 2026-09-20 on CPALL's 2026 Q1/Q2 KFR rows, a 134 KB zip of the real PDFs). The
+# query blob carries no path and no extension, so there is no file_id or file_kind to derive.
+SEC_FS_DOWNLOAD_ENDPOINT = "/public/idisc/Views/FinancialStatementDownload"
+
+# A FOURTH, used by OLDER Key Financial Ratio rows (CPALL's 2018 and 2019, observed live
+# 2026-09-20): GET ?SystemCode=&SubSystemCode=&TransCode=&TransId=&FileSeq=&FileContentFlag=.
+# It answers a scanned original — `application/.tif` + `Content-Disposition: Filename=<id>.tif`,
+# a 36 KB TIFF — so, like the others, the row is a real downloadable filing and not navigation.
+SEC_VIEWDOC_ENDPOINT = "/public/idisc/views/viewdoc"
+
 # Page-specific referer (part of the bot-detection posture, mirrors the SET services).
 SEC_REFERER = "https://market.sec.or.th/public/idisc/en/FinancialReport/ALL"
 
