@@ -404,6 +404,56 @@ class TestCountMarker:
         assert any("no record-count marker" in m for m in records)
 
 
+class TestUnlinkedHrefSample:
+    """The hrefs behind `no_link`, kept so "3 rows lost" can become a bug report.
+
+    Every unknown download shape so far — `fsdl`, `viewdoc`, `capfin` — was found by a human
+    looking at a dropped row's URL, and each time that meant re-parsing the page by hand because
+    settfex recorded *that* a row was dropped and not *which* one. `no_link` remains the true
+    total; this is a capped sample.
+    """
+
+    def test_a_lost_row_keeps_its_href(self) -> None:
+        html = _strip_hrefs(load_fixture("th_ptt_fs_h1_2025.html"), count=1)
+        result = _mapped(html, source="one-stripped")
+        sample = result.accounting.by_category["financial_statement"].unlinked_hrefs
+        assert sample == [""], "the row had its href removed, so the empty string is the evidence"
+
+    def test_healthy_pages_keep_nothing(self) -> None:
+        for name in ALL_FIXTURES:
+            for tally in _mapped(load_fixture(name)).accounting.by_category.values():
+                assert tally.unlinked_hrefs == []
+
+    def test_the_sample_is_diversity_first(self) -> None:
+        """One href per distinct (host, path) BEFORE the cap is spent.
+
+        A naive "first N" would let 30 instances of an already-known shape crowd out the single
+        instance of a new one — which is precisely the row worth seeing.
+        """
+        from settfex.services.sec.financial_report import _sample_unlinked
+
+        known = [f"https://known.example/same/path?id={i}" for i in range(30)]
+        new_shape = "https://brand-new.example/other/path?x=1"
+        sample = _sample_unlinked([*known, new_shape])
+
+        assert new_shape in sample, "the one new shape must survive 30 of a known one"
+        assert len(sample) == 20
+        assert sample[:2] == [known[0], new_shape], "distinct kinds come first, in order"
+
+    def test_the_cap_holds_and_no_link_stays_the_truth(self) -> None:
+        from settfex.services.sec.financial_report import _sample_unlinked
+
+        assert len(_sample_unlinked([f"https://h{i}.example/p" for i in range(50)])) == 20
+
+    def test_merging_re_samples_rather_than_concatenating(self) -> None:
+        """Otherwise a merge could exceed the cap, or lose the diversity it exists for."""
+        left = RowTally(rows=1, no_link=1, unlinked_hrefs=["https://a.example/p?1"])
+        right = RowTally(rows=1, no_link=1, unlinked_hrefs=["https://b.example/q?1"])
+        merged = left.plus(right)
+        assert merged.no_link == 2
+        assert merged.unlinked_hrefs == ["https://a.example/p?1", "https://b.example/q?1"]
+
+
 class TestAccountingTravels:
     """The accounting has to reach the caller, or none of the above is visible."""
 

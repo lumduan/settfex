@@ -142,6 +142,7 @@
         "StaleDataError",
         "ParseError",
         "IncompleteListingError",
+        "HTTPStatusError",
         "InvalidSymbolError",
         "InvalidLanguageError",
         "InvalidDateError",
@@ -185,6 +186,56 @@
             "builtins.object"
           ]
         },
+        "HTTPStatusError": {
+          "bases": [
+            "settfex.exceptions.FetchError"
+          ],
+          "kind": "exception",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "message",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "int | None",
+                  "default": "None",
+                  "name": "status_code",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "url",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "report_code",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "symbol",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            }
+          },
+          "mro": [
+            "settfex.exceptions.HTTPStatusError",
+            "settfex.exceptions.FetchError",
+            "builtins.Exception",
+            "builtins.BaseException",
+            "builtins.object"
+          ]
+        },
         "IncompleteListingError": {
           "bases": [
             "settfex.exceptions.ParseError"
@@ -209,6 +260,12 @@
                   "annotation": "int | None",
                   "default": "None",
                   "name": "rows_parsed",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "list[str] | None",
+                  "default": "None",
+                  "name": "unknown_sections",
                   "param_kind": "KEYWORD_ONLY"
                 },
                 {
@@ -414,6 +471,7 @@
       "constants": {},
       "exports": [
         "FetchError",
+        "HTTPStatusError",
         "IncompleteListingError",
         "InvalidDateError",
         "InvalidLanguageError",
@@ -477,6 +535,7 @@
     "settfex.services.sec": {
       "all": [
         "CATEGORY_TO_REPORT_TYPE",
+        "CodeFailure",
         "CompanyMatch",
         "DocumentCategory",
         "DocumentDownloadService",
@@ -505,6 +564,7 @@
       },
       "exports": [
         "CATEGORY_TO_REPORT_TYPE",
+        "CodeFailure",
         "CompanyMatch",
         "DocumentCategory",
         "DocumentDownloadService",
@@ -1161,6 +1221,59 @@
     "settfex.services.sec.financial_report": {
       "all": null,
       "classes": {
+        "CodeFailure": {
+          "bases": [
+            "pydantic.main.BaseModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "categories": {
+              "alias": null,
+              "annotation": "list[str]",
+              "default_factory": "list",
+              "required": false
+            },
+            "code": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "error": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "error_type": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "status_code": {
+              "alias": null,
+              "annotation": "int | None",
+              "default": "None",
+              "required": false
+            },
+            "url": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {},
+          "mro": [
+            "settfex.services.sec.financial_report.CodeFailure",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
         "DocumentCategory": {
           "bases": [
             "enum.StrEnum"
@@ -1320,6 +1433,12 @@
               "default_factory": "dict",
               "required": false
             },
+            "failed_codes": {
+              "alias": null,
+              "annotation": "list[settfex.services.sec.financial_report.CodeFailure]",
+              "default_factory": "list",
+              "required": false
+            },
             "rows": {
               "alias": null,
               "annotation": "int",
@@ -1434,6 +1553,12 @@
               "alias": null,
               "annotation": "int",
               "default": "0",
+              "required": false
+            },
+            "unlinked_hrefs": {
+              "alias": null,
+              "annotation": "list[str]",
+              "default_factory": "list",
               "required": false
             }
           },
@@ -1711,10 +1836,12 @@
       "exports": [
         "AsyncDataFetcher",
         "CATEGORY_TO_REPORT_TYPE",
+        "CodeFailure",
         "DocumentCategory",
         "FetchError",
         "FetcherConfig",
         "FinancialReportService",
+        "HTTPStatusError",
         "IncompleteListingError",
         "InvalidDateError",
         "Language",

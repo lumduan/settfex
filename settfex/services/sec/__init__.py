@@ -19,6 +19,7 @@ from settfex.services.sec.download import (
 )
 from settfex.services.sec.financial_report import (
     CATEGORY_TO_REPORT_TYPE,
+    CodeFailure,
     DocumentCategory,
     FinancialReportService,
     ListingAccounting,
@@ -33,6 +34,7 @@ from settfex.services.sec.sec import SecCompany
 
 __all__ = [
     "CATEGORY_TO_REPORT_TYPE",
+    "CodeFailure",
     "CompanyMatch",
     "DocumentCategory",
     "DocumentDownloadService",
