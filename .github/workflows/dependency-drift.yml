@@ -21,6 +21,17 @@ permissions:
   contents: read
   issues: write
 
+# Serialise runs. This does NOT stop a double *refresh* -- the two runs on 2026-09-19 were separate
+# manual dispatches 20 minutes apart, each lasting ~16 s, so they never overlapped and a group would
+# have changed nothing. What it does guard is the read-modify-write below: two OVERLAPPING runs
+# could both find no open issue, both pass the `-z "$NUMBER"` check, and CREATE TWO standing issues
+# -- which then permanently breaks the "exactly one" invariant this workflow depends on.
+# `cancel-in-progress: false` on purpose: cancelling mid-write could leave the issue body replaced
+# and its comment missing.
+concurrency:
+  group: dependency-drift
+  cancel-in-progress: false
+
 jobs:
   report:
     name: Outdated report
@@ -157,5 +168,17 @@ jobs:
               --body-file body.md
           else
             gh issue edit "$NUMBER" --body-file body.md
-            gh issue comment "$NUMBER" --body "Refreshed $(date -u +%F) by the dependency-drift workflow."
+            # Comment at most ONCE per day. The body edit above is idempotent -- it is replaced
+            # wholesale and carries its own date header -- but the comment is append-only, so a
+            # second dispatch on the same day left #109 with two identical "Refreshed" comments
+            # (observed 2026-09-19, 20 minutes apart). The comment exists to raise a notification,
+            # and a second notification for an unchanged report is noise.
+            TODAY=$(date -u +%F)
+            ALREADY=$(gh issue view "$NUMBER" --json comments \
+              --jq "[.comments[] | select(.body | contains(\"Refreshed ${TODAY}\"))] | length")
+            if [ "${ALREADY:-0}" -eq 0 ]; then
+              gh issue comment "$NUMBER" --body "Refreshed ${TODAY} by the dependency-drift workflow."
+            else
+              echo "Already refreshed today (${ALREADY} comment(s)); body updated, comment skipped."
+            fi
           fi
