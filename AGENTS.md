@@ -113,6 +113,19 @@ Indices: `get_index_list(lang)`, `get_index_info(symbol, lang)`,
 
 Dates here are **dd/mm/yyyy**. Pass a wide window to see full year history.
 
+⚠️ **Not every SET symbol is an SEC issuer.** ETFs, warrants, DWs and `-F` foreign lines do not
+file, so resolving one of them raises rather than guessing (0.24.0):
+
+| outcome | exception | what to do |
+|---|---|---|
+| nothing matched | `CompanyNotFoundError` | report that no issuer exists; do not retry |
+| several matched, none flagged | `AmbiguousCompanyError` | read `exc.candidates` (each a `CompanyMatch`) and ask which one, or pass an exact symbol |
+
+Both are **`ValueError`s, not `FetchError`s**, because the request succeeded — retrying returns the
+same answer forever, so `except FetchError: retry` must not be what catches them. Before 0.24.0 the
+second case returned an arbitrary alphabetically-first company: `CHINA` (an ETF) resolved to
+`ASEAN CHINA INVESTMENT FUND L.P.` and every filing listed under it was the wrong company's.
+
 `lang="th"` works and returns the **Thai-language filing documents** — different files from the
 English ones, not a translated index. Years and dates come back as **C.E.** in the model even
 though the Thai page states them in the Buddhist era (`2568` → `2025`). Free-text cells
@@ -140,15 +153,25 @@ a partial failure announces itself. `repr(docs)` states it too.
 As of 2026-09-20 SEC's Thai `fs-kf` page answers HTTP 500, which is an upstream bug, not a settfex
 one; it shows up as a `key_financial_ratio` shortfall on Thai listings.
 
-⚠️ Read `.accounting` / `.reported_counts` off the object `get_sec_documents` returned: like
-`DownloadResult`, `SecDocumentList` is a `list` subclass, so slicing, `sorted()`, `list()` and
-comprehensions return a plain `list` and silently drop them.
+As of 0.24.0 `SecDocumentList` is a **Pydantic model** `{documents, accounting, reported_counts}`
+that still iterates, indexes and slices like the list it used to be — and a **slice keeps the
+accounting** (of the whole call, not of the slice). So `model_dump()` and JSON carry the
+completeness signal, which matters here more than anywhere: what you receive from a tool call is
+JSON, so a signal that does not serialize does not reach you at all.
+
+⚠️ `isinstance(docs, list)` is now `False` — it fails *silently*, by taking the other branch. Use
+`docs.documents` where a real list is needed. `sorted(docs)` and `list(docs)` still give plain
+lists, so sort `docs.documents`.
+
+⚠️ A section whose "display all results" page failed lands on `accounting.degraded_sections` and
+sets `has_losses` — that is how the live Thai `fs-kf` HTTP 500 above surfaces.
 
 `download_sec_documents(...)` returns a `DownloadResult` — a list of the files that downloaded,
 which also carries `.failed` (each with its target and reason) and `.is_complete`. Check it before
 reporting a batch as done; dead links on the SEC host arrive as HTML under HTTP 200, not as errors.
-⚠️ Read `.failed` off **that** object: it is a `list` subclass, so slicing, `sorted()`, `list()` and
-comprehensions all return a plain `list` and drop the failure report without warning.
+Also a Pydantic model since 0.24.0 (`{files, failed, requested}` + computed `is_complete`), so the
+failure report survives `model_dump()` and slicing. ⚠️ `isinstance(files, list)` is `False`; use
+`files.files`.
 
 ### ThaiBMA bonds — `from settfex.services.thaibma import ...`
 

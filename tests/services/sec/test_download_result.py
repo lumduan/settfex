@@ -105,16 +105,32 @@ class TestFailuresReachTheCaller:
 
 
 class TestBackwardCompatibility:
-    """It is a list, and everything that treated it as one must keep working."""
+    """It is no longer a list, and everything that treated it as one must still work."""
 
     @pytest.mark.asyncio
-    async def test_it_is_a_list(self, patched_downloads) -> None:
+    async def test_it_behaves_like_a_list_without_being_one(self, patched_downloads) -> None:
+        """0.24.0 made it a model, because the list subclass leaked the failure report.
+
+        ``.failed`` lived on the instance, so slicing, ``sorted()``, ``list()`` and a comprehension
+        all returned a plain list without it (issue #134) — a partial batch became shaped exactly
+        like a complete one the moment anyone touched it. The interface is kept; the type is not.
+        """
         result = await DocumentDownloadService().download_all([_doc(GOOD, "ok.zip"), DEAD])
-        assert isinstance(result, list)
+        assert not isinstance(result, list), "the one break that fails silently"
         assert isinstance(result[0], DownloadedFile)
         assert [f.filename for f in result] == ["ok.zip"]
         assert len(list(result)) == 1
-        assert result[:1] == [result[0]]
+        assert bool(result) is True and bool(DownloadResult()) is False
+
+    @pytest.mark.asyncio
+    async def test_a_slice_keeps_the_failure_report(self, patched_downloads) -> None:
+        """The whole point of #134: the operation that used to drop it now carries it."""
+        result = await DocumentDownloadService().download_all([_doc(GOOD, "ok.zip"), DEAD])
+        sliced = result[:1]
+        assert isinstance(sliced, DownloadResult)
+        assert len(sliced) == 1
+        assert sliced.failed == result.failed, "the batch's failures, not the slice's"
+        assert sliced.is_complete is False
 
     @pytest.mark.asyncio
     async def test_continue_on_error_false_still_propagates(self, patched_downloads) -> None:
@@ -139,4 +155,4 @@ class TestBackwardCompatibility:
 
     def test_requested_defaults_to_what_it_holds(self) -> None:
         failed = [FailedDownload(target=DEAD, error="boom", error_type="FetchError")]
-        assert DownloadResult([], failed=failed).requested == 1
+        assert DownloadResult(failed=failed).requested == 1

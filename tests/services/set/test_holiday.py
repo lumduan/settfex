@@ -505,3 +505,67 @@ class TestConvenienceFunction:
         await get_holidays(2026, config=config)
 
         assert mock_fetcher.cls.call_args.kwargs["config"].timeout == 99
+
+
+@pytest.mark.asyncio
+class TestTheRetryPathIsUnaffectedByTheFetchJsonStatusCheck:
+    """B — 0.24.0 made ``fetch_json`` raise on a non-2xx. This path must not have changed.
+
+    ``fetch_json`` now raises ``HTTPStatusError`` instead of parsing an error body, which closed
+    ~23 call sites at once. This service is the one place in the package that *wants* to see a
+    non-2xx response rather than have it raised: HTTP 401 is the holiday endpoint's only failure
+    code and it also fires transiently on perfectly valid requests, so the service retries it
+    itself.
+
+    It is provably unaffected — ``_fetch_with_retry`` calls ``fetcher.fetch()`` and reads
+    ``status_code`` directly, never ``fetch_json`` — but "provably" is the kind of claim that
+    should have a test rather than a comment, because the next person to touch ``fetch_json``
+    will not re-derive it.
+    """
+
+    async def test_the_service_never_routes_through_fetch_json(self, mock_fetcher, no_sleep):
+        """The structural guarantee, asserted structurally."""
+        mock_fetcher.fetch.side_effect = [
+            _response(status_code=401, text=""),
+            _response(SAMPLE_EN),
+        ]
+        mock_fetcher.fetch_json = AsyncMock(
+            side_effect=AssertionError("the holiday service must not use fetch_json")
+        )
+
+        calendar = await HolidayService(FetcherConfig(max_retries=2)).fetch_holidays(2026)
+
+        assert calendar.count == 20
+        mock_fetcher.fetch_json.assert_not_awaited()
+
+    async def test_a_401_is_still_retried_not_raised_on_the_first_response(
+        self, mock_fetcher, no_sleep
+    ):
+        """The behaviour F3a would have broken had the service used the JSON wrapper.
+
+        Under ``fetch_json`` the first 401 would raise ``HTTPStatusError`` immediately and the
+        transient-401 retry would never run — turning a flaky endpoint into a hard failure.
+        """
+        mock_fetcher.fetch.side_effect = [
+            _response(status_code=401, text=""),
+            _response(status_code=403, text=""),
+            _response(status_code=429, text=""),
+            _response(SAMPLE_EN),
+        ]
+
+        calendar = await HolidayService(FetcherConfig(max_retries=3)).fetch_holidays(2026)
+
+        assert calendar.count == 20, "all three retryable statuses were retried, not raised"
+        assert mock_fetcher.fetch.call_count == 4
+
+    async def test_exhausting_the_retries_still_raises_in_the_fetch_error_family(
+        self, mock_fetcher, no_sleep
+    ):
+        """I2 holds here too: the give-up path is catchable as ``except FetchError``."""
+        mock_fetcher.fetch.side_effect = [_response(status_code=401, text="")] * 3
+
+        with pytest.raises(FetchError) as excinfo:
+            await HolidayService(FetcherConfig(max_retries=2)).fetch_holidays(2026)
+
+        assert excinfo.value.status_code == 401
+        assert "401" in str(excinfo.value)

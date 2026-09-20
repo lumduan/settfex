@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from settfex.exceptions import AmbiguousCompanyError
 from settfex.services.sec.company import CompanyMatch, resolve_company, search_companies
 from settfex.utils.parsing import ResponseParseError
 from tests.services.sec.fixtures import COMPANY_SEARCH_JSON, COMPANY_SEARCH_MULTI_JSON
@@ -85,3 +86,154 @@ class TestResolveCompany:
         finally:
             patch.stopall()
         assert match is None
+
+
+class TestAmbiguityIsRaisedNotGuessed:
+    """0.24.0: several candidates and no primary used to resolve to ``matches[0]``.
+
+    The evidence that made this a defect rather than a rough edge (live-probed 2026-09-20):
+
+    * ``CHINA`` — a SET **ETF**, so no SEC-registered issuer exists at all — returned 60
+      name-substring candidates, none flagged, and resolved to ``ASEAN CHINA INVESTMENT FUND L.P.``
+    * ``UBOT`` — also an ETF — returned 13 and resolved to ``KUBOTA AYUTTHAYA (HUAHENGLEE)``
+    * the Thai query ``ปตท`` (PTT) returned 17 and resolved to
+      ``กองทุนสำรองเลี้ยงชีพพนักงานบริษัท ปตท.`` (the PTT employees' provident fund) — while the
+      real issuer ``บริษัท ปตท. จำกัด (มหาชน)`` sat **fifth in the same list**
+
+    The candidate list is alphabetical, not ranked, so ``matches[0]`` is arbitrary. Every
+    downstream listing and download then attached that company's filings to the requested name:
+    not missing data, but confidently wrong data.
+
+    Rate over the sampled domain: 2 of 156 symbols spanning all nine ``securityType`` codes, and
+    0 of 156 ever returned more than one primary — which is what makes "no primary" a safe
+    trigger rather than a tie-break.
+    """
+
+    AMBIGUOUS = [
+        {"Text": "ASEAN CHINA INVESTMENT FUND L.P.", "Value": "0000022213", "Flag": False},
+        {"Text": "BANGKOK BANK CHINA SHANGHAI", "Value": "0000004168", "Flag": False},
+        {"Text": "BANK OF CHINA LIMITED BANGOKOK BRANCH", "Value": "0000007608", "Flag": False},
+    ]
+
+    @pytest.mark.asyncio
+    async def test_several_candidates_and_no_primary_raises(self) -> None:
+        _patch_company_fetcher(self.AMBIGUOUS)
+        try:
+            with pytest.raises(AmbiguousCompanyError) as excinfo:
+                await resolve_company("CHINA")
+        finally:
+            patch.stopall()
+        assert "CHINA" in str(excinfo.value)
+        assert "3 SEC issuers matched" in str(excinfo.value)
+
+    @pytest.mark.asyncio
+    async def test_it_carries_the_candidates_so_the_caller_can_choose(self) -> None:
+        """Data, not prose: recovering must not mean re-running the search or parsing a message."""
+        _patch_company_fetcher(self.AMBIGUOUS)
+        try:
+            with pytest.raises(AmbiguousCompanyError) as excinfo:
+                await resolve_company("CHINA")
+        finally:
+            patch.stopall()
+        candidates = excinfo.value.candidates
+        assert len(candidates) == 3
+        assert [c.unique_id for c in candidates][0] == "0000022213"
+        assert all(isinstance(c, CompanyMatch) for c in candidates)
+
+    @pytest.mark.asyncio
+    async def test_it_is_an_input_error_not_a_fetch_error(self) -> None:
+        """Retrying returns the same candidates forever, so `except FetchError: retry` must miss it.
+
+        The same split as ``CompanyNotFoundError``: the request succeeded, and what failed was the
+        caller's ability to name one issuer. This is the row #135 records as "invalid input is
+        misclassified" — an input problem wearing a transport exception is what makes a retry loop
+        spin on a typo.
+        """
+        from settfex.exceptions import FetchError
+
+        _patch_company_fetcher(self.AMBIGUOUS)
+        try:
+            with pytest.raises(ValueError) as excinfo:
+                await resolve_company("CHINA")
+        finally:
+            patch.stopall()
+        assert not isinstance(excinfo.value, FetchError)
+
+    @pytest.mark.asyncio
+    async def test_a_single_unflagged_candidate_still_resolves(self) -> None:
+        """Not ambiguous: there is nothing to choose between.
+
+        A full company name typed out ("CP ALL PUBLIC COMPANY LIMITED") lands here — live-probed
+        as 1 match with ``Flag=False``, because the flag marks the *query* the site recognises,
+        not the row's validity.
+        """
+        _patch_company_fetcher(
+            [{"Text": "CP ALL PUBLIC COMPANY LIMITED", "Value": "0000003875", "Flag": False}]
+        )
+        try:
+            match = await resolve_company("CP ALL PUBLIC COMPANY LIMITED")
+        finally:
+            patch.stopall()
+        assert match is not None and match.unique_id == "0000003875"
+
+    @pytest.mark.asyncio
+    async def test_a_primary_among_many_is_unchanged(self) -> None:
+        """The discipline: the new signal must not fire on the healthy majority.
+
+        13 of the 156 sampled symbols returned many candidates *with* a primary — the normal case
+        for any real issuer, because the site flags the row the query names.
+        """
+        _patch_company_fetcher([*self.AMBIGUOUS, {"Text": "REAL", "Value": "9", "Flag": True}])
+        try:
+            match = await resolve_company("CHINA")
+        finally:
+            patch.stopall()
+        assert match is not None and match.unique_id == "9"
+
+    @pytest.mark.asyncio
+    async def test_no_matches_at_all_is_still_none_not_ambiguous(self) -> None:
+        """ "Nothing matched" and "several matched" are different answers and stay so."""
+        _patch_company_fetcher([])
+        try:
+            assert await resolve_company("NOPE") is None
+        finally:
+            patch.stopall()
+
+
+class TestWhatTheFlagActuallyMeans:
+    """``Flag`` says the site resolved your *query*, not that the row is the best match.
+
+    Live-probed 2026-09-20 (the table is reproduced on ``CompanyMatch.is_primary``):
+
+    * ``CPALL`` and ``cpall`` → 1 match, flagged — tickers resolve, case-insensitively
+    * ``0000003875`` → 1 match, flagged — the uniqueIDReference resolves too
+    * ``CP ALL PUBLIC COMPANY LIMITED`` → 1 match, **not** flagged — the *exact legal name* does
+      not resolve, because the search is a substring match over names, not a lookup
+
+    That last row is the one worth pinning: it rules out the natural reading ("the flag marks the
+    exact match"), and it is what makes an unflagged multi-candidate result genuinely arbitrary
+    rather than merely unranked.
+    """
+
+    @pytest.mark.asyncio
+    async def test_an_exact_full_company_name_is_not_flagged(self) -> None:
+        _patch_company_fetcher(
+            [{"Text": "CP ALL PUBLIC COMPANY LIMITED", "Value": "0000003875", "Flag": False}]
+        )
+        try:
+            matches = await search_companies("CP ALL PUBLIC COMPANY LIMITED")
+        finally:
+            patch.stopall()
+        assert len(matches) == 1
+        assert matches[0].is_primary is False, "a name query never flags, even when exact"
+
+    @pytest.mark.asyncio
+    async def test_a_ticker_is_flagged(self) -> None:
+        _patch_company_fetcher(
+            [{"Text": "CP ALL PUBLIC COMPANY LIMITED", "Value": "0000003875", "Flag": True}]
+        )
+        try:
+            matches = await search_companies("CPALL")
+        finally:
+            patch.stopall()
+        assert matches[0].is_primary is True

@@ -454,3 +454,124 @@ class TestConvenienceFunctions:
         assert history.kind is HistoryKind.BOND
         assert any("getbyyear" in c.args[0] for c in mock_fetcher.fetch.call_args_list)
         assert "T-BILL1M" in history.columns
+
+
+@pytest.mark.asyncio
+class TestTheRawEscapeHatchIsClampedToo:
+    """F4 — ``fetch_history_raw`` was the one path that bypassed the availability clamp.
+
+    It went straight to ``range(start.year, end.year + 1)`` and never called ``_select_years``.
+    Because the per-year endpoints answer a year they do not serve with **HTTP 200 and an empty
+    list**, a 1995-1999 span returned only the 1999 rows: no exception, no warning, and nothing in
+    the return value to say four years were dropped. That is exactly the case ``availability.py``
+    was written to prevent — and this method walked around it.
+
+    The severity is the ladder the rest of the release uses, adapted to a return type that cannot
+    carry an accounting: a **partial** gap warns (a bare list has nowhere to put it), and a
+    **total** one raises, because an empty list is otherwise indistinguishable from a span that
+    genuinely holds no rows.
+    """
+
+    async def test_unserved_years_are_no_longer_requested(self, mock_fetcher):
+        """The bug, in one assertion: it used to issue five requests and drop four answers."""
+        mock_fetcher.fetch.side_effect = _router({1999: INTPTTM_1999})
+
+        rows = await YieldCurveHistoryService().fetch_history_raw("1995-01-01", "1999-12-31")
+
+        year_calls = [c for c in mock_fetcher.fetch.call_args_list if "year=" in c.args[0]]
+        assert len(year_calls) == 1, "1995-1998 are not served; they must not be requested"
+        assert rows, "the served year still comes back"
+
+    async def test_a_partial_gap_warns_and_points_at_fetch_history(self, mock_fetcher, capsys):
+        """A raw list cannot carry the gap, so the WARNING has to name the alternative."""
+        from loguru import logger
+
+        records: list[str] = []
+        sink = logger.add(lambda m: records.append(m), level="WARNING", format="{message}")
+        try:
+            mock_fetcher.fetch.side_effect = _router({1999: INTPTTM_1999})
+            await YieldCurveHistoryService().fetch_history_raw("1995-01-01", "1999-12-31")
+        finally:
+            logger.remove(sink)
+
+        joined = " ".join(records)
+        assert "fetch_history" in joined, "the caller must be told where the gap IS available"
+        assert "1995" in joined and "1998" in joined
+
+    async def test_serving_none_of_the_span_raises(self, mock_fetcher):
+        """A total loss raises: `[]` would read as "those years had no business days"."""
+        mock_fetcher.fetch.side_effect = _router({})
+
+        with pytest.raises(FetchError, match="serves none of the years"):
+            await YieldCurveHistoryService().fetch_history_raw("1995-01-01", "1997-12-31")
+
+    async def test_opting_out_of_the_clamp_still_works(self, mock_fetcher):
+        """The escape hatch keeps its own escape hatch — unchanged, one request per year."""
+        mock_fetcher.fetch.side_effect = _router({1999: INTPTTM_1999})
+
+        await YieldCurveHistoryService().fetch_history_raw(
+            "1995-01-01", "1999-12-31", check_availability=False
+        )
+
+        year_calls = [c for c in mock_fetcher.fetch.call_args_list if "year=" in c.args[0]]
+        assert len(year_calls) == 5
+
+    async def test_a_fully_served_span_is_unchanged(self, mock_fetcher):
+        """The discipline: no new signal fires on healthy data."""
+        mock_fetcher.fetch.side_effect = _router({2026: INTPTTM_2026})
+
+        rows = await YieldCurveHistoryService().fetch_history_raw("2026-01-01", "2026-12-31")
+
+        assert rows and all("asof" in r for r in rows)
+
+
+class TestTheGapsSurviveTheDataFrameBoundary:
+    """F4b — a DataFrame is where this history usually LEAVES settfex.
+
+    ``missing_years`` and ``unavailable_years`` are fields on ``YieldCurveHistory``, but
+    ``to_dataframe()`` returns a frame, and a frame silently missing a year looks exactly like a
+    frame whose year had no data. ``df.attrs`` is the carrier the analyst-consensus frames already
+    use, and it survives copy, column selection and ``head()`` on both pandas majors.
+    """
+
+    @staticmethod
+    def _history() -> YieldCurveHistory:
+        return YieldCurveHistory(
+            kind=HistoryKind.TENOR,
+            rows=[HistoryRow(as_of=date(2026, 1, 5), values={"10Y": 2.5})],
+            columns=["10Y"],
+            start_date=date(2024, 1, 1),
+            end_date=date(2026, 12, 31),
+            unavailable_years=[2024],
+            missing_years=[2025],
+        )
+
+    @pytest.mark.parametrize("layout", ["wide", "long"])
+    def test_both_layouts_carry_the_gaps(self, layout: str) -> None:
+        """A long frame loses a year just as quietly as a wide one."""
+        pytest.importorskip("pandas")
+        frame = self._history().to_dataframe(layout=layout)
+        assert frame.attrs["missing_years"] == [2025]
+        assert frame.attrs["unavailable_years"] == [2024]
+        assert frame.attrs["kind"] == "tenor"
+
+    def test_the_attrs_survive_the_usual_handling(self) -> None:
+        """Slicing a column and taking a head is what a consumer actually does next."""
+        pytest.importorskip("pandas")
+        frame = self._history().to_dataframe()
+        assert frame[["10Y"]].attrs["missing_years"] == [2025]
+        assert frame.head(1).attrs["missing_years"] == [2025]
+        assert frame.copy().attrs["unavailable_years"] == [2024]
+
+    def test_a_clean_history_carries_empty_lists_not_missing_keys(self) -> None:
+        """A consumer should read the same key either way, never guard on its presence."""
+        pytest.importorskip("pandas")
+        clean = YieldCurveHistory(
+            kind=HistoryKind.TENOR,
+            rows=[HistoryRow(as_of=date(2026, 1, 5), values={"10Y": 2.5})],
+            columns=["10Y"],
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 12, 31),
+        )
+        attrs = clean.to_dataframe().attrs
+        assert attrs["missing_years"] == [] and attrs["unavailable_years"] == []

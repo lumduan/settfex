@@ -16,9 +16,9 @@ Example:
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import date
-from typing import NoReturn
+from typing import Any, NoReturn
 
 __all__ = [
     "FetchError",
@@ -28,6 +28,7 @@ __all__ = [
     "IncompleteListingError",
     "HTTPStatusError",
     "CompanyNotFoundError",
+    "AmbiguousCompanyError",
     "InvalidSymbolError",
     "InvalidLanguageError",
     "InvalidDateError",
@@ -230,6 +231,38 @@ class CompanyNotFoundError(ValueError):
     ``InvalidDateError``, ``InvalidLanguageError``), so it is caught by handlers for bad input and
     **not** by ``except FetchError``.
     """
+
+
+class AmbiguousCompanyError(ValueError):
+    """Several SEC issuers matched the query and the site flagged none of them as *the* match.
+
+    An **input** error, and a sibling of :class:`CompanyNotFoundError` for the same reason: the
+    request succeeded, and what failed was the caller's ability to name one issuer unambiguously.
+    It is a :class:`ValueError`, **not** a :class:`FetchError` — retrying will return the same
+    candidates forever.
+
+    Until 0.24.0 ``resolve_company`` answered this case by returning ``matches[0]``. That is a
+    **silent guess**, and the candidate list is ordered alphabetically rather than by relevance,
+    so the guess is not even a good one. Live-probed 2026-09-20:
+
+    * ``CHINA`` (a SET **ETF**, so no SEC-registered issuer exists) returned 60 name-substring
+      candidates, none flagged, and resolved to ``ASEAN CHINA INVESTMENT FUND L.P.``
+    * ``UBOT`` (also an ETF) returned 13 and resolved to ``KUBOTA AYUTTHAYA (HUAHENGLEE) COMPANY
+      LIMITED``
+    * the Thai query ``ปตท`` (PTT) returned 17 and resolved to
+      ``กองทุนสำรองเลี้ยงชีพพนักงานบริษัท ปตท.`` (the PTT employees' provident fund) — while the
+      real issuer, ``บริษัท ปตท. จำกัด (มหาชน)``, sat fifth in the very same list
+
+    Every downstream call then attaches that company's filings to the requested name, which is the
+    worst version of this release's theme: not missing data, but **confidently wrong data**.
+
+    Attributes:
+        candidates: The matches the site returned, so a caller can choose one instead of guessing.
+    """
+
+    def __init__(self, message: str, *, candidates: Sequence[Any] = ()) -> None:
+        super().__init__(message)
+        self.candidates = list(candidates)
 
 
 class InvalidSymbolError(ValueError):

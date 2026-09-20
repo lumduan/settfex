@@ -33,12 +33,23 @@ service-specific suites, where the partial-result shapes exist to inspect.
 from __future__ import annotations
 
 import importlib
+import json
 from typing import Any
 from unittest.mock import patch
 
 import pytest
 
 from settfex.exceptions import CompanyNotFoundError, FetchError
+from settfex.services.sec.download import DownloadResult, FailedDownload
+from settfex.services.sec.financial_report import (
+    CodeFailure,
+    DegradedSection,
+    DocumentCategory,
+    ListingAccounting,
+    RowTally,
+    SecDocument,
+    SecDocumentList,
+)
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetchResponse
 
 
@@ -261,3 +272,136 @@ async def test_a_bare_empty_array_is_a_result_not_a_fault(
         result = await entry(*args)
 
     assert result == [], f"{name}: {EMPTY_IS_LEGITIMATE[name]}"
+
+
+# ==================================================================================================
+# I4 — the signal survives consumer handling
+#
+# I1-I3 get a loss as far as the return value. I4 is the other half, and the one this release
+# learned last: **a signal that reaches the return value can still be lost on the way out.** The
+# #134 containers proved it — the accounting was right there on the object and six of eight
+# ordinary list operations dropped it in silence.
+#
+# Serialization is the boundary that matters most, because function-calling results are JSON: an
+# agent never sees the Python object, only what `model_dump()` produced. A field that does not
+# serialize does not exist at the tool boundary.
+# ==================================================================================================
+
+
+def _lossy_listing() -> SecDocumentList:
+    """A listing carrying every kind of loss this release can record."""
+    return SecDocumentList(
+        documents=[
+            SecDocument(
+                company_name="CP ALL PUBLIC COMPANY LIMITED",
+                unique_id="0000003875",
+                category=DocumentCategory.FINANCIAL_STATEMENT,
+                section="Financial Statements",
+                year=2025,
+                file_url="https://x/a.zip",
+                file_id="a.zip",
+            )
+        ],
+        reported_counts={"financial_statement": 12},
+        accounting=ListingAccounting(
+            rows=3,
+            by_category={"financial_statement": RowTally(rows=3, documents=1, no_link=2)},
+            failed_codes=[CodeFailure(code="R562", error="boom", error_type="HTTPStatusError")],
+            degraded_sections=[
+                DegradedSection(category="mda", url="https://x/ViewMore/fs-mda", reason="HTTP 500")
+            ],
+            unknown_sections=["Some New Section"],
+        ),
+    )
+
+
+class TestTheSignalSurvivesSerialization:
+    """The tool boundary: what an agent actually receives is JSON, not the object."""
+
+    def test_the_listing_accounting_survives_model_dump(self) -> None:
+        dumped = _lossy_listing().model_dump(mode="json")
+        assert dumped["accounting"]["has_losses"] is True, "the flag callers branch on"
+        assert dumped["accounting"]["no_link"] == 2
+        assert dumped["accounting"]["failed_codes"][0]["code"] == "R562"
+        assert dumped["accounting"]["degraded_sections"][0]["category"] == "mda"
+        assert dumped["reported_counts"] == {"financial_statement": 12}
+        assert len(dumped["documents"]) == 1
+
+    def test_it_survives_a_json_round_trip(self) -> None:
+        """Strict JSON, then back — what crossing a process or an HTTP boundary really does."""
+        restored = SecDocumentList.model_validate(json.loads(_lossy_listing().model_dump_json()))
+        assert restored.accounting.has_losses
+        assert restored.accounting.no_link == 2
+        assert [f.code for f in restored.accounting.failed_codes] == ["R562"]
+        assert len(restored) == 1 and restored[0].year == 2025
+
+    def test_the_download_failure_report_survives_model_dump(self) -> None:
+        result = DownloadResult(
+            files=[],
+            failed=[
+                FailedDownload(
+                    target="https://x/dead.zip", error="soft 404", error_type="FetchError"
+                )
+            ],
+            requested=1,
+        )
+        dumped = result.model_dump(mode="json")
+        assert dumped["is_complete"] is False, "a computed field, so it reaches JSON"
+        assert dumped["failed"][0]["error_type"] == "FetchError"
+        assert dumped["requested"] == 1
+
+    def test_a_clean_result_serializes_as_clean(self) -> None:
+        """The discipline: the signal must be absent, not merely falsy, on healthy data."""
+        dumped = SecDocumentList().model_dump(mode="json")
+        assert dumped["accounting"]["has_losses"] is False
+        assert dumped["accounting"]["failed_codes"] == []
+        assert dumped["accounting"]["degraded_sections"] == []
+
+
+class TestTheSignalSurvivesListLikeHandling:
+    """#134's actual failure: the operations a caller reaches for next.
+
+    Slicing and indexing now go through the model. ``sorted()`` and ``list()`` still produce plain
+    lists — iteration is kept, so they must — which is why the migration notes say to sort
+    ``docs.documents`` and read the accounting off the object the call returned.
+    """
+
+    def test_slicing_keeps_the_accounting(self) -> None:
+        docs = _lossy_listing()
+        sliced = docs[:1]
+        assert isinstance(sliced, SecDocumentList), "never a bare list again"
+        assert sliced.accounting.has_losses
+        assert sliced.accounting.no_link == 2
+
+    def test_a_slice_carries_the_whole_calls_accounting_not_the_slices(self) -> None:
+        """Documented, and deliberate: narrowing must not hide a loss from whoever narrowed."""
+        docs = _lossy_listing()
+        empty_slice = docs[0:0]
+        assert len(empty_slice) == 0
+        assert empty_slice.accounting.no_link == 2, "the LISTING lost 2 rows; the slice holds none"
+        assert empty_slice.reported_counts == {"financial_statement": 12}
+
+    def test_filter_keeps_it_too(self) -> None:
+        narrowed = _lossy_listing().filter(category="financial_statement")
+        assert narrowed.accounting.has_losses
+        assert [f.code for f in narrowed.accounting.failed_codes] == ["R562"]
+
+    def test_indexing_iteration_and_truthiness_are_unchanged(self) -> None:
+        docs = _lossy_listing()
+        assert len(docs) == 1 and bool(docs) is True
+        assert docs[0].file_id == "a.zip"
+        assert [d.file_id for d in docs] == ["a.zip"]
+        assert not bool(SecDocumentList())
+
+    def test_repr_and_summary_refuse_to_look_whole(self) -> None:
+        """A REPL or a log line is a consumer too, and the one a human reads first."""
+        docs = _lossy_listing()
+        assert "FAILED" in repr(docs) and "R562" in repr(docs)
+        assert "DEGRADED" in repr(docs)
+        assert "2 row(s) lost" in repr(docs)
+        assert "FAILED R562" in docs.summary()
+
+    def test_the_type_change_is_the_one_silent_break(self) -> None:
+        """Pinned so it is a known cost, not a surprise: ``isinstance`` takes the other branch."""
+        assert not isinstance(_lossy_listing(), list)
+        assert not isinstance(DownloadResult(), list)

@@ -461,7 +461,7 @@ class TestAccountingTravels:
         """Otherwise the cross-check evaporates exactly when someone narrows the result."""
         result = _mapped(load_fixture("th_ptt_fs_h1_2025.html"))
         docs = SecDocumentList(
-            result.documents,
+            documents=result.documents,
             reported_counts=result.reported_counts,
             accounting=result.accounting,
         )

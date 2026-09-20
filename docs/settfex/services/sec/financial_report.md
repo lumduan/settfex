@@ -145,10 +145,35 @@ docs.accounting.by_category["financial_statement"].unlinked_hrefs   # a capped s
 > WARNING). An exception is therefore no longer how a partial failure announces itself.
 > `repr(docs)` and `summary()` both state it.
 
-> ⚠️ **Read the accounting off the object `fetch_documents` returned.** `SecDocumentList` is a
-> `list` subclass, so slicing, `sorted()`, `list()`, concatenation and comprehensions return a
-> plain `list` and drop `.accounting` / `.reported_counts` — the same sharp edge `DownloadResult`
-> has (issue #134 covers both). `copy.copy()` and `.filter()` are the exceptions.
+`docs.accounting.degraded_sections` joins them in 0.24.0: one entry per section that fell back to
+its truncated inline rows because the "display all results" page failed, and it **sets
+`has_losses`**. 0.22.1 made that fallback correct, but it was announced only in a log line, so the
+flag people branch on reported a clean listing while a section was knowingly short. It is not
+theoretical — SEC's Thai `fs-kf` page has answered HTTP 500 since at least 2026-09-20, so a CPALL
+`lang="th"` listing reports `degraded_sections=[('key_financial_ratio', 500)]` today.
+
+### The container stopped being a list in 0.24.0
+
+`SecDocumentList` used to be a `list[SecDocument]` subclass carrying `accounting` and
+`reported_counts` as instance attributes, so slicing, `sorted()`, `list()`, `+` and comprehensions
+returned a plain `list` and dropped them — 6 of 8 ordinary operations, in silence (issue #134). It
+is a Pydantic model now, so the signal is a **field**: it survives `model_dump()` and JSON, which
+is the boundary that matters, because a tool call hands back JSON rather than the object.
+
+```python
+len(docs), bool(docs), docs[0], [d.year for d in docs]   # unchanged
+docs[:5].accounting                                      # a slice is a MODEL, and keeps it
+docs.model_dump()["accounting"]["has_losses"]            # survives serialization
+sorted(docs.documents, key=lambda d: d.year or 0)        # sort the FIELD
+```
+
+> ⚠️ **`isinstance(docs, list)` is now `False`, and it is the only change here that fails
+> silently** — it takes the other branch instead of raising. Use `docs.documents` wherever a real
+> list is required. `dict(docs)` raises now; use `docs.model_dump()`.
+
+> ⚠️ **A slice carries the accounting of the whole source call, not of the slice.** `docs[0:0]`
+> still reports the rows the *listing* lost. This is deliberate, and it is the rule `.filter()` has
+> always followed: narrowing a result must not hide a loss from the caller who narrowed it.
 
 The three drop reasons used to share one counter, so the only one that is a defect looked exactly
 like the two that are the site working normally. They are separated because `no_link` is the signal
@@ -163,6 +188,26 @@ unrecognised section headings, not on emptiness.
 
 `HTTPStatusError` (a subclass of `FetchError`) is raised for a non-2xx on any listing leg, carrying
 `status_code`, `url` and `report_code` as data rather than as message text.
+
+`CompanyNotFoundError` and `AmbiguousCompanyError` are **`ValueError`s, not `FetchError`s** — the
+request succeeded and what failed was naming one issuer, so retrying returns the same answer
+forever. The first means nothing matched. The second means several matched and the site flagged
+none of them as *the* match, and it carries `.candidates` so you can choose one:
+
+```python
+try:
+    docs = await get_sec_documents(query)
+except AmbiguousCompanyError as exc:
+    for candidate in exc.candidates:
+        print(candidate.unique_id, candidate.company_name)
+```
+
+Before 0.24.0 that case returned `matches[0]` — and the search is a substring match over company
+names returned **alphabetically, not by relevance**, so the first row is arbitrary. `CHINA` (a SET
+ETF, which has no SEC issuer at all) resolved to `ASEAN CHINA INVESTMENT FUND L.P.` out of 60
+candidates, and every filing then listed under it belonged to that company. Note
+`CompanyMatch.is_primary` means *the site resolved your query as an identifier* — a ticker or the
+uniqueIDReference — and **not** "the best match": a name never flags, not even the exact legal one.
 
 `IncompleteListingError` (a subclass of `ParseError`) is its sibling: rows classified fine and
 then **every** usable one was dropped for want of a download link. Deliberately
@@ -232,8 +277,8 @@ With the `SecCompany` facade, `await sec.download_all(docs, dest_dir="./out")` d
 (a statement's Company & Consolidated rows share one zip — downloaded once), and (by default)
 skip dead links rather than failing the whole batch.
 
-They return a **`DownloadResult`** — still a `list[DownloadedFile]` of the successes, so
-anything that iterated it keeps working, and now also carrying the ones that failed:
+They return a **`DownloadResult`** — the successes plus the ones that failed. It iterates,
+indexes and slices like the list it used to be, so anything that consumed it keeps working:
 
 ```python
 files = await sec.download_all(docs, dest_dir="./out")
@@ -246,12 +291,10 @@ files.requested                            # unique files attempted (duplicates 
 Before that, a failed item was logged and dropped from the result, so a partial batch was shaped
 exactly like a complete one.
 
-> ⚠️ **Read `.failed` from the object `download_all` returned.** `DownloadResult` is a `list`
-> subclass, so the failure report lives on the instance — and **every operation that derives a new
-> list drops it**: slicing, `sorted()`, `list()`, concatenation and comprehensions all return a
-> plain `list` with no `.failed`, `.requested` or `.is_complete`, and nothing warns.
-> `copy.copy()` is the one exception. So `for f in sorted(files)` silently gives up the report:
-> check `files.is_complete` first, then sort.
+> ⚠️ `DownloadResult` is a Pydantic model since 0.24.0 (`{files, failed, requested}`, plus a
+> **computed** `is_complete` so the one-line check survives `model_dump()`). It iterates, indexes
+> and slices like the list it was, and a slice keeps the failure report. `isinstance(files, list)`
+> is now `False` — use `files.files`; `sorted()` and `list()` still return plain lists.
 
 ### Old-format filings live on another host, behind an indirection
 

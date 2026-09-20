@@ -12,6 +12,11 @@ on:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+-*'
+      # PEP 440 spells a pre-release with NO hyphen (0.24.0rc1); SemVer uses one (0.24.0-rc1).
+      # The tag mirrors the pyproject version, which must be PEP 440, so both spellings are
+      # accepted. Without this line `v0.24.0rc1` matched neither pattern and the workflow simply
+      # never ran -- a tag push that looks successful and publishes nothing.
+      - 'v[0-9]+.[0-9]+.[0-9]+[a-z]+[0-9]+'
 
 permissions:
   contents: write   # create GitHub Release + upload assets
@@ -36,7 +41,10 @@ jobs:
           VERSION="${TAG#v}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
-          if [[ "$TAG" =~ -(alpha|beta|rc) ]]; then
+          # The hyphen is OPTIONAL: PEP 440 writes `0.24.0rc1`, so requiring `-rc` would have
+          # classified the first PEP 440 pre-release this repo ever tagged as a FULL release and
+          # marked it "Latest" on GitHub -- the opposite of the intent.
+          if [[ "$TAG" =~ -?(alpha|beta|rc)[0-9]*$ ]]; then
             echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
           else
             echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
@@ -177,9 +185,26 @@ jobs:
           import re, sys
           version = sys.argv[1]
           content = open("CHANGELOG.md").read()
-          pattern = rf"(?m)^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\Z)"
-          match = re.search(pattern, content, re.DOTALL)
-          notes = match.group(1).strip() if match else f"Release v{version}"
+
+          def section(heading: str) -> str | None:
+              pattern = rf"(?m)^## \[{re.escape(heading)}\][^\n]*\n(.*?)(?=^## \[|\Z)"
+              found = re.search(pattern, content, re.DOTALL)
+              return found.group(1).strip() if found else None
+
+          # A pre-release documents the version it is a candidate FOR: `0.24.0rc1` is described by
+          # the `## [0.24.0]` section, and duplicating that section under an rc heading would mean
+          # maintaining two copies of the same notes. So fall back to the base version.
+          # Without this the body silently became the stub "Release v0.24.0rc1" -- a release that
+          # looks fine and carries none of its own notes.
+          base = re.match(r"^(\d+\.\d+\.\d+)", version)
+          notes = section(version)
+          if notes is None and base is not None and base.group(1) != version:
+              notes = section(base.group(1))
+              if notes is not None:
+                  notes = f"> Pre-release of **{base.group(1)}**.\n\n{notes}"
+          if notes is None:
+              print(f"::error::No CHANGELOG section for {version} or its base version")
+              sys.exit(1)
           with open("release_notes.txt", "w") as f:
               f.write(notes + "\n")
           PYEOF

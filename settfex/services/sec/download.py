@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import asyncio
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urljoin, urlparse
 
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from settfex.exceptions import FetchError, ParseError
 from settfex.services.sec.constants import (
@@ -82,53 +82,103 @@ class FailedDownload(BaseModel):
     error_type: str = Field(description="The exception class name, e.g. 'FetchError'")
 
 
-class DownloadResult(list[DownloadedFile]):
+class DownloadResult(BaseModel):
     """The files a bulk download produced, **plus the ones it could not**.
 
-    It **is** a ``list[DownloadedFile]`` — ``len()``, iteration, indexing, slicing and passing it
-    on all behave exactly as the plain list did, so this is additive. What is new is that a partial
-    batch can now be told from a complete one without parsing logs:
+    Until 0.24.0 this was a ``list[DownloadedFile]`` subclass with ``failed`` / ``requested`` as
+    instance attributes, which made the failure report a **side channel**: every operation that
+    builds a *new* list — slicing, ``sorted()``, ``list()``, ``+``, a comprehension — returned a
+    plain list without them, and nothing warned (issue #134)::
 
-        >>> files = await sec.download_all(docs)
-        >>> if not files.is_complete:
-        ...     print([f.target for f in files.failed])
+        for f in sorted(result, key=lambda f: f.size):   # .failed was gone from here
+            ...
 
-    Same shape as :class:`~settfex.services.sec.financial_report.SecDocumentList`, for the same
-    reason: the extra information rides along instead of breaking every existing caller.
+    So a partial batch was shaped exactly like a complete one the moment anyone touched it, which
+    is the failure #128 had just finished closing. As a Pydantic model the report is a **field**:
+    it survives ``model_dump()``, JSON and anything downstream, and ``is_complete`` is a computed
+    field so the one-line check survives serialization too.
+
+    Ordinary use is unchanged::
+
+        files = await sec.download_all(docs)
+        len(files), bool(files), files[0], [f.filename for f in files]   # all as before
+        if not files.is_complete:
+            print([f.target for f in files.failed])
+
+    Same shape, and the same reasoning, as
+    :class:`~settfex.services.sec.financial_report.SecDocumentList`.
 
     .. warning::
-       **Deriving a new list drops the failure report** (issue #134). ``.failed``, ``.requested``
-       and ``.is_complete`` live on the instance, so every operation that *builds a new list* —
-       slicing, ``sorted()``, ``list()``, concatenation, a comprehension — returns a plain
-       ``list`` without them, and nothing warns::
-
-           for f in sorted(result, key=lambda f: f.size):   # <- .failed is gone from here
-               ...
-           if not result.is_complete:                       # <- read it from the ORIGINAL
-               print([f.target for f in result.failed])
-
-       ``copy.copy(result)`` is the exception and does preserve them. Read the failure report from
-       the object ``download_all`` returned, before deriving anything from it. A redesign that
-       removes this edge is a breaking change and is tracked for a later release.
+       **``isinstance(files, list)`` is now ``False``**, and that one fails *silently* — it takes
+       the other branch rather than raising. Use ``files.files`` where a real list is required.
+       Slicing returns a ``DownloadResult`` carrying the failure report of the whole batch, not of
+       the slice; ``sorted()`` and ``list()`` still yield plain lists, because iteration is kept.
     """
 
-    def __init__(
-        self,
-        iterable: Iterable[DownloadedFile] = (),
-        *,
-        failed: Sequence[FailedDownload] = (),
-        requested: int | None = None,
-    ) -> None:
-        super().__init__(iterable)
-        self.failed: list[FailedDownload] = list(failed)
-        """Every target that raised, with its reason. Empty on a complete batch."""
-        self.requested: int = len(self) + len(self.failed) if requested is None else requested
-        """How many unique files were attempted (duplicates already collapsed)."""
+    files: list[DownloadedFile] = Field(
+        default_factory=list, description="The files that downloaded successfully"
+    )
+    failed: list[FailedDownload] = Field(
+        default_factory=list,
+        description="Every target that raised, with its reason. Empty on a complete batch",
+    )
+    requested: int = Field(
+        default=0, description="How many unique files were attempted (duplicates already collapsed)"
+    )
 
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_requested(cls, data: Any) -> Any:
+        """Default ``requested`` to what was attempted, as the old ``__init__`` did.
+
+        Kept so the field stays a plain ``int`` in the schema rather than becoming nullable: a
+        caller reading ``requested`` should never have to handle ``None``.
+        """
+        if isinstance(data, dict) and data.get("requested") is None:
+            data = {
+                **data,
+                "requested": len(data.get("files") or ()) + len(data.get("failed") or ()),
+            }
+        return data
+
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def is_complete(self) -> bool:
-        """True when every attempted download succeeded."""
+        """True when every attempted download succeeded.
+
+        A computed field, not a plain property, so it survives ``model_dump()`` — the check a
+        consumer most wants is the one most likely to cross a serialization boundary.
+        """
         return not self.failed
+
+    def __iter__(self) -> Iterator[DownloadedFile]:  # type: ignore[override]
+        return iter(self.files)
+
+    def __len__(self) -> int:
+        return len(self.files)
+
+    def __contains__(self, item: object) -> bool:
+        return item in self.files
+
+    def __getitem__(self, index: int | slice) -> DownloadedFile | DownloadResult:
+        """Integer indexing yields a file; slicing yields a **model**, never a bare list."""
+        if isinstance(index, slice):
+            return DownloadResult(
+                files=self.files[index], failed=list(self.failed), requested=self.requested
+            )
+        return self.files[index]
+
+    def __repr__(self) -> str:
+        """A partial batch must not print like a complete one."""
+        parts = [f"{len(self.files)}/{self.requested} file(s)"]
+        if self.failed:
+            shown = ", ".join(f.target for f in self.failed[:3])
+            parts.append(f"{len(self.failed)} FAILED: {shown}")
+            if len(self.failed) > 3:
+                parts.append(f"and {len(self.failed) - 3} more")
+        return f"<DownloadResult {' | '.join(parts)}>"
 
 
 def _filename_from_disposition(disposition: str, fallback: str) -> str:
@@ -409,7 +459,7 @@ class DocumentDownloadService:
             )
         else:
             logger.info(f"Downloaded {len(results)}/{len(unique)} document(s)")
-        return DownloadResult(results, failed=failures, requested=len(unique))
+        return DownloadResult(files=results, failed=failures, requested=len(unique))
 
 
 def _make_progress_bar(total: int) -> Any | None:

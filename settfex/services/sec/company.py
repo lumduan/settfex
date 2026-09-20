@@ -12,6 +12,7 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from settfex.exceptions import AmbiguousCompanyError
 from settfex.services.sec.constants import (
     SEC_BASE_URL,
     SEC_COMPANY_SEARCH_ENDPOINT,
@@ -31,8 +32,30 @@ class CompanyMatch(BaseModel):
     is_primary: bool = Field(
         default=False,
         alias="Flag",
-        description="True for the primary/exact match (e.g. the symbol's listed company)",
+        description="True when the query was an identifier the SEC resolved (ticker or uniqueID)",
     )
+    """True when the query was an **identifier** the site resolved, not "the best match".
+
+    Live-probed 2026-09-20, and the distinction is load-bearing for :func:`resolve_company`:
+
+    ====================================  ==========================  =======  ======
+    query                                 kind                        matches  Flag
+    ====================================  ==========================  =======  ======
+    ``CPALL`` / ``cpall``                 ticker (case-insensitive)   1        True
+    ``0000003875``                        the uniqueIDReference        1        True
+    ``CP ALL``                            partial name                 1        False
+    ``CP ALL PUBLIC COMPANY LIMITED``     **exact full legal name**    1        False
+    ``CHINA`` (a SET ETF, no SEC issuer)  unknown identifier           60       False
+    ====================================  ==========================  =======  ======
+
+    So a **name** query never flags a row, not even the exact legal name — the flag says the site
+    recognised the *query*, and the search itself is a plain substring match over company names
+    returned in alphabetical order. That is why an unflagged multi-candidate result has no
+    non-arbitrary winner, and why :func:`resolve_company` raises instead of taking the first row.
+
+    No probed query ever returned more than one flagged row, which is what makes "no primary" a
+    safe trigger rather than a tie-break.
+    """
 
     model_config = ConfigDict(populate_by_name=True, str_strip_whitespace=True)
 
@@ -89,9 +112,27 @@ async def resolve_company(
     config: FetcherConfig | None = None,
 ) -> CompanyMatch | None:
     """
-    Resolve a symbol/name to a single best CompanyMatch (primary match preferred).
+    Resolve a symbol/name to a single best CompanyMatch.
 
-    Returns the ``is_primary`` match if present, else the first match, else None.
+    The site flags *the* match for a query with ``Flag`` (:attr:`CompanyMatch.is_primary`), and in
+    every live probe a query had **0 or 1** primaries, never more. So:
+
+    * a primary exists         → return it
+    * no primary, one match    → return it (there is nothing to be ambiguous between)
+    * no primary, many matches → raise :class:`AmbiguousCompanyError` with the candidates
+    * nothing at all           → return ``None``
+
+    Args:
+        query: Symbol or (partial) company name.
+        lang: Response language ('en' or 'th').
+        config: Optional fetcher configuration (use_session is forced off).
+
+    Returns:
+        The resolved :class:`CompanyMatch`, or ``None`` when the site knows no such issuer.
+
+    Raises:
+        AmbiguousCompanyError: Several candidates and none flagged primary.
+        FetchError: On a transport failure or a non-listing response.
     """
     matches = await search_companies(query, lang, config=config)
     if not matches:
@@ -99,4 +140,33 @@ async def resolve_company(
     for match in matches:
         if match.is_primary:
             return match
-    return matches[0]
+    if len(matches) == 1:
+        # One candidate and no flag: nothing to choose between, so this is not the ambiguous
+        # case. A full company name typed out ("CP ALL PUBLIC COMPANY LIMITED") lands here.
+        logger.info(
+            f"Resolved {query!r} to the single unflagged candidate {matches[0].company_name!r}"
+        )
+        return matches[0]
+
+    # Until 0.24.0 this returned `matches[0]`. The autocomplete does substring matching on the
+    # company NAME and returns its candidates alphabetically, not by relevance, so the first row
+    # is an arbitrary company -- and when the query is not an SEC-registered issuer at all (a SET
+    # ETF, a warrant, a DW), *every* candidate is unrelated. Live-probed 2026-09-20: `CHINA` (an
+    # ETF) resolved to "ASEAN CHINA INVESTMENT FUND L.P." out of 60 candidates, and the Thai query
+    # `ปตท` resolved to the PTT employees' provident fund while the real issuer sat fifth in the
+    # same list.
+    #
+    # Raising rather than guessing is the whole point: every downstream listing and download would
+    # otherwise attach that company's filings to the requested name. This release is about
+    # incompleteness that never reaches the return value, and a confident wrong answer is the
+    # sharpest form of it.
+    names = ", ".join(f"{m.company_name} ({m.unique_id})" for m in matches[:5])
+    error_msg = (
+        f"{len(matches)} SEC issuers matched {query!r} and the site flagged none of them as the "
+        f"match, so there is no non-arbitrary way to choose one. First {min(5, len(matches))}: "
+        f"{names}{', …' if len(matches) > 5 else ''}. Call search_companies({query!r}) to see "
+        f"every candidate and pass the one you want, or query an exact symbol. Note a SET symbol "
+        f"that is not an SEC-registered issuer (an ETF, warrant or DW) will never match one."
+    )
+    logger.error(error_msg)
+    raise AmbiguousCompanyError(error_msg, candidates=matches)
