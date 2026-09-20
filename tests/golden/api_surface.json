@@ -1189,7 +1189,8 @@
         "SecDocument",
         "build_sec_headers",
         "download_sec_document",
-        "download_sec_documents"
+        "download_sec_documents",
+        "overload"
       ],
       "functions": {
         "download_sec_document": {
@@ -1985,6 +1986,7 @@
         "extract_aspnet_tokens",
         "get_sec_documents",
         "normalize_language",
+        "overload",
         "parse_dmy_date",
         "parse_report_tables",
         "parse_year",
