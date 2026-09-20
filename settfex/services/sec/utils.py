@@ -273,6 +273,14 @@ def parse_int(value: str | None) -> int | None:
     return int(match.group(0)) if match else None
 
 
+# The fifth download shape lives on a different host and is an indirection, not a file. Kept
+# module-private on purpose: the other four shapes have public `SEC_*_ENDPOINT` constants in
+# `constants.py`, but adding a fifth public symbol would put this fix outside a patch release.
+# Promoting it is a recorded 0.23.0 consistency item.
+_CAPITAL_HOST = "capital.sec.or.th"
+_CAPITAL_ZIP_PATH = "get_zip_all_public_page.php"
+
+
 def classify_download_href(href: str | None) -> tuple[str, str | None, str | None]:
     """
     Resolve a row href to (absolute_url, file_id, file_kind).
@@ -283,6 +291,13 @@ def classify_download_href(href: str | None) -> tuple[str, str | None, str | Non
       file_id="fsdl:<blob>", kind=None. The blob is opaque, so nothing can be derived from it.
     - Scanned originals: ``/public/idisc/views/viewdoc?…&TransId=<id>&FileSeq=<n>`` →
       file_id="viewdoc:<id>-<n>", kind=None (it answers a TIFF, but the URL does not say so).
+    - Old-format filings on a DIFFERENT host: ``capital.sec.or.th/…/get_zip_all_public_page.php``
+      → file_id="capfin:<comp_id>-<year>-<period>-<lang>", kind=None. This one is an
+      **indirection**: the URL answers HTML whose whole body is a JavaScript redirect to a
+      server-minted zip, so the download path resolves it (see
+      :meth:`~settfex.services.sec.download.DocumentDownloadService.download`). The returned
+      ``file_url`` is the STABLE indirection URL, never the minted target — that target is
+      per-request and must not be cached.
     Relative hrefs are resolved against the SEC base URL.
 
     Anything else returns ``("", None, None)`` and the row produces no document — which is the
@@ -310,5 +325,16 @@ def classify_download_href(href: str | None) -> tuple[str, str | None, str | Non
         return absolute, f"fsdl:{query['query'][0]}", None
     if parsed.path.lower().endswith("viewdoc") and "TransId" in query:
         return absolute, f"viewdoc:{query['TransId'][0]}-{query.get('FileSeq', ['1'])[0]}", None
+    if parsed.path.lower().endswith(_CAPITAL_ZIP_PATH) and "comp_id" in query:
+        # `comp_id` is a DIFFERENT id space from the IDISC `set_id` in the same query — they are
+        # not interchangeable, so the file_id is built from comp_id and never from set_id. `lang`
+        # is load-bearing: the Thai request mints a different archive for the same filing.
+        parts = (
+            query["comp_id"][0],
+            query.get("year", ["?"])[0],
+            query.get("period", ["?"])[0],
+            query.get("lang", ["?"])[0],
+        )
+        return absolute, "capfin:" + "-".join(parts), None
     # Not a recognized download link (e.g. a "display all results" ViewMore link) — not a doc.
     return "", None, None

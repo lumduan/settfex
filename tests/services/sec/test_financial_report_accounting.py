@@ -158,6 +158,10 @@ class TestOtherDownloadShapes:
       Answers `application/zip`, a 134 KB package of the real PDFs.
     * ``/public/idisc/views/viewdoc?…&TransId=<id>&FileSeq=<n>`` — CPALL's 2018/2019 rows, only
       reachable through a wide window. Answers `application/.tif`, a 36 KB scan of the original.
+    * ``capital.sec.or.th/…/get_zip_all_public_page.php`` — PTT's 2011/2013 rows, on a different
+      host entirely (issue #133). An **indirection**: answers a 2 KB HTML page whose whole body is
+      a JavaScript redirect to a server-minted zip. Reported from the other side of the API, by a
+      consumer reading `no_link` — which is the docstring's "expect this list to grow" working.
 
     Neither URL states a file type, so `file_kind` is None for both — `Content-Disposition` names
     the file at download time. The lesson is in `classify_download_href`'s docstring: the
@@ -185,6 +189,41 @@ class TestOtherDownloadShapes:
         assert url == self.VIEWDOC
         assert file_id == "viewdoc:25630000003875-1"
         assert file_kind is None, "the URL does not say it is a TIFF; Content-Disposition does"
+
+    CAPFIN = (
+        "http://capital.sec.or.th/webapp/corp_fin/cgi-bin/get_zip_all_public_page.php"
+        "?report_type=FS&lang=E&comp_id=0653&year=2013&period=12&as_of=2013-12-29"
+        "&set_id=0646&fs_type=03"
+    )
+
+    def test_the_old_host_shape_is_recognised(self) -> None:
+        """Shape five, found the same way as three and four — by `no_link` firing (issue #133).
+
+        This one is on a DIFFERENT host and carries the old-format (.DOC/.XLS) filings, i.e. the
+        history that cannot be re-derived from anywhere else.
+        """
+        url, file_id, file_kind = classify_download_href(self.CAPFIN)
+        assert url == self.CAPFIN, "the STABLE indirection URL, never the minted /tmp target"
+        assert file_id == "capfin:0653-2013-12-E"
+        assert file_kind is None
+
+    def test_the_id_is_built_from_comp_id_not_set_id(self) -> None:
+        """`comp_id=0653` and `set_id=0646` are different id spaces and are not interchangeable.
+
+        `set_id` is PTT's IDISC FILEID prefix; using it here would collide with the other shapes'
+        ids and mean something else entirely.
+        """
+        _, file_id, _ = classify_download_href(self.CAPFIN)
+        assert "0653" in str(file_id)
+        assert "0646" not in str(file_id)
+
+    def test_language_is_part_of_the_identity(self) -> None:
+        """The Thai request mints a DIFFERENT archive for the same filing, so it is a different
+        document — the ids must not collide."""
+        _, en, _ = classify_download_href(self.CAPFIN)
+        _, th, _ = classify_download_href(self.CAPFIN.replace("lang=E", "lang=T"))
+        assert en != th
+        assert str(th).endswith("-T")
 
     def test_the_view_more_link_is_still_not_a_download(self) -> None:
         """The allowlist must not creep into "any link is a file".
