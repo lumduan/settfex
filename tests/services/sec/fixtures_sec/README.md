@@ -1,6 +1,7 @@
 # SEC listing fixtures — provenance
 
-Derived from the response bodies captured for issues #123, #127, #131 and #133 by
+Derived from the response bodies captured for issues #123, #127, #131, #133 and the
+0.22.2 slug fix by
 `tests/services/sec/derive_th_fixtures.py`, which verifies every source sha256 against the
 bundle's `MANIFEST.md` and then either slices the result panel out of the original bytes
 or copies the whole body, verbatim in both cases.
@@ -31,3 +32,5 @@ uv run python tests/services/sec/derive_th_fixtures.py \
 | #127 | `F3_en_PTT_56-2.html` | `0be33ee80ad2ec303d699d74d1b9d6ba8fbd5cff33fd0b557e825827deb1548a` | `en_ptt_56_2.html` | `84cec174807540f4e03cdc7a2853bcb96a65a58d2ae5f6293c64e12f6bf64ae1` | 3,056 |
 | #131 | `G5_idisc_505_error_page.html` | `3c6c080037bc084f14cb1cd2a89c09698dd00ad831e2efb0d553618b051d2794` | `idisc_505_error_page.html` | `3c6c080037bc084f14cb1cd2a89c09698dd00ad831e2efb0d553618b051d2794` | 369 |
 | #133 | `G2_capital_indirection_en_2013_p12.html` | `e0e114533be26b36e796880130ce4b3650f20122d0f4164a838faf93498ff35f` | `capital_indirection_en.html` | `e0e114533be26b36e796880130ce4b3650f20122d0f4164a838faf93498ff35f` | 2,263 |
+| 0.22.2 | `H1_th_CPALL_viewmore_fs-r561.html` | `c413c1ce84e12315a01f80fdd6db8d478102d206412916eff7d48e958f36c622` | `th_cpall_viewmore_56_1.html` | `2756b5585f08b761bf3c93a2dc36b2d525f43457223d3004b438695056ba7f9c` | 5,640 |
+| 0.22.2 | `H2_en_PTT_viewmore_fs-r562.html` | `c54c4b883c7e48193d254f3cea4735b5b23f1cd2c3bac7ae7d7b80814eac880e` | `en_ptt_viewmore_56_2.html` | `4880199be20a556cb3bb69840a694beeb6e9d42b7b1ae4c157e2c2e341a03c10` | 5,857 |

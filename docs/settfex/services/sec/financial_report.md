@@ -372,7 +372,9 @@ file = await download_sec_document(doc)  # dead link -> FetchError ("soft 404")
 POST /public/idisc/api/company/valuebyuniqueId      {"lang","content"} -> [{"Text","Value","Flag"}]
 GET  /public/idisc/{lang}/FinancialReport/{TYPE}     -> page + __VIEWSTATE tokens
 POST /public/idisc/{lang}/FinancialReport/{TYPE}     form postback -> result HTML
-GET  /public/idisc/{lang}/ViewMore/{slug}?...        -> complete section (fs-norm/fs-kf/fs-mda)
+GET  /public/idisc/{lang}/ViewMore/{slug}?...        -> complete section
+     slug in fs-norm | fs-kf | fs-mda | fs-r561 | fs-r562   ('fs-' is the site's prefix,
+                                                             not a category hint)
 GET  /public/idisc/Download?FILEID=<path>            -> zip/pdf bytes
 GET  /ipos/Common/IPOSGetFile.aspx?id=<id>&sq=0&v=10 -> zip bytes
 GET  /public/idisc/Views/FinancialStatementDownload?query=<blob> -> zip bytes (recent KFR rows)

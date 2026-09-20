@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Derive the committed SEC listing fixtures from the captured response bodies of #123 / #127 / #131.
+"""Derive the committed SEC listing fixtures from captured bodies (#123 / #127 / #131 / #133 / 0.22.2).
 
 Run from the repo root, with the evidence bundles extracted somewhere gitignored. Any number of
 bundle roots may be given; each source is resolved against whichever one carries it::
 
     uv run python tests/services/sec/derive_th_fixtures.py \\
-        tmp/issue-123-bundle tmp/issue-127-bundle tmp/issue-batch-r4/extracted/0004-evidence
+        tmp/issue-123-bundle tmp/issue-127-bundle \\
+        tmp/issue-batch-r4/extracted/0004-evidence tmp/issue-fs-r561
 
 What this does, and what it deliberately does not do:
 
@@ -57,6 +58,11 @@ SELECTED = [
     ("F3_en_PTT_56-2", "en_ptt_56_2.html", "#127", "panel"),
     ("G5_idisc_505_error_page", "idisc_505_error_page.html", "#131", "verbatim"),
     ("G2_capital_indirection_en_2013_p12", "capital_indirection_en.html", "#133", "verbatim"),
+    # The "display all results" pages for the two slugs that were unmapped until 0.22.2. H1 is the
+    # page whose section reports 12 and serves 12. H2 is ENGLISH on purpose: it is the evidence
+    # that the 56-2 half of this gap was never Thai-only.
+    ("H1_th_CPALL_viewmore_fs-r561", "th_cpall_viewmore_56_1.html", "0.22.2", "panel"),
+    ("H2_en_PTT_viewmore_fs-r562", "en_ptt_viewmore_56_2.html", "0.22.2", "panel"),
 ]
 
 PANEL_START = '<div id="ctl00_CPH_pnlControl"'
@@ -139,7 +145,8 @@ def main(argv: list[str]) -> int:
 
     readme = [
         "# SEC listing fixtures — provenance\n",
-        "Derived from the response bodies captured for issues #123, #127, #131 and #133 by",
+        "Derived from the response bodies captured for issues #123, #127, #131, #133 and the",
+        "0.22.2 slug fix by",
         "`tests/services/sec/derive_th_fixtures.py`, which verifies every source sha256 against the",
         "bundle's `MANIFEST.md` and then either slices the result panel out of the original bytes",
         "or copies the whole body, verbatim in both cases.",

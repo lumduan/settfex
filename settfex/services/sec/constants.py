@@ -44,11 +44,19 @@ SEC_REPORT_TYPE_FORM_56_1 = "R561"
 SEC_REPORT_TYPE_FORM_56_2 = "R562"
 SEC_REPORT_TYPE_KEY_FINANCIAL_RATIO = "KFR"
 
-# ViewMore slugs (seen live) for the sections a FS search can truncate.
+# ViewMore slugs (seen live) for every section that can truncate behind "display all results".
+# Note the `fs-` prefix is the site's own and does not mean "financial statement": `fs-r561` and
+# `fs-r562` are served by the 56-1 / 56-2 searches. Live-probed 2026-09-20.
+#
+# This is a reference constant; the mapping the listing service actually consults is
+# `_CATEGORY_FOR_VIEWMORE_SLUG` in `financial_report.py`. Keep the two in step -- they state the
+# same fact, and this one has no caller to notice when it goes stale.
 SEC_VIEWMORE_SLUGS: dict[str, str] = {
     "financial_statement": "fs-norm",
     "key_financial_ratio": "fs-kf",
     "mda": "fs-mda",
+    "form_56_1": "fs-r561",
+    "form_56_2": "fs-r562",
 }
 
 # The SEC search form's field names (ASP.NET control ids).
