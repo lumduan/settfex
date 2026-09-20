@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Derive the committed SEC listing fixtures from the captured response bodies of #123 / #127.
+"""Derive the committed SEC listing fixtures from the captured response bodies of #123 / #127 / #131.
 
 Run from the repo root, with the evidence bundles extracted somewhere gitignored. Any number of
 bundle roots may be given; each source is resolved against whichever one carries it::
 
-    uv run python tests/services/sec/derive_th_fixtures.py tmp/issue-123-bundle tmp/issue-127-bundle
+    uv run python tests/services/sec/derive_th_fixtures.py \\
+        tmp/issue-123-bundle tmp/issue-127-bundle tmp/issue-batch-r4/extracted/0004-evidence
 
 What this does, and what it deliberately does not do:
 
@@ -41,15 +42,21 @@ from pathlib import Path
 #                     annual report lost its only filing timestamp. NOTE the Thai and English 56-1
 #                     captures are from DIFFERENT windows (3 vs 6 records), so parity must be
 #                     asserted per (form, year), never by comparing counts.
+#   G5 / G2       - NOT listing pages: a real HTTP 505 error body and a capital.sec.or.th
+#                   indirection page. Both are tiny and are copied VERBATIM (there is no result
+#                   panel to slice). They are what the #131 transport guards must reject, and the
+#                   #133 download path must resolve.
 SELECTED = [
-    ("E3_th_PTT_FS_20250101-20250630", "th_ptt_fs_h1_2025.html", "#123"),
-    ("E4_en_PTT_FS_20250101-20250630", "en_ptt_fs_h1_2025.html", "#123"),
-    ("E9_th_MOTHER_FS_20250101-20250630", "th_mother_fs_h1_2025.html", "#123"),
-    ("E10_en_MOTHER_FS_20250101-20250630", "en_mother_fs_h1_2025.html", "#123"),
-    ("F1_th_PTT_56-1", "th_ptt_56_1.html", "#127"),
-    ("F2_en_PTT_56-1", "en_ptt_56_1.html", "#127"),
-    ("F5_th_PTT_56-2", "th_ptt_56_2.html", "#127"),
-    ("F3_en_PTT_56-2", "en_ptt_56_2.html", "#127"),
+    ("E3_th_PTT_FS_20250101-20250630", "th_ptt_fs_h1_2025.html", "#123", "panel"),
+    ("E4_en_PTT_FS_20250101-20250630", "en_ptt_fs_h1_2025.html", "#123", "panel"),
+    ("E9_th_MOTHER_FS_20250101-20250630", "th_mother_fs_h1_2025.html", "#123", "panel"),
+    ("E10_en_MOTHER_FS_20250101-20250630", "en_mother_fs_h1_2025.html", "#123", "panel"),
+    ("F1_th_PTT_56-1", "th_ptt_56_1.html", "#127", "panel"),
+    ("F2_en_PTT_56-1", "en_ptt_56_1.html", "#127", "panel"),
+    ("F5_th_PTT_56-2", "th_ptt_56_2.html", "#127", "panel"),
+    ("F3_en_PTT_56-2", "en_ptt_56_2.html", "#127", "panel"),
+    ("G5_idisc_505_error_page", "idisc_505_error_page.html", "#131", "verbatim"),
+    ("G2_capital_indirection_en_2013_p12", "capital_indirection_en.html", "#133", "verbatim"),
 ]
 
 PANEL_START = '<div id="ctl00_CPH_pnlControl"'
@@ -95,7 +102,7 @@ def main(argv: list[str]) -> int:
     DEST.mkdir(exist_ok=True)
     rows: list[tuple[str, str, str, str, int, str]] = []
 
-    for stem, derived_name, issue in SELECTED:
+    for stem, derived_name, issue, mode in SELECTED:
         source_name = f"{stem}.html"
         if source_name not in expected:
             print(f"{source_name} is in no bundle's MANIFEST.md", file=sys.stderr)
@@ -111,26 +118,31 @@ def main(argv: list[str]) -> int:
             )
             return 1
 
-        panel = extract_panel(raw.decode("utf-8"), source_name)
+        if mode == "verbatim":
+            # Not a listing page, so there is no panel to slice — the whole body IS the evidence.
+            body = raw
+        else:
+            body = extract_panel(raw.decode("utf-8"), source_name).encode("utf-8")
         out = DEST / derived_name
-        out.write_bytes(panel.encode("utf-8"))
+        out.write_bytes(body)
         rows.append(
             (
                 source_name,
                 actual,
                 derived_name,
                 hashlib.sha256(out.read_bytes()).hexdigest(),
-                len(panel.encode("utf-8")),
+                len(body),
                 issue,
             )
         )
-        print(f"{source_name} -> {derived_name} ({len(panel.encode('utf-8')):,} bytes)")
+        print(f"{source_name} -> {derived_name} ({len(body):,} bytes, {mode})")
 
     readme = [
         "# SEC listing fixtures — provenance\n",
-        "Derived from the response bodies captured for issues #123 and #127 by",
+        "Derived from the response bodies captured for issues #123, #127, #131 and #133 by",
         "`tests/services/sec/derive_th_fixtures.py`, which verifies every source sha256 against the",
-        "bundle's `MANIFEST.md` and then slices the result panel out of the original bytes verbatim.",
+        "bundle's `MANIFEST.md` and then either slices the result panel out of the original bytes",
+        "or copies the whole body, verbatim in both cases.",
         "Nothing here was re-encoded, reformatted or Unicode-normalized, so the Thai text is exactly",
         "what the server sent.\n",
         "The captured bodies carry **no charset declaration** (the site sends it in the",
