@@ -15680,12 +15680,45 @@
       "classes": {
         "ResponseParseError": {
           "bases": [
+            "settfex.exceptions.ParseError",
             "builtins.ValueError"
           ],
           "kind": "exception",
-          "methods": {},
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "message",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "url",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "int | None",
+                  "default": "None",
+                  "name": "rows_parsed",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "list[str] | None",
+                  "default": "None",
+                  "name": "unknown_sections",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            }
+          },
           "mro": [
             "settfex.utils.parsing.ResponseParseError",
+            "settfex.exceptions.ParseError",
+            "settfex.exceptions.FetchError",
             "builtins.ValueError",
             "builtins.Exception",
             "builtins.BaseException",
@@ -15697,6 +15730,7 @@
       "exports": [
         "Any",
         "ModelT",
+        "ParseError",
         "ResponseParseError",
         "TypeVar",
         "decode_json",

@@ -5,6 +5,7 @@ import json
 import pytest
 from pydantic import BaseModel, ValidationError
 
+from settfex.exceptions import FetchError
 from settfex.utils.parsing import (
     ResponseParseError,
     decode_json,
@@ -72,14 +73,26 @@ class TestValidateOrRaise:
         assert rec.symbol == "CPALL"
         assert rec.level == -1
 
-    def test_missing_field_raises_validationerror(self) -> None:
-        # Original ValidationError type is preserved (not wrapped).
-        with pytest.raises(ValidationError):
-            validate_or_raise(_Rec, {"symbol": "CPALL"}, context="CPALL (profile)")
+    def test_missing_field_raises_a_catchable_parse_error(self) -> None:
+        """Changed in 0.24.0: wrapped, not re-raised unchanged.
 
-    def test_wrong_type_raises_validationerror(self) -> None:
-        with pytest.raises(ValidationError):
+        A response that arrives intact and does not match the model is a PARSE failure, and every
+        service documents ``except FetchError`` as the handler for those. A bare pydantic
+        ``ValidationError`` escaped it — a fault sweep put the number at 42 of 165 injected cells.
+        """
+        with pytest.raises(ResponseParseError) as excinfo:
+            validate_or_raise(_Rec, {"symbol": "CPALL"}, context="CPALL (profile)")
+        assert isinstance(excinfo.value, FetchError), "catchable with the documented handler"
+        assert isinstance(excinfo.value, ValueError), "and the old ValueError contract survives"
+
+    def test_the_pydantic_detail_is_still_reachable(self) -> None:
+        """Wrapping must not cost the field-level diagnosis — it is one `__cause__` away."""
+        with pytest.raises(ResponseParseError) as excinfo:
             validate_or_raise(_Rec, {"symbol": "CPALL", "level": "not-an-int"}, context="ctx")
+        cause = excinfo.value.__cause__
+        assert isinstance(cause, ValidationError)
+        assert cause.error_count() == 1
+        assert cause.errors()[0]["loc"] == ("level",)
 
 
 class TestValidateListOrRaise:
@@ -104,10 +117,12 @@ class TestValidateListOrRaise:
         with pytest.raises(ResponseParseError, match="got NoneType"):
             validate_list_or_raise(_Rec, None, context="ctx")
 
-    def test_bad_item_raises_validationerror(self) -> None:
-        with pytest.raises(ValidationError):
+    def test_bad_item_raises_a_catchable_parse_error(self) -> None:
+        with pytest.raises(ResponseParseError) as excinfo:
             validate_list_or_raise(
                 _Rec,
                 [{"symbol": "A", "level": 1}, {"symbol": "B"}],  # second item missing level
                 context="ctx",
             )
+        assert "index 1" in str(excinfo.value), "the failing item is still named"
+        assert isinstance(excinfo.value.__cause__, ValidationError)
