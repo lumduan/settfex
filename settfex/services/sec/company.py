@@ -110,28 +110,50 @@ async def resolve_company(
     lang: Language = "en",
     *,
     config: FetcherConfig | None = None,
+    allow_name_match: bool = False,
 ) -> CompanyMatch | None:
     """
     Resolve a symbol/name to a single best CompanyMatch.
 
-    The site flags *the* match for a query with ``Flag`` (:attr:`CompanyMatch.is_primary`), and in
-    every live probe a query had **0 or 1** primaries, never more. So:
+    ``Flag`` (:attr:`CompanyMatch.is_primary`) means *the site resolved your query as an
+    **identifier*** — a ticker or the uniqueIDReference — and **not** "this is the best match". A
+    name never flags, not even the exact full legal name. In every live probe a query had **0 or
+    1** flagged rows, never more, which is what makes "no flag" a safe trigger rather than a
+    tie-break.
 
-    * a primary exists         → return it
-    * no primary, one match    → return it (there is nothing to be ambiguous between)
-    * no primary, many matches → raise :class:`AmbiguousCompanyError` with the candidates
-    * nothing at all           → return ``None``
+    =========  =========  ====================================  ==========================
+    matches    flagged    ``allow_name_match=False`` (default)  ``allow_name_match=True``
+    =========  =========  ====================================  ==========================
+    0          --         ``None``                              ``None``
+    1          yes        return it                             return it
+    **1**      **no**     **raise** with that one candidate     return it
+    >1         one        return the flagged one                same
+    >1         none       raise                                 **raise** -- never rescued
+    =========  =========  ====================================  ==========================
+
+    The lone-unflagged row is the case ``allow_name_match`` exists for, and it is genuinely
+    two different situations the library cannot tell apart:
+
+    * you searched by **name** and got one hit -- the normal, correct outcome; pass the flag
+    * you searched by **ticker** and the site did not recognise it, so what came back is a
+      substring match on some *other* company's name. That is the ``UBOT`` → ``KUBOTA`` failure
+      with a single candidate instead of thirteen, and it is indistinguishable from success
+      without knowing which you meant.
 
     Args:
         query: Symbol or (partial) company name.
         lang: Response language ('en' or 'th').
         config: Optional fetcher configuration (use_session is forced off).
+        allow_name_match: Accept a single **unflagged** candidate. Pass ``True`` when you are
+            deliberately searching by company name. It never affects the multi-candidate case.
 
     Returns:
         The resolved :class:`CompanyMatch`, or ``None`` when the site knows no such issuer.
 
     Raises:
-        AmbiguousCompanyError: Several candidates and none flagged primary.
+        AmbiguousCompanyError: Several candidates and none flagged primary; or a single unflagged
+            candidate without ``allow_name_match=True``. Carries ``.candidates`` either way, so the
+            caller can inspect and choose without issuing a second request.
         FetchError: On a transport failure or a non-listing response.
     """
     matches = await search_companies(query, lang, config=config)
@@ -141,12 +163,29 @@ async def resolve_company(
         if match.is_primary:
             return match
     if len(matches) == 1:
-        # One candidate and no flag: nothing to choose between, so this is not the ambiguous
-        # case. A full company name typed out ("CP ALL PUBLIC COMPANY LIMITED") lands here.
-        logger.info(
-            f"Resolved {query!r} to the single unflagged candidate {matches[0].company_name!r}"
+        if allow_name_match:
+            logger.info(
+                f"Resolved {query!r} to the single unflagged candidate "
+                f"{matches[0].company_name!r} (allow_name_match=True)"
+            )
+            return matches[0]
+        # Until 0.24.0 this returned the candidate unconditionally, on the reasoning that one
+        # candidate leaves nothing to be ambiguous *between*. True of the candidates; false of
+        # the question. The site did not recognise the query as an identifier, so the single row
+        # is a substring hit on a company NAME -- which is correct when the caller typed a name,
+        # and an unrelated company when they typed a ticker the SEC does not know.
+        only = matches[0]
+        error_msg = (
+            f"{query!r} matched exactly one SEC issuer, {only.company_name!r} ({only.unique_id}), "
+            f"but the site did not flag it as the match -- meaning it did not resolve {query!r} as "
+            f"an identifier, and this row is a substring match on the company NAME. If you are "
+            f"searching by name, that is the answer you want: pass allow_name_match=True. If "
+            f"{query!r} was meant to be a symbol, the SEC does not know it (ETFs, warrants and DWs "
+            f"are not issuers) and this company is unrelated. The candidate is on "
+            f"`.candidates` either way."
         )
-        return matches[0]
+        logger.error(error_msg)
+        raise AmbiguousCompanyError(error_msg, candidates=matches)
 
     # Until 0.24.0 this returned `matches[0]`. The autocomplete does substring matching on the
     # company NAME and returns its candidates alphabetically, not by relevance, so the first row

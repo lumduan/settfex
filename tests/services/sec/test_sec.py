@@ -85,3 +85,37 @@ class TestDelegation:
                 await sec.download_all(["dat/news/x.zip"], dest_dir="/tmp/out", max_concurrency=3)
         _, kwargs = mock_dl.call_args
         assert kwargs["dest_dir"] == "/tmp/out" and kwargs["max_concurrency"] == 3
+
+
+@pytest.mark.asyncio
+class TestAllowNameMatchReachesTheResolver:
+    """A flag the facade does not forward is a flag that does not exist.
+
+    `SecCompany` and `get_sec_documents` are the tiers people actually call — the resolver is one
+    layer down. If `allow_name_match` stopped at the facade, a name lookup would be impossible
+    through the documented entry points, which is the whole surface most callers ever touch.
+    """
+
+    async def test_sec_company_forwards_it(self) -> None:
+        with patch(
+            "settfex.services.sec.sec.resolve_company", new=AsyncMock(return_value=_MATCH)
+        ) as mock_resolve:
+            await SecCompany("CP ALL PUBLIC COMPANY LIMITED", allow_name_match=True).resolve()
+        assert mock_resolve.await_args.kwargs["allow_name_match"] is True
+
+    async def test_sec_company_defaults_to_strict(self) -> None:
+        with patch(
+            "settfex.services.sec.sec.resolve_company", new=AsyncMock(return_value=_MATCH)
+        ) as mock_resolve:
+            await SecCompany("CPALL").resolve()
+        assert mock_resolve.await_args.kwargs["allow_name_match"] is False
+
+    async def test_an_ambiguous_lone_match_propagates_through_the_facade(self) -> None:
+        with (
+            patch(
+                "settfex.services.sec.sec.resolve_company",
+                new=AsyncMock(side_effect=AmbiguousCompanyError("one, unflagged", candidates=[])),
+            ),
+            pytest.raises(AmbiguousCompanyError),
+        ):
+            await SecCompany("UBOT").resolve()

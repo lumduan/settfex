@@ -124,6 +124,40 @@ does **not** mean "the best match". It means *the site resolved your query as an
 ticker flags (case-insensitively), the `uniqueIDReference` flags, and a **name never does — not
 even the exact full legal name**.
 
+#### A **single** unflagged candidate is ambiguous too — new `allow_name_match`
+
+`resolve_company` returned a lone candidate whose `Flag` was `False`, reasoning that one candidate
+leaves nothing to be ambiguous *between*. That is true of the candidates and false of the question.
+An unflagged row means the site did **not** resolve the query as an *identifier*, so the row is a
+substring match on a company **name** — which is:
+
+- exactly right when the caller typed a name (`CP ALL PUBLIC COMPANY LIMITED`), and
+- an unrelated company when they typed a ticker the SEC does not know — the `UBOT` → `KUBOTA`
+  failure above, with one candidate instead of thirteen.
+
+The library cannot distinguish those without a heuristic, so the caller declares intent:
+
+```python
+await get_sec_documents("CPALL")                                    # ticker: flagged, resolves
+await get_sec_documents("CP ALL PUBLIC COMPANY LIMITED",
+                        allow_name_match=True)                      # name: never flags
+await resolve_company("UBOT")                                       # raises — not an SEC issuer
+```
+
+The error is `AmbiguousCompanyError` (same type as the multi-candidate case, since the recovery is
+identical), it **carries the single candidate on `.candidates`** so an agent can inspect and decide
+without a second request, and its message names the flag. `allow_name_match` affects **only** the
+single-candidate case — several unflagged candidates stay ambiguous whatever was intended.
+
+Added as a keyword-only parameter on `resolve_company`, `get_sec_documents` and `SecCompany`;
+`search_companies` is unchanged, since it resolves nothing.
+
+> **On the evidence, plainly:** of 156 sampled symbols spanning all nine `securityType` codes,
+> exactly **one** hit this case — and that probe recorded aggregates only, so which symbol it was
+> and whether it was wrong cannot be recovered. Name-shaped queries were 3/3 correct. What
+> justifies a breaking default here is the **cost of being wrong** — an entire issuer's filings
+> attached to the wrong company — not a measured frequency.
+
 #### `SecCompany.resolve()` raises `CompanyNotFoundError`, not `SymbolNotFoundError`
 
 The identical condition — the search ran and matched no issuer — was already a
@@ -162,6 +196,7 @@ whole-market).
 | 8 | `get_sec_documents`, unresolvable issuer | `[]` | `CompanyNotFoundError` (`ValueError`) | "no such issuer" and "the lookup broke" were the same answer, so a backfill recorded the window as covered either way |
 | 9 | `SecCompany.resolve()`, not found | `SymbolNotFoundError` (a `FetchError`) | `CompanyNotFoundError` (`ValueError`) | the same condition was an input error through one entry point and a transport error through the other |
 | 10 | `resolve_company`, several candidates, none flagged | returned `matches[0]` | `AmbiguousCompanyError` with `.candidates` | a confident wrong company |
+| 10b | `resolve_company`, **one** candidate, not flagged | returned it | `AmbiguousCompanyError` with that one candidate, unless `allow_name_match=True` | the site did not resolve the query as an identifier, so it is a name substring hit |
 | 11 | `fetch_history_raw`, no year served | `[]` | `FetchError` | indistinguishable from a span that genuinely holds no rows |
 | 12 | ThaiBMA availability, both halves down | raised one cause, **dropped the other** | raises the first, other as a PEP 678 note | one endpoint fixed while the other was equally broken |
 
@@ -237,6 +272,9 @@ splits: a **partial** gap warns and names `fetch_history()` as where the gap *is
    `CompanyNotFoundError`); unifying them behind a shared base is tracked on #135 for pre-1.0.
 6. **If you construct** `IndexListResponse`, `IndexInfoListResponse`, `ConsensusOverallResponse` or
    `AnalystConsensus` by hand, supply the now-required fields (an empty list is fine).
+7. **If you look up issuers by company NAME, pass `allow_name_match=True`.** A name never flags, so
+   a name lookup now raises `AmbiguousCompanyError` by default. Symbol lookups are unaffected — a
+   real ticker flags — and every example in these docs uses a symbol, so nothing documented breaks.
 
 ## [0.23.0] - 2026-09-20
 

@@ -107,7 +107,7 @@ Indices: `get_index_list(lang)`, `get_index_info(symbol, lang)`,
 
 | I want… | Call |
 |---|---|
-| resolve a company to its SEC id | `resolve_company(query, lang)` |
+| resolve a company to its SEC id | `resolve_company(query, lang, allow_name_match=False)` |
 | list filings (financial statements, 56-1, 56-2, ratios, MD&A) | `get_sec_documents(query, types=..., from_date=..., to_date=...)` |
 | download the actual file(s) | `download_sec_document(target)` / `download_sec_documents(targets)` |
 
@@ -120,6 +120,18 @@ file, so resolving one of them raises rather than guessing (0.24.0):
 |---|---|---|
 | nothing matched | `CompanyNotFoundError` | report that no issuer exists; do not retry |
 | several matched, none flagged | `AmbiguousCompanyError` | read `exc.candidates` (each a `CompanyMatch`) and ask which one, or pass an exact symbol |
+| **exactly one matched, not flagged** | `AmbiguousCompanyError` | the site did not recognise your query as an *identifier*, so that row is a substring hit on a company **name**. If you meant a name, pass `allow_name_match=True`; if you meant a symbol, it is not an SEC issuer |
+
+**Searching by company name?** Pass `allow_name_match=True` — a name never flags, so a name lookup
+always lands in that third row:
+
+```python
+await get_sec_documents("CP ALL PUBLIC COMPANY LIMITED", allow_name_match=True)
+await resolve_company("ปตท", allow_name_match=True)   # still raises: 17 candidates, none flagged
+```
+
+It only ever affects the **single**-candidate case. Several unflagged candidates stay ambiguous
+whatever you intended.
 
 Both are **`ValueError`s, not `FetchError`s**, because the request succeeded — retrying returns the
 same answer forever, so `except FetchError: retry` must not be what catches them. Before 0.24.0 the

@@ -731,6 +731,12 @@
               "default": "None",
               "name": "config",
               "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "allow_name_match",
+              "param_kind": "KEYWORD_ONLY"
             }
           ],
           "returns": "CompanyMatch | None"
@@ -2049,6 +2055,12 @@
               "default": "None",
               "name": "config",
               "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "allow_name_match",
+              "param_kind": "KEYWORD_ONLY"
             }
           ],
           "returns": "SecDocumentList"
@@ -2104,6 +2116,12 @@
                   "annotation": "FetcherConfig | None",
                   "default": "None",
                   "name": "config",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "bool",
+                  "default": "False",
+                  "name": "allow_name_match",
                   "param_kind": "KEYWORD_ONLY"
                 }
               ],

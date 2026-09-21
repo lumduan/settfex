@@ -44,10 +44,17 @@ class SecCompany:
         *,
         lang: Language = "en",
         config: FetcherConfig | None = None,
+        allow_name_match: bool = False,
     ) -> None:
         self.query = symbol_or_name.strip()
         self.lang: Language = normalize_language(lang)
         self.config = config
+        self.allow_name_match = allow_name_match
+        """Accept a single unflagged candidate -- pass True when querying by company name.
+
+        A ticker the SEC does not recognise returns a substring hit on some other company's name,
+        which is indistinguishable from a correct name lookup without knowing which was intended.
+        """
         self._company: CompanyMatch | None = None
         self._report_service: FinancialReportService | None = None
         self._download_service: DocumentDownloadService | None = None
@@ -61,11 +68,17 @@ class SecCompany:
                 subclass, so the identical condition was an input error through
                 ``get_sec_documents`` and a transport error through here. ``except FetchError``
                 caught one and not the other.
-            AmbiguousCompanyError: Several issuers matched and the site flagged none as the match.
-                Also an input error, and it carries the candidates.
+            AmbiguousCompanyError: Several issuers matched and the site flagged none as the match,
+                or exactly one unflagged issuer matched and ``allow_name_match`` is False. Also an
+                input error, and it carries the candidates.
         """
         if self._company is None:
-            company = await resolve_company(self.query, self.lang, config=self.config)
+            company = await resolve_company(
+                self.query,
+                self.lang,
+                config=self.config,
+                allow_name_match=self.allow_name_match,
+            )
             if company is None:
                 raise CompanyNotFoundError(f"No SEC issuer matched '{self.query}'")
             self._company = company

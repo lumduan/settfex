@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from settfex.exceptions import AmbiguousCompanyError
+from settfex.exceptions import AmbiguousCompanyError, CompanyNotFoundError
 from settfex.services.sec.company import CompanyMatch, resolve_company, search_companies
 from settfex.utils.parsing import ResponseParseError
 from tests.services.sec.fixtures import COMPANY_SEARCH_JSON, COMPANY_SEARCH_MULTI_JSON
@@ -160,23 +160,6 @@ class TestAmbiguityIsRaisedNotGuessed:
         assert not isinstance(excinfo.value, FetchError)
 
     @pytest.mark.asyncio
-    async def test_a_single_unflagged_candidate_still_resolves(self) -> None:
-        """Not ambiguous: there is nothing to choose between.
-
-        A full company name typed out ("CP ALL PUBLIC COMPANY LIMITED") lands here — live-probed
-        as 1 match with ``Flag=False``, because the flag marks the *query* the site recognises,
-        not the row's validity.
-        """
-        _patch_company_fetcher(
-            [{"Text": "CP ALL PUBLIC COMPANY LIMITED", "Value": "0000003875", "Flag": False}]
-        )
-        try:
-            match = await resolve_company("CP ALL PUBLIC COMPANY LIMITED")
-        finally:
-            patch.stopall()
-        assert match is not None and match.unique_id == "0000003875"
-
-    @pytest.mark.asyncio
     async def test_a_primary_among_many_is_unchanged(self) -> None:
         """The discipline: the new signal must not fire on the healthy majority.
 
@@ -198,6 +181,98 @@ class TestAmbiguityIsRaisedNotGuessed:
             assert await resolve_company("NOPE") is None
         finally:
             patch.stopall()
+
+
+class TestALoneUnflaggedCandidateIsAmbiguousToo:
+    """Changed after the archive validated 0.24.0rc1: one unflagged candidate no longer resolves.
+
+    0.24.0rc1 returned it, reasoning that a single candidate leaves nothing to be ambiguous
+    *between*. True of the candidates; false of the question. An unflagged row means the site did
+    not resolve the query as an **identifier**, so the row is a substring match on a company
+    **name** — which is:
+
+    * exactly right when the caller typed a name (``CP ALL PUBLIC COMPANY LIMITED``), and
+    * an unrelated company when they typed a ticker the SEC does not know — the ``UBOT`` →
+      ``KUBOTA`` failure with one candidate instead of thirteen.
+
+    The library cannot tell those apart, so the caller declares intent with ``allow_name_match``.
+
+    ⚠️ **The evidence did not decide this; the severity did.** Of 156 sampled symbols across all
+    nine ``securityType`` codes exactly **one** hit this case, and that probe recorded aggregates
+    only — the symbol and whether it was wrong are unrecoverable. Name-shaped queries were 3/3
+    correct. What justifies a breaking default is the cost of being wrong (a whole issuer's filings
+    attached to the wrong company), not a measured rate.
+    """
+
+    LONE_UNFLAGGED = [
+        {"Text": "CP ALL PUBLIC COMPANY LIMITED", "Value": "0000003875", "Flag": False}
+    ]
+
+    @pytest.mark.asyncio
+    async def test_it_raises_by_default(self) -> None:
+        _patch_company_fetcher(self.LONE_UNFLAGGED)
+        try:
+            with pytest.raises(AmbiguousCompanyError):
+                await resolve_company("CP ALL PUBLIC COMPANY LIMITED")
+        finally:
+            patch.stopall()
+
+    @pytest.mark.asyncio
+    async def test_the_error_carries_the_one_candidate(self) -> None:
+        """So an agent can inspect and decide **without a second request** — the whole point."""
+        _patch_company_fetcher(self.LONE_UNFLAGGED)
+        try:
+            with pytest.raises(AmbiguousCompanyError) as excinfo:
+                await resolve_company("UBOT")
+        finally:
+            patch.stopall()
+        assert len(excinfo.value.candidates) == 1
+        assert excinfo.value.candidates[0].unique_id == "0000003875"
+        assert isinstance(excinfo.value.candidates[0], CompanyMatch)
+
+    @pytest.mark.asyncio
+    async def test_the_message_names_the_opt_in(self) -> None:
+        """An opt-in nobody can discover from the error is not an opt-in."""
+        _patch_company_fetcher(self.LONE_UNFLAGGED)
+        try:
+            with pytest.raises(AmbiguousCompanyError) as excinfo:
+                await resolve_company("UBOT")
+        finally:
+            patch.stopall()
+        assert "allow_name_match=True" in str(excinfo.value)
+
+    @pytest.mark.asyncio
+    async def test_the_opt_in_returns_it(self) -> None:
+        """A deliberate name lookup is the case this flag exists for."""
+        _patch_company_fetcher(self.LONE_UNFLAGGED)
+        try:
+            match = await resolve_company("CP ALL PUBLIC COMPANY LIMITED", allow_name_match=True)
+        finally:
+            patch.stopall()
+        assert match is not None and match.unique_id == "0000003875"
+
+    @pytest.mark.asyncio
+    async def test_the_flag_never_rescues_multiple_unflagged_candidates(self) -> None:
+        """`allow_name_match` is about ONE row. CHINA/UBOT stay ambiguous whatever was intended."""
+        _patch_company_fetcher(TestAmbiguityIsRaisedNotGuessed.AMBIGUOUS)
+        try:
+            with pytest.raises(AmbiguousCompanyError) as excinfo:
+                await resolve_company("CHINA", allow_name_match=True)
+        finally:
+            patch.stopall()
+        assert len(excinfo.value.candidates) == 3
+
+    @pytest.mark.asyncio
+    async def test_a_flagged_single_candidate_is_unaffected(self) -> None:
+        """The healthy majority: a real ticker flags, and the flag changes nothing for it."""
+        _patch_company_fetcher(
+            [{"Text": "CP ALL PUBLIC COMPANY LIMITED", "Value": "0000003875", "Flag": True}]
+        )
+        try:
+            match = await resolve_company("CPALL")
+        finally:
+            patch.stopall()
+        assert match is not None and match.unique_id == "0000003875"
 
 
 class TestWhatTheFlagActuallyMeans:
@@ -237,3 +312,35 @@ class TestWhatTheFlagActuallyMeans:
         finally:
             patch.stopall()
         assert matches[0].is_primary is True
+
+
+class TestGetSecDocumentsForwardsTheFlag:
+    """The `get_*` tier is the LLM tool-calling entry point, so its passthrough is load-bearing."""
+
+    @pytest.mark.asyncio
+    async def test_it_is_forwarded(self) -> None:
+        from settfex.services.sec.financial_report import get_sec_documents
+
+        with (
+            patch(
+                "settfex.services.sec.financial_report.resolve_company",
+                new=AsyncMock(return_value=None),
+            ) as mock_resolve,
+            pytest.raises(CompanyNotFoundError),
+        ):
+            await get_sec_documents("CP ALL PUBLIC COMPANY LIMITED", allow_name_match=True)
+        assert mock_resolve.await_args.kwargs["allow_name_match"] is True
+
+    @pytest.mark.asyncio
+    async def test_it_defaults_to_strict(self) -> None:
+        from settfex.services.sec.financial_report import get_sec_documents
+
+        with (
+            patch(
+                "settfex.services.sec.financial_report.resolve_company",
+                new=AsyncMock(return_value=None),
+            ) as mock_resolve,
+            pytest.raises(CompanyNotFoundError),
+        ):
+            await get_sec_documents("CPALL")
+        assert mock_resolve.await_args.kwargs["allow_name_match"] is False

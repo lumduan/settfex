@@ -1565,6 +1565,7 @@ async def get_sec_documents(
     lang: Language = "en",
     follow_view_more: bool = True,
     config: FetcherConfig | None = None,
+    allow_name_match: bool = False,
 ) -> SecDocumentList:
     """
     Convenience: resolve a symbol/name and list its SEC disclosure documents (all 5 categories
@@ -1586,11 +1587,12 @@ async def get_sec_documents(
 
     Raises:
         CompanyNotFoundError: The search succeeded and matched no issuer (an input error).
-        AmbiguousCompanyError: Several issuers matched and none was flagged as the match; the
-            exception carries the candidates so the caller can choose one.
+        AmbiguousCompanyError: Several issuers matched and none was flagged as the match, or a
+            single unflagged one matched without ``allow_name_match=True``. It carries the
+            candidates, so the caller can choose without a second request.
         FetchError: On a transport failure, or when every requested report code failed.
     """
-    company = await resolve_company(query, lang, config=config)
+    company = await resolve_company(query, lang, config=config, allow_name_match=allow_name_match)
     if company is None:
         # Raised, not returned as []. A lookup that FAILED now raises from the fetch layer, so
         # reaching here means the search succeeded and matched nothing -- a fact about the input.

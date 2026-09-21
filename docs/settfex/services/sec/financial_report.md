@@ -202,6 +202,19 @@ except AmbiguousCompanyError as exc:
         print(candidate.unique_id, candidate.company_name)
 ```
 
+`AmbiguousCompanyError` also fires for a **single** candidate that is not flagged, and
+`allow_name_match=True` is the opt-out:
+
+```python
+await get_sec_documents("CPALL")                                   # a ticker: flagged, resolves
+await get_sec_documents("CP ALL PUBLIC COMPANY LIMITED",
+                        allow_name_match=True)                     # a name: never flags
+```
+
+A name query never flags — not even the exact legal name — so a lone unflagged row is *correct*
+for a name lookup and an *unrelated company* for a ticker the SEC does not know. The library cannot
+tell those apart, so the caller declares intent. The flag never affects the multi-candidate case.
+
 Before 0.24.0 that case returned `matches[0]` — and the search is a substring match over company
 names returned **alphabetically, not by relevance**, so the first row is arbitrary. `CHINA` (a SET
 ETF, which has no SEC issuer at all) resolved to `ASEAN CHINA INVESTMENT FUND L.P.` out of 60
@@ -393,7 +406,7 @@ to `dest_dir`). `DownloadResult` **is** a `list[DownloadedFile]`, so the return 
 ## Convenience functions
 
 ```python
-resolve_company(query, lang="en") -> CompanyMatch | None
+resolve_company(query, lang="en", *, allow_name_match=False) -> CompanyMatch | None
 get_sec_documents(query, *, types=None, from_date=None, to_date=None,
                   lang="en", follow_view_more=True) -> SecDocumentList
 download_sec_document(target, *, dest_dir=None, timeout=None) -> DownloadedFile
