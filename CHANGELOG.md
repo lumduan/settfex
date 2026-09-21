@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.1] - 2026-09-21
+
+### Fixed
+
+- **`get_holidays()` no longer retries an HTTP 401** — it raises on the first one. 401 is this
+  endpoint's only failure code and it is ambiguous (an unserved year and a transient blip look
+  identical), so retrying it looked like the safe choice. Two facts make it the wrong one:
+
+  - the endpoint **degrades under polling** — success falls from ~100% cold to ~35% after ~50
+    requests and ~12% after ~150, recovering only when left idle. A retry therefore makes the next
+    attempt *less* likely to succeed, so the ladder worked against itself;
+  - against the persistent 401 described below it bought nothing and cost **~128 s per call** at
+    the default `max_retries=3`.
+
+  **The raised type and status are unchanged** — `FetchError` with `status_code=401`, via
+  `raise_for_status` — so `except FetchError` handlers behave exactly as before and this stays a
+  patch. Only the latency changes: one request instead of `max_retries + 1`. The message now names
+  the upstream issue, so a caller can tell at a glance that it is not their bug.
+
+  `403` and `429` are still retried. Neither has been observed on this endpoint, and both are
+  ordinary transient statuses elsewhere — narrowing further would be a change nothing asked for.
+
+### Known issues
+
+- **`get_holidays()` is currently broken by an upstream change, and upgrading does not fix it**
+  ([#140](https://github.com/lumduan/settfex/issues/140)). Since 2026-09-20 the SET endpoint has
+  answered **HTTP 401 for the current year** — and the current year is the *only* year it serves
+  (2024, 2025, 2027 and 2028 all answer 401 by design). Re-tested 2026-09-21 at 17:05 and 17:10
+  ICT after a >24-hour cooldown: both 401, so it is a change rather than a blip. It is not a client
+  regression — the same failure reproduced identically on 0.23.0 and 0.24.0rc1.
+
+  0.24.1 only makes the failure **fast and legible**; it cannot make the endpoint work. Weekend and
+  holiday logic that depends on `get_holidays()` needs another source until SET restores it.
+
 ## [0.24.0] - 2026-09-21
 
 The one breaking release of the silent-loss cycle. 0.22.0–0.23.0 closed the SEC listing path

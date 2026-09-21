@@ -38,6 +38,13 @@ affected versions per function.
 `False`, **silently** — it takes the other branch rather than raising), and several error types
 changed. See [Migration](https://github.com/lumduan/settfex/blob/v0.24.0/CHANGELOG.md#migration).
 
+## Known issues
+
+- **`get_holidays()` currently fails** — the SET holiday endpoint answers HTTP 401 for the current
+  year, which is the only year it serves. This is an **upstream change, not a settfex defect**, and
+  upgrading does not fix it. Since 0.24.1 the call fails immediately rather than retrying for
+  ~128 s. Tracking: [#140](https://github.com/lumduan/settfex/issues/140).
+
 ## Versioning policy
 
 - **0.x:** a minor bump may break. Pin `settfex>=0.23,<0.24` until you have migrated.
