@@ -131,6 +131,25 @@ async def resolve_company(
     >1         none       raise                                 **raise** -- never rescued
     =========  =========  ====================================  ==========================
 
+    .. warning::
+       **A flagged match can still be the wrong company.** ``is_primary`` means the site resolved
+       your query as **its own** identifier — SEC abbreviations and SET tickers are separate
+       namespaces and they collide. ``search_companies("PMC")`` returns five candidates, and the
+       flagged one is ``PORT AND MARINE CORPORATION (P.A.M.) CO LTD`` (``0000007988``), which is
+       unlisted and files nothing; the SET-listed ``PMC LABEL MATERIAL PUBLIC COMPANY LIMITED``
+       (``0000033140``) is **not** flagged.
+
+       So a flag is not proof of identity, and neither is re-resolving and comparing
+       ``unique_id`` — that only proves resolution is *deterministic*. **Compare
+       ``company_name`` against the issuer you intended**, allowing for case and small spelling
+       differences (the autocomplete writes ``PMC LABEL MATERIAL`` where the SET stock list says
+       ``PMC Label Materials``, so exact equality would reject the right company). Use
+       :func:`search_companies` to see every candidate.
+
+       This library does not check that for you today; a caller-side identity check is proposed
+       for 0.25.0. A misresolution and a genuinely empty issuer are indistinguishable from inside
+       the returned data — both give zero rows with the site's own count of zero.
+
     The lone-unflagged row is the case ``allow_name_match`` exists for, and it is genuinely
     two different situations the library cannot tell apart:
 

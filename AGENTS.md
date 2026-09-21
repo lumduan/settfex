@@ -304,6 +304,23 @@ wrong diagnosis. If you see it repeatedly from one host, **stop and back off**; 
 
 ---
 
+### ⚠️ `get_holidays()` is broken upstream right now
+
+The SET holiday endpoint answers **HTTP 401 for the current year**, which is the only year it
+serves, so the call cannot succeed. This is an upstream change (since 2026-09-20), **not** a
+settfex defect, and no version fixes it — tracking: issue #140.
+
+Since 0.24.1 it fails **immediately** instead of retrying for ~128 s, and the error message says
+so. Do not retry it, and do not report it as a library bug. If you need trading-day logic, you
+need another source for market closures; remember `is_holiday()` never covered weekends anyway.
+
+## Run it, don't hand it over
+
+If a command is non-privileged — `git`, `gh`, `uv`, tests, any read-only inspection — run it and
+report the output. Do not end a report with a command for the human to run; they may be on a phone
+and unable to run anything, and a claim nobody verified is not a finding. Only `sudo` and
+infrastructure decisions belong to them.
+
 ## Timed instructions
 
 If you are told to do something at a particular time, that instruction needs **a date, a clock time

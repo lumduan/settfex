@@ -55,8 +55,21 @@ MIN_YEAR = 1975  # SET began trading in 1975
 MAX_YEAR = 2100
 
 # Statuses worth retrying. AsyncDataFetcher.fetch() only retries exceptions, never a non-2xx status,
-# so the transient 401 described in the module docstring has to be handled here.
-_RETRYABLE_STATUS = frozenset({401, 403, 429})
+# so any retry the endpoint needs has to be handled here.
+#
+# 401 was in this set until 0.24.1 and is deliberately NOT any more. It is this endpoint's only
+# failure code and it is ambiguous -- an unserved year and a transient blip look identical -- so
+# retrying it was the safe-looking choice. Two things make it the wrong one:
+#
+#   * The endpoint DEGRADES UNDER POLLING. Success falls from ~100% cold to ~35% after ~50 requests
+#     and ~12% after ~150, recovering only when left idle. Retrying a 401 therefore makes the next
+#     attempt LESS likely to succeed, not more -- the ladder actively works against itself.
+#   * Against the persistent 401 the endpoint has served since 2026-09-20 (issue #140) the ladder
+#     buys nothing and costs ~128s per call at the default max_retries=3.
+#
+# 403 and 429 stay retryable: neither has been observed here, and both are ordinary transient
+# statuses elsewhere.
+_RETRYABLE_STATUS = frozenset({403, 429})
 
 
 def _as_bangkok_day(value: date | datetime) -> date:
@@ -287,7 +300,12 @@ class HolidayService:
     async def _fetch_with_retry(
         self, fetcher: AsyncDataFetcher, url: str, headers: dict[str, str], year: int
     ) -> FetchResponse:
-        """Fetch ``url``, retrying the endpoint's transient 401/403/429 before raising."""
+        """Fetch ``url``, retrying 403/429 before raising. A 401 raises on the first response.
+
+        The raised type is unchanged from 0.24.0 -- ``FetchError`` with ``status_code=401``, via
+        :func:`raise_for_status` -- so ``except FetchError`` handlers keep working. Only the
+        latency changes: one request instead of ``max_retries + 1``.
+        """
         attempts = self.config.max_retries + 1
 
         for attempt in range(attempts):
@@ -307,12 +325,15 @@ class HolidayService:
 
             error_msg = f"Failed to fetch holidays for {year}: HTTP {response.status_code}"
             if response.status_code == 401:
-                # 401 is this endpoint's only failure code, so spell out both causes rather than
-                # leaving the caller with a bare status.
+                # 401 is this endpoint's only failure code, so spell out the causes rather than
+                # leaving the caller with a bare status. Raised on the FIRST 401 since 0.24.1 --
+                # see the note on _RETRYABLE_STATUS for why retrying made things worse.
                 error_msg += (
-                    " - the API returns 401 both for years it does not serve (live-probed"
-                    " 2026-07-27: only the current year is available) and transiently under"
-                    " load; check the year, or retry later"
+                    " - the API returns 401 for years it does not serve (only the current year is"
+                    " available), and since 2026-09-20 it has answered 401 for the CURRENT year"
+                    " too, which is an upstream outage rather than a settfex defect (see"
+                    " https://github.com/lumduan/settfex/issues/140). Not retried: this endpoint"
+                    " degrades under polling, so a retry ladder lowers the chance of success"
                 )
             logger.error(error_msg)
             raise_for_status(response.status_code, error_msg, suggest=False)

@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.1] - 2026-09-21
+
+### Fixed
+
+- **`get_holidays()` no longer retries an HTTP 401** — it raises on the first one. 401 is this
+  endpoint's only failure code and it is ambiguous (an unserved year and a transient blip look
+  identical), so retrying it looked like the safe choice. Two facts make it the wrong one:
+
+  - the endpoint **degrades under polling** — success falls from ~100% cold to ~35% after ~50
+    requests and ~12% after ~150, recovering only when left idle. A retry therefore makes the next
+    attempt *less* likely to succeed, so the ladder worked against itself;
+  - against the persistent 401 described below it bought nothing and cost **~128 s per call** at
+    the default `max_retries=3`.
+
+  **The raised type and status are unchanged** — `FetchError` with `status_code=401`, via
+  `raise_for_status` — so `except FetchError` handlers behave exactly as before and this stays a
+  patch. Only the latency changes: one request instead of `max_retries + 1`. The message now names
+  the upstream issue, so a caller can tell at a glance that it is not their bug.
+
+  `403` and `429` are still retried. Neither has been observed on this endpoint, and both are
+  ordinary transient statuses elsewhere — narrowing further would be a change nothing asked for.
+
+### Documentation
+
+- **A flagged company match can still be the wrong company — the advisory's verification step was
+  corrected.** `CompanyMatch.is_primary` means the SEC site resolved your query as **its own**
+  identifier. SEC abbreviations and SET tickers are **separate namespaces and they collide**:
+
+  ```
+  search_companies("PMC") ->
+    [       ] 0000019528  EPMC COMPANY LIMITED
+    [       ] 0000003476  JP MORGAN CHASE BANK BANGKOK BRANCH
+    [       ] 0000033140  PMC LABEL MATERIAL PUBLIC COMPANY LIMITED   <- the SET-listed company
+    [       ] 0000007483  PMCC (THAILAND)
+    [PRIMARY] 0000007988  PORT AND MARINE CORPORATION (P.A.M.) CO LTD <- what you get
+  ```
+
+  The flagged row is unlisted and files nothing; the listed company is **not** flagged. This is the
+  mirror of the `UBOT` → `KUBOTA` case 0.24.0 closed — there **no** candidate was flagged, so it
+  could raise. Here one **is**, so nothing detects it.
+
+  0.24.0's advisory suggested verifying a stored record by re-resolving the ticker and comparing
+  `unique_id`. **That check can pass on data that is wrong**: for `PMC` both sides give
+  `0000007988` and the record looks confirmed. A `unique_id` match proves resolution is
+  *deterministic*, not *correct*. **Compare `company_name` against the issuer you intended**,
+  allowing for case and small spelling differences — the autocomplete writes `PMC LABEL MATERIAL`
+  where the stock list says `PMC Label Materials`, so exact equality rejects the right company.
+
+  Documented on `resolve_company`, in the README, and as a correction on the pinned advisory
+  (#142). **No behaviour changed** — a caller-side identity check is proposed for 0.25.0. The
+  `v0.24.0` tag stays exactly as released; this entry is the correction of record.
+
+### Known issues
+
+- **`get_holidays()` is currently broken by an upstream change, and upgrading does not fix it**
+  ([#140](https://github.com/lumduan/settfex/issues/140)). Since 2026-09-20 the SET endpoint has
+  answered **HTTP 401 for the current year** — and the current year is the *only* year it serves
+  (2024, 2025, 2027 and 2028 all answer 401 by design). Re-tested 2026-09-21 at 17:05 and 17:10
+  ICT after a >24-hour cooldown: both 401, so it is a change rather than a blip. It is not a client
+  regression — the same failure reproduced identically on 0.23.0 and 0.24.0rc1.
+
+  0.24.1 only makes the failure **fast and legible**; it cannot make the endpoint work. Weekend and
+  holiday logic that depends on `get_holidays()` needs another source until SET restores it.
+
 ## [0.24.0] - 2026-09-21
 
 The one breaking release of the silent-loss cycle. 0.22.0–0.23.0 closed the SEC listing path

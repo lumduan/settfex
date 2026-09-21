@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from settfex.exceptions import FetchError, InvalidLanguageError
+from settfex.exceptions import FetchError, InvalidLanguageError, SymbolNotFoundError
 from settfex.services.set.holiday import (
     BANGKOK_TZ,
     MAX_YEAR,
@@ -382,13 +382,19 @@ class TestHolidayService:
 
 @pytest.mark.asyncio
 class TestRetryBehaviour:
-    """The endpoint returns a bare 401 transiently, so the service retries."""
+    """The retry ladder itself, exercised with 429.
 
-    async def test_retries_transient_401_then_succeeds(self, mock_fetcher, no_sleep):
-        """A 401 followed by a 200 yields data rather than an exception."""
+    These used 401 as the stand-in transient until 0.24.1, when 401 stopped being retryable —
+    the endpoint degrades under polling, so retrying a 401 lowers the odds of the next attempt
+    (see TestA401FailsFast). The ladder is unchanged for the statuses that still use it, which is
+    what these now pin.
+    """
+
+    async def test_retries_transient_429_then_succeeds(self, mock_fetcher, no_sleep):
+        """A retryable status followed by a 200 yields data rather than an exception."""
         mock_fetcher.fetch.side_effect = [
-            _response(status_code=401, text=""),
-            _response(status_code=401, text=""),
+            _response(status_code=429, text=""),
+            _response(status_code=429, text=""),
             _response(SAMPLE_EN),
         ]
         service = HolidayService(FetcherConfig(max_retries=3, retry_delay=0.1))
@@ -402,8 +408,8 @@ class TestRetryBehaviour:
     async def test_backoff_is_exponential(self, mock_fetcher, no_sleep):
         """Successive retries wait retry_delay * 2**attempt."""
         mock_fetcher.fetch.side_effect = [
-            _response(status_code=401, text=""),
-            _response(status_code=401, text=""),
+            _response(status_code=429, text=""),
+            _response(status_code=429, text=""),
             _response(SAMPLE_EN),
         ]
         service = HolidayService(FetcherConfig(max_retries=3, retry_delay=1.0))
@@ -413,19 +419,19 @@ class TestRetryBehaviour:
         assert [call.args[0] for call in no_sleep.await_args_list] == [1.0, 2.0]
 
     async def test_retries_exhausted_raises_fetch_error(self, mock_fetcher, no_sleep):
-        """Persistent 401s surface as FetchError carrying the status code."""
-        mock_fetcher.fetch.return_value = _response(status_code=401, text="")
+        """A persistently retryable status surfaces as FetchError carrying the status code.
+
+        This used 401 until 0.24.1. It now uses 429, because 401 no longer reaches the ladder at
+        all — TestA401FailsFast owns that path, and asserts the single request.
+        """
+        mock_fetcher.fetch.return_value = _response(status_code=429, text="")
         service = HolidayService(FetcherConfig(max_retries=2, retry_delay=0.1))
 
         with pytest.raises(FetchError) as exc_info:
             await service.fetch_holidays(2026)
 
-        assert exc_info.value.status_code == 401
+        assert exc_info.value.status_code == 429
         assert mock_fetcher.fetch.call_count == 3
-        # 401 is the endpoint's only failure code, so the message must name both causes.
-        message = str(exc_info.value)
-        assert "only the current year is available" in message
-        assert "retry later" in message
 
     async def test_non_retryable_status_raises_immediately(self, mock_fetcher, no_sleep):
         """A 500 is not retried - it fails on the first attempt."""
@@ -524,9 +530,13 @@ class TestTheRetryPathIsUnaffectedByTheFetchJsonStatusCheck:
     """
 
     async def test_the_service_never_routes_through_fetch_json(self, mock_fetcher, no_sleep):
-        """The structural guarantee, asserted structurally."""
+        """The structural guarantee, asserted structurally.
+
+        Uses 429 since 0.24.1: 401 no longer retries, so it would end the call before the second
+        response could prove the service read a non-2xx itself.
+        """
         mock_fetcher.fetch.side_effect = [
-            _response(status_code=401, text=""),
+            _response(status_code=429, text=""),
             _response(SAMPLE_EN),
         ]
         mock_fetcher.fetch_json = AsyncMock(
@@ -538,16 +548,19 @@ class TestTheRetryPathIsUnaffectedByTheFetchJsonStatusCheck:
         assert calendar.count == 20
         mock_fetcher.fetch_json.assert_not_awaited()
 
-    async def test_a_401_is_still_retried_not_raised_on_the_first_response(
+    async def test_a_retryable_status_is_not_raised_on_the_first_response(
         self, mock_fetcher, no_sleep
     ):
         """The behaviour F3a would have broken had the service used the JSON wrapper.
 
-        Under ``fetch_json`` the first 401 would raise ``HTTPStatusError`` immediately and the
-        transient-401 retry would never run — turning a flaky endpoint into a hard failure.
+        Under ``fetch_json`` the first non-2xx would raise ``HTTPStatusError`` immediately and the
+        retry would never run — turning a flaky endpoint into a hard failure. The service reads the
+        status itself, so it can decide.
+
+        Covered 401/403/429 until 0.24.1; 401 was removed from the retryable set there, so this now
+        pins the two that remain.
         """
         mock_fetcher.fetch.side_effect = [
-            _response(status_code=401, text=""),
             _response(status_code=403, text=""),
             _response(status_code=429, text=""),
             _response(SAMPLE_EN),
@@ -555,8 +568,8 @@ class TestTheRetryPathIsUnaffectedByTheFetchJsonStatusCheck:
 
         calendar = await HolidayService(FetcherConfig(max_retries=3)).fetch_holidays(2026)
 
-        assert calendar.count == 20, "all three retryable statuses were retried, not raised"
-        assert mock_fetcher.fetch.call_count == 4
+        assert calendar.count == 20, "both retryable statuses were retried, not raised"
+        assert mock_fetcher.fetch.call_count == 3
 
     async def test_exhausting_the_retries_still_raises_in_the_fetch_error_family(
         self, mock_fetcher, no_sleep
@@ -569,3 +582,92 @@ class TestTheRetryPathIsUnaffectedByTheFetchJsonStatusCheck:
 
         assert excinfo.value.status_code == 401
         assert "401" in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+class TestA401FailsFast:
+    """0.24.1 — a 401 raises on the FIRST response; the retry ladder is gone for that status.
+
+    401 is this endpoint's only failure code and it is ambiguous, so retrying it looked like the
+    safe choice. Two facts make it the wrong one:
+
+    * the endpoint **degrades under polling** — success falls from ~100% cold to ~35% after ~50
+      requests and ~12% after ~150, recovering only when left idle. A retry therefore makes the
+      next attempt *less* likely to succeed;
+    * against the persistent 401 it has served since 2026-09-20 (issue #140) the ladder buys
+      nothing and costs ~128 s per call at the default ``max_retries=3``.
+
+    This stays a **patch**: the raised type and status are unchanged from 0.24.0 —
+    ``FetchError(status_code=401)`` via ``raise_for_status`` — so ``except FetchError`` handlers
+    behave exactly as before. Only the latency changes.
+
+    The fault is injected at ``AsyncDataFetcher.fetch``, the lowest layer, rather than by mocking
+    the code under test: that keeps the real status check, the real retry loop and the real error
+    construction in the path, which is the rule the fault matrix module documents.
+    """
+
+    async def test_it_raises_on_the_first_401_with_exactly_one_request(
+        self, mock_fetcher, no_sleep
+    ):
+        """The whole fix in one assertion: one request, no sleep, still a FetchError."""
+        mock_fetcher.fetch.side_effect = [_response(status_code=401, text="")] * 5
+
+        with pytest.raises(FetchError) as excinfo:
+            await HolidayService(FetcherConfig(max_retries=3)).fetch_holidays(2026)
+
+        assert mock_fetcher.fetch.call_count == 1, (
+            "a 401 must cost exactly ONE request; retrying lowers the next attempt's odds"
+        )
+        assert no_sleep.await_count == 0, "no backoff sleep may run for a 401"
+        assert excinfo.value.status_code == 401
+
+    async def test_the_exception_type_is_unchanged_from_0_24_0(self, mock_fetcher, no_sleep):
+        """What keeps this a patch rather than a minor.
+
+        0.24.0 raised `FetchError` with status 401 *after* exhausting retries. 0.24.1 raises the
+        same type with the same status immediately, so no handler needs to change.
+        """
+        mock_fetcher.fetch.side_effect = [_response(status_code=401, text="")]
+
+        with pytest.raises(FetchError) as excinfo:
+            await HolidayService(FetcherConfig(max_retries=3)).fetch_holidays(2026)
+
+        assert type(excinfo.value) is FetchError, "not a new subclass — that would be a minor"
+        assert excinfo.value.status_code == 401
+        assert not isinstance(excinfo.value, SymbolNotFoundError), "401 is not a 404"
+
+    async def test_the_message_points_at_the_upstream_issue(self, mock_fetcher, no_sleep):
+        """A caller hitting this needs to know it is not their bug, and not fixed by upgrading."""
+        mock_fetcher.fetch.side_effect = [_response(status_code=401, text="")]
+
+        with pytest.raises(FetchError) as excinfo:
+            await HolidayService().fetch_holidays(2026)
+
+        message = str(excinfo.value)
+        assert "issues/140" in message
+        assert "upstream" in message.lower()
+
+    async def test_403_and_429_are_still_retried(self, mock_fetcher, no_sleep):
+        """Scoped to 401. Neither of these has been observed here, and both are ordinary
+        transients elsewhere — narrowing further would be a change nothing asked for."""
+        mock_fetcher.fetch.side_effect = [
+            _response(status_code=429, text=""),
+            _response(status_code=403, text=""),
+            _response(SAMPLE_EN),
+        ]
+
+        calendar = await HolidayService(FetcherConfig(max_retries=3)).fetch_holidays(2026)
+
+        assert calendar.count == 20
+        assert mock_fetcher.fetch.call_count == 3
+        assert no_sleep.await_count == 2
+
+    async def test_a_healthy_response_is_untouched(self, mock_fetcher, no_sleep):
+        """The discipline every change in this cycle is held to."""
+        mock_fetcher.fetch.side_effect = [_response(SAMPLE_EN)]
+
+        calendar = await HolidayService().fetch_holidays(2026)
+
+        assert calendar.count == 20
+        assert mock_fetcher.fetch.call_count == 1
+        assert no_sleep.await_count == 0

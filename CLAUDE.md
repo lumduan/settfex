@@ -127,6 +127,22 @@ perfectly clear when written and wrong when read, and nothing in it could show t
   market hours does not survive being shifted by a day.
 - Write times back the same way. A report saying *"probe at 17:00"* inherits the same defect.
 
+### Run the command yourself — never hand one back
+
+**Any non-privileged command is yours to run: `git`, `gh`, `uv`, the test suite, read-only
+inspection.** Run it and put its output in the report. Only **sudo** and **infrastructure
+decisions** go to the operator.
+
+"Here's the command to check it" is not a report — it is the work, handed back. The operator is
+frequently on a phone, remote, and unable to run anything; a command he cannot execute is a dead
+end, and a claim backed by a command nobody ran is unverified.
+
+- Verify by running, then quote the actual output. Do not describe what the output would be.
+- This includes the boring ones: `git log`, `git diff --stat`, `gh issue view`, `ls`. If it
+  supports the claim, run it.
+- Exceptions are narrow: anything needing `sudo`, anything that changes infrastructure the
+  operator owns, and anything on another owner's workload (see the shared-host rule).
+
 ### Documentation
 - Update docs when adding features; include docstrings for all public APIs
 - Keep Jupyter notebook examples up-to-date
@@ -310,8 +326,18 @@ files = await sec.download_all(subset, dest_dir="./out")  # concurrent; pass `do
 
 ## Deprecation policy (from 0.24.0)
 
-Anything public that is **removed or changes behaviour** emits a `DeprecationWarning` for **at
-least one full minor release** first, naming the replacement and the release it will change in.
+**Scope: the public contract.** Signatures, types, return semantics, exception semantics, and
+documented behaviour callers depend on. Anything in that set that is **removed or changed** emits a
+`DeprecationWarning` for **at least one full minor release** first, naming the replacement and the
+release it will change in.
+
+**Not in scope: internal resilience settings.** Retry counts, backoff schedules, pacing, timeouts.
+These are implementation, not contract — a caller cannot depend on *how many times* we retry, only
+on what we eventually raise. Change them under **Fixed** or **Changed** with the rationale, no
+warning period. (0.24.1 is the worked example: the holiday 401 retry was removed outright, because
+the endpoint degrades under polling and the ladder lowered the odds of its own next attempt. The
+raised type and status were unchanged, so nothing a caller could catch behaved differently — only
+the latency.)
 
 0.24.0 is the last release exempt: its breaks are the ones the fault-injection audit forced, and
 they are documented in the CHANGELOG's **Data completeness advisory** and **Migration** sections
@@ -437,6 +463,7 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full, versioned release history — t
 - **Holiday endpoint lives on a different path prefix:** `/api/cms/v1/holidays/year/{year}` is the **only** `/api/cms/v1/` endpoint in the package — everything else on `www.set.or.th` is under `/api/set/`. It takes `?lang=` (like stock/news), **not** `?language=` (like index).
 - **The holiday endpoint serves ONLY the current year:** live-probed 2026-07-27 — with 2026 returning HTTP 200 on every interleaved control request, **2024, 2025, 2027 and 2028 all returned HTTP 401**. There is no history and no next-year lookahead, so this endpoint alone cannot back a multi-year trading calendar or a backtest.
 - **HTTP 401 is the holiday endpoint's only failure code — and it is ambiguous:** an unrecognized `lang`, a missing `lang`, and an unserved year all return a bare `401` with an **empty body**, and so do valid requests *transiently*. Success degrades the harder you poll (~100% cold → ~35% after ~50 requests → ~12% after ~150), recovering on its own when left idle. `HolidayService` therefore retries 401/403/429 itself with exponential backoff (`FetcherConfig.max_retries`/`retry_delay`) — note `AsyncDataFetcher.fetch()` retries **exceptions only**, never a non-2xx status, so any other service is one flaky response away from a hard failure.
+- **`get_holidays()` is BROKEN UPSTREAM since 2026-09-20, and no settfex change can fix it (issue #140):** the endpoint answers **HTTP 401 for the CURRENT year** — and the current year is the only year it serves, so nothing is left that works. Re-tested 2026-09-21 at 17:05 and 17:10 ICT after a >24-hour cooldown: both 401, which is what separates a change from this endpoint's documented transient 401. Not a client regression — identical on 0.23.0 and 0.24.0rc1, four runs, runtimes within 1.3 s. ⚠️ **401 is no longer retried (0.24.1).** It was, because 401 is also the transient code — but this endpoint *degrades under polling* (~100% cold → ~35% after ~50 requests → ~12% after ~150), so the ladder lowered the odds of its own next attempt while costing ~128 s per call. `403`/`429` are still retried. The raised type is unchanged (`FetchError`, `status_code=401`), so this stayed a patch.
 - **`HolidayCalendar.is_holiday()` is not "is the market open":** the API returns published closures only, so weekends are absent and `is_holiday(saturday)` is `False`. It also expresses whole-day closures only — no field for partial sessions or altered hours. Weekend logic must live in the caller.
 - **Do not enable `str_strip_whitespace` on `Holiday`:** unlike every other SET model, it is deliberately off — a trailing `" *"` in a description is a SET footnote marker for additional special closures and must survive verbatim (a test guards this).
 - **SEC listings are BILINGUAL now, and the Thai page is not a translation of the English one:** `lang="th"` used to return an empty list for every issuer — `category_for_section` probed English substrings only, so every Thai heading fell through to `None` and `row_to_document` dropped the row at its first statement, with no exception, no warning and no DEBUG line (issue #123, fixed 2026-09-19). Classification and the header map are now bilingual and the Thai half is an exact **mirror** of the English half — same fields, no more and no fewer — so the same query in either language yields the same documents. Two live traps if you touch `_section_disposition`: (1) **order is load-bearing** — the Thai heading for statements *being revised* (`งบการเงินที่อยู่ระหว่างการแก้ไข`) **contains** the heading for financial statements (`งบการเงิน`) as a prefix, so the skip tokens must be tested first or every amended-statement section files under `FINANCIAL_STATEMENT`; (2) `รายละเอียด` is **one Thai word for three English headers** (Details/Link/Description) and appears **twice in one header row** on the ordered-to-amend table — all three are unmapped in English, so "no entry" is right in all three places. **Do not add it to `_HEADER_FIELD_MAP`.**
