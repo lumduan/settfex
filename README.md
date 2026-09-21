@@ -31,12 +31,12 @@ This includes pandas, matplotlib, and jupyter notebook support.
 **If you stored results from settfex before 0.24.0, check them.** Earlier versions could return
 incomplete data, or — for company lookup by name — another company's data, without any error.
 Re-fetch anything persisted with an affected version, and for name lookups verify the company
-identity too. The [data completeness advisory](CHANGELOG.md#data-completeness-advisory) lists the
+identity too. The [data completeness advisory](https://github.com/lumduan/settfex/blob/v0.24.0/CHANGELOG.md#data-completeness-advisory) lists the
 affected versions per function.
 
 0.24.0 is a breaking release: result containers are Pydantic models (`isinstance(x, list)` is now
 `False`, **silently** — it takes the other branch rather than raising), and several error types
-changed. See [Migration](CHANGELOG.md#migration).
+changed. See [Migration](https://github.com/lumduan/settfex/blob/v0.24.0/CHANGELOG.md#migration).
 
 ## Versioning policy
 

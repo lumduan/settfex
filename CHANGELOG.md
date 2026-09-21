@@ -28,10 +28,11 @@ cells now pass, plus 10 more asserting the signal survives the way *out*.
 
 ### Data completeness advisory
 
-**If you persisted results from settfex before 0.24.0, check them.** Every defect below returned a
-*successful-looking* answer — no exception, no warning — so nothing in your logs shows which calls
-were affected. They are ordered **wrong data first**: a wrong answer is worse than a missing one,
-because nothing downstream can detect it.
+**If you persisted results from settfex before 0.24.0, check them.** Most of the defects below
+returned a *successful-looking* answer, and for most nothing above DEBUG was logged — so **your
+logs are not a reliable index of which calls were affected**. Some do leave a trace: from 0.22.0
+the listing began emitting shortfall WARNINGs, and row 12 raised outright. They are ordered **wrong
+data first**: a wrong answer is worse than a missing one, because nothing downstream can detect it.
 
 🔴 *wrong* = the value returned was incorrect · 🟠 *missing* = the value was incomplete.
 
@@ -58,10 +59,19 @@ because nothing downstream can detect it.
 
 1. **Re-fetch anything you persisted with an affected version.** The stored data cannot be repaired
    in place, because the defects produced valid-looking output.
-2. **For row 1, verify identity, not just completeness.** Anything resolved by company **name**, or
-   by a symbol that is not an SEC issuer, may be filed under the wrong company — check
-   `company_name` / `unique_id` against what you asked for. It is the only row where re-fetching
-   without checking would leave you holding plausible, wrong records.
+2. **For row 1, verify identity, not just completeness.** Compare the stored `company_name` — on
+   the `CompanyMatch` you resolved, or on any `SecDocument` in a stored listing — against the
+   issuer you intended. Or re-resolve by **ticker** under 0.24.0 and check that `unique_id` matches
+   what you stored:
+
+   ```python
+   resolved = await resolve_company("CPALL")          # a ticker: the site flags it, so it is safe
+   assert resolved.unique_id == stored.unique_id      # mismatch => the stored records are another
+                                                      # company's; re-fetch under 0.24.0
+   ```
+
+   It is the only row where re-fetching without checking leaves you holding plausible, wrong
+   records.
 3. **After upgrading, branch on the signals** rather than on the absence of an exception:
    `docs.accounting.has_losses`, `.failed_codes`, `.degraded_sections`, `result.is_complete`.
    Since 0.23.0 a partial failure does **not** raise.
