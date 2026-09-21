@@ -105,6 +105,28 @@ evidence from that sweep was unusable, and the host stayed hostile long after th
   family, wrong diagnosis, and a caller retrying "a bad response" will make things worse. A
   dedicated `BlockedError` is tracked on #135 for 0.25.0.
 
+### Scheduled actions need an absolute time — relative words are ambiguous
+
+A time-bound instruction must carry **a date, a clock time and a timezone**: *"at or after
+2026-09-21 17:00 ICT"*. If one is missing, **ask** — do not infer it from when the message appears
+to have been written.
+
+**Earned 2026-09-20/21.** A GO reading *"after 17:00 ICT today"* was written on a Sunday and acted
+on the following Monday morning. By then "today" had silently re-pointed at a new date, and the
+window it named had not only passed — the replacement window landed in the middle of SET's live
+trading session, on the machine that carries non-backfillable market capture. The instruction was
+perfectly clear when written and wrong when read, and nothing in it could show that.
+
+- **Relative words are the hazard**: *today, tonight, tomorrow, this evening, in an hour, later,
+  after close*. A conversation can be paused, compacted, resumed the next day, or forwarded — the
+  word survives the day it was written in.
+- **Anchor to the event, not the hour, when the event is what matters**: "after the SET close"
+  means 16:30 ICT on a *trading day*, which is not the same instruction on a Sunday.
+- **Check the clock before acting on any timed instruction**, and if the named window has passed,
+  say so and re-ask rather than substituting the nearest equivalent. A window chosen to avoid
+  market hours does not survive being shifted by a day.
+- Write times back the same way. A report saying *"probe at 17:00"* inherits the same defect.
+
 ### Documentation
 - Update docs when adding features; include docstrings for all public APIs
 - Keep Jupyter notebook examples up-to-date

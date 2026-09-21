@@ -7,14 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.24.0] - 2026-09-20
+## [0.24.0] - 2026-09-21
 
 The one breaking release of the silent-loss cycle. 0.22.0–0.23.0 closed the SEC listing path
 case by case; this one closes the **class** — library-wide — and redesigns the two container types
 whose design made a loss invisible even after it had been recorded.
 
-Published first as **`0.24.0rc1`**, a pre-release, so the breaking container change can soak before
-it becomes the latest version.
+Published first as **`0.24.0rc1`** ([pre-release](https://pypi.org/project/settfex/0.24.0rc1/)) and
+validated offline by the downstream consumer that reported this whole class of bug. That validation
+found two further defects, both fixed here: the `__getitem__` typing collapse and the lone
+unflagged company match.
 
 The whole cycle reduces to one rule, and the fault matrix that lands here is built to keep it true:
 

@@ -304,6 +304,17 @@ wrong diagnosis. If you see it repeatedly from one host, **stop and back off**; 
 
 ---
 
+## Timed instructions
+
+If you are told to do something at a particular time, that instruction needs **a date, a clock time
+and a timezone** — `2026-09-21 17:00 ICT`. Relative words (*today*, *tonight*, *after close*) are
+ambiguous the moment a conversation spans midnight or is resumed later, and they give no signal
+that they have gone stale.
+
+**Check the current time before acting on one.** If the window has passed, say so and ask rather
+than substituting the nearest equivalent — the reason a window was chosen (avoiding market hours,
+avoiding another system's traffic) usually does not survive being moved by a day.
+
 ## Communication language
 
 - All prose you write is in English: reports and chat replies to the operator, commit messages,
