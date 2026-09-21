@@ -127,6 +127,22 @@ perfectly clear when written and wrong when read, and nothing in it could show t
   market hours does not survive being shifted by a day.
 - Write times back the same way. A report saying *"probe at 17:00"* inherits the same defect.
 
+### Run the command yourself — never hand one back
+
+**Any non-privileged command is yours to run: `git`, `gh`, `uv`, the test suite, read-only
+inspection.** Run it and put its output in the report. Only **sudo** and **infrastructure
+decisions** go to the operator.
+
+"Here's the command to check it" is not a report — it is the work, handed back. The operator is
+frequently on a phone, remote, and unable to run anything; a command he cannot execute is a dead
+end, and a claim backed by a command nobody ran is unverified.
+
+- Verify by running, then quote the actual output. Do not describe what the output would be.
+- This includes the boring ones: `git log`, `git diff --stat`, `gh issue view`, `ls`. If it
+  supports the claim, run it.
+- Exceptions are narrow: anything needing `sudo`, anything that changes infrastructure the
+  operator owns, and anything on another owner's workload (see the shared-host rule).
+
 ### Documentation
 - Update docs when adding features; include docstrings for all public APIs
 - Keep Jupyter notebook examples up-to-date
@@ -310,8 +326,18 @@ files = await sec.download_all(subset, dest_dir="./out")  # concurrent; pass `do
 
 ## Deprecation policy (from 0.24.0)
 
-Anything public that is **removed or changes behaviour** emits a `DeprecationWarning` for **at
-least one full minor release** first, naming the replacement and the release it will change in.
+**Scope: the public contract.** Signatures, types, return semantics, exception semantics, and
+documented behaviour callers depend on. Anything in that set that is **removed or changed** emits a
+`DeprecationWarning` for **at least one full minor release** first, naming the replacement and the
+release it will change in.
+
+**Not in scope: internal resilience settings.** Retry counts, backoff schedules, pacing, timeouts.
+These are implementation, not contract — a caller cannot depend on *how many times* we retry, only
+on what we eventually raise. Change them under **Fixed** or **Changed** with the rationale, no
+warning period. (0.24.1 is the worked example: the holiday 401 retry was removed outright, because
+the endpoint degrades under polling and the ladder lowered the odds of its own next attempt. The
+raised type and status were unchanged, so nothing a caller could catch behaved differently — only
+the latency.)
 
 0.24.0 is the last release exempt: its breaks are the ones the fault-injection audit forced, and
 they are documented in the CHANGELOG's **Data completeness advisory** and **Migration** sections

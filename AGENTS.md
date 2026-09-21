@@ -314,6 +314,13 @@ Since 0.24.1 it fails **immediately** instead of retrying for ~128 s, and the er
 so. Do not retry it, and do not report it as a library bug. If you need trading-day logic, you
 need another source for market closures; remember `is_holiday()` never covered weekends anyway.
 
+## Run it, don't hand it over
+
+If a command is non-privileged — `git`, `gh`, `uv`, tests, any read-only inspection — run it and
+report the output. Do not end a report with a command for the human to run; they may be on a phone
+and unable to run anything, and a claim nobody verified is not a finding. Only `sudo` and
+infrastructure decisions belong to them.
+
 ## Timed instructions
 
 If you are told to do something at a particular time, that instruction needs **a date, a clock time

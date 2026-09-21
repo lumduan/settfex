@@ -29,6 +29,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `403` and `429` are still retried. Neither has been observed on this endpoint, and both are
   ordinary transient statuses elsewhere — narrowing further would be a change nothing asked for.
 
+### Documentation
+
+- **A flagged company match can still be the wrong company — the advisory's verification step was
+  corrected.** `CompanyMatch.is_primary` means the SEC site resolved your query as **its own**
+  identifier. SEC abbreviations and SET tickers are **separate namespaces and they collide**:
+
+  ```
+  search_companies("PMC") ->
+    [       ] 0000019528  EPMC COMPANY LIMITED
+    [       ] 0000003476  JP MORGAN CHASE BANK BANGKOK BRANCH
+    [       ] 0000033140  PMC LABEL MATERIAL PUBLIC COMPANY LIMITED   <- the SET-listed company
+    [       ] 0000007483  PMCC (THAILAND)
+    [PRIMARY] 0000007988  PORT AND MARINE CORPORATION (P.A.M.) CO LTD <- what you get
+  ```
+
+  The flagged row is unlisted and files nothing; the listed company is **not** flagged. This is the
+  mirror of the `UBOT` → `KUBOTA` case 0.24.0 closed — there **no** candidate was flagged, so it
+  could raise. Here one **is**, so nothing detects it.
+
+  0.24.0's advisory suggested verifying a stored record by re-resolving the ticker and comparing
+  `unique_id`. **That check can pass on data that is wrong**: for `PMC` both sides give
+  `0000007988` and the record looks confirmed. A `unique_id` match proves resolution is
+  *deterministic*, not *correct*. **Compare `company_name` against the issuer you intended**,
+  allowing for case and small spelling differences — the autocomplete writes `PMC LABEL MATERIAL`
+  where the stock list says `PMC Label Materials`, so exact equality rejects the right company.
+
+  Documented on `resolve_company`, in the README, and as a correction on the pinned advisory
+  (#142). **No behaviour changed** — a caller-side identity check is proposed for 0.25.0. The
+  `v0.24.0` tag stays exactly as released; this entry is the correction of record.
+
 ### Known issues
 
 - **`get_holidays()` is currently broken by an upstream change, and upgrading does not fix it**
