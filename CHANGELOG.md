@@ -26,6 +26,46 @@ The whole cycle reduces to one rule, and the fault matrix that lands here is bui
 Sweeping 33 public entry points × 5 injected faults found **15** paths where both held. All 165
 cells now pass, plus 10 more asserting the signal survives the way *out*.
 
+### Data completeness advisory
+
+**If you persisted results from settfex before 0.24.0, check them.** Every defect below returned a
+*successful-looking* answer — no exception, no warning — so nothing in your logs shows which calls
+were affected. They are ordered **wrong data first**: a wrong answer is worse than a missing one,
+because nothing downstream can detect it.
+
+🔴 *wrong* = the value returned was incorrect · 🟠 *missing* = the value was incomplete.
+
+| # | Kind | Function(s) | Affected | Symptom | Fixed |
+|---|---|---|---|---|---|
+| 1 | 🔴 **wrong** | `resolve_company`, `SecCompany`, `get_sec_documents` | **0.13.0 – 0.23.0** | A query the SEC did not resolve as an *identifier* — a company **name**, or a symbol that is not an SEC issuer (ETF, warrant, DW) — returned an arbitrary substring match on a **different company's** name, alphabetically first. You received that company's filings under the name you asked for. `CHINA` → `ASEAN CHINA INVESTMENT FUND L.P.`; `ปตท` (PTT) → `กองทุนสำรองเลี้ยงชีพพนักงานบริษัท ปตท.` (the PTT employees' provident fund) | **0.24.0** |
+| 2 | 🔴 wrong | `parse_dmy_date`, `parse_year` | 0.13.0 – 0.20.0 | Buddhist-era input returned a date **543 years in the future** (`30/06/2568` → `2568-06-30`) | 0.21.0 |
+| 3 | 🟠 missing | SEC listings, `lang="th"` | 0.13.0 – 0.20.0 | **Every** Thai-language listing returned `[]` — indistinguishable from "this issuer filed nothing" | 0.21.0 |
+| 4 | 🟠 missing | SEC listings | 0.13.0 – 0.21.0 | A page could lose **every** row to a missing download link and still return `[]`, raising nothing | 0.22.0 |
+| 5 | 🟠 missing | SEC listings | 0.13.0 – 0.21.0 | Two of five download-URL shapes were unrecognised, so Key Financial Ratio rows vanished (CPALL: 13 of 15) | 0.22.0 |
+| 6 | 🟠 missing | SEC listings, Thai 56-1/56-2 | 0.21.0 | `receive_date` was `None` — for an annual report, the only filing timestamp the model exposes | 0.22.0 |
+| 7 | 🟠 missing | `download_all`, `download_sec_documents` | 0.13.0 – 0.21.0 | Failed downloads were dropped from the result, so a **partial batch was shaped exactly like a complete one** | 0.22.0 |
+| 8 | 🟠 missing | SEC listings | 0.13.0 – 0.22.0 | The listing never checked the HTTP status, so an error page parsed to zero rows and returned `[]` | 0.22.1 |
+| 9 | 🟠 missing | SEC listings | 0.13.0 – 0.22.0 | A broken "display all results" page deleted its **whole section**, inline rows included | 0.22.1 |
+| 10 | 🟠 missing | `download_sec_document(s)` | 0.13.0 – 0.22.0 | A fifth download shape was unrecognised, so pre-2014 filings were unreachable | 0.22.1 |
+| 11 | 🟠 missing | SEC listings, 56-1/56-2 | 0.13.0 – 0.22.1 | Sections truncated **even with `follow_view_more=True`** (CPALL th 56-1: 11 of 23; PTT 56-2: 10 of 15, both languages) | 0.22.2 |
+| 12 | 🟠 missing | `get_sec_documents` with several categories | 0.13.0 – 0.22.2 | One failing report code **discarded the documents every other code had parsed** | 0.23.0 |
+| 13 | 🟠 missing | ~23 JSON call sites across SET, TFEX, SEC, ThaiBMA | **≤ 0.23.0** | `fetch_json` never checked the HTTP status. Where the response model tolerated an empty payload, an HTTP error or error page validated into a **successful-looking empty result** — e.g. `get_index_info_list` returned `[]` on HTTP 503 | **0.24.0** |
+| 14 | 🟠 missing | `fetch_history_raw` (ThaiBMA) | **0.17.0 – 0.23.0** | Years ThaiBMA does not serve answer `200 + []`; this method skipped the availability clamp, so those years vanished silently | **0.24.0** |
+| 15 | 🟠 missing | `SecDocumentList`, `DownloadResult` | 0.22.0 – 0.23.0 | `sorted()`, slicing, `list()` and comprehensions returned a plain `list`, dropping `.accounting` / `.failed` | **0.24.0** |
+| 16 | 🟠 missing | SEC listings | 0.22.1 – 0.23.0 | A section that fell back to truncated rows left `has_losses` **`False`** — the flag callers branch on reported "clean" | **0.24.0** |
+
+**What to do**
+
+1. **Re-fetch anything you persisted with an affected version.** The stored data cannot be repaired
+   in place, because the defects produced valid-looking output.
+2. **For row 1, verify identity, not just completeness.** Anything resolved by company **name**, or
+   by a symbol that is not an SEC issuer, may be filed under the wrong company — check
+   `company_name` / `unique_id` against what you asked for. It is the only row where re-fetching
+   without checking would leave you holding plausible, wrong records.
+3. **After upgrading, branch on the signals** rather than on the absence of an exception:
+   `docs.accounting.has_losses`, `.failed_codes`, `.degraded_sections`, `result.is_complete`.
+   Since 0.23.0 a partial failure does **not** raise.
+
 ### Breaking
 
 #### `SecDocumentList` and `DownloadResult` are Pydantic models, not `list` subclasses (issue #134)

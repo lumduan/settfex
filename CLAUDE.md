@@ -308,6 +308,19 @@ files = await sec.download_all(subset, dest_dir="./out")  # concurrent; pass `do
 | Build | `uv` (pyproject.toml) | Fast dependency resolution |
 | Lint | Ruff + mypy strict | Modern, fast tooling |
 
+## Deprecation policy (from 0.24.0)
+
+Anything public that is **removed or changes behaviour** emits a `DeprecationWarning` for **at
+least one full minor release** first, naming the replacement and the release it will change in.
+
+0.24.0 is the last release exempt: its breaks are the ones the fault-injection audit forced, and
+they are documented in the CHANGELOG's **Data completeness advisory** and **Migration** sections
+instead. Everything after it gets the warning period.
+
+A `DeprecationWarning` is part of the **L1 surface** — `tests/golden/api_surface.json` records it,
+so *removing the warning* is itself the breaking change and the golden diff shows it. That is what
+stops a deprecation being announced and then quietly skipped.
+
 ## Dependency policy
 
 How dependencies are constrained, upgraded, and verified. (Established with the 0.19.2
