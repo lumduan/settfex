@@ -45,6 +45,7 @@ from typing import TYPE_CHECKING, Any
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from settfex.exceptions import FetchError
 from settfex.services.thaibma.availability import YieldCurveAvailabilityService
 from settfex.services.thaibma.constants import (
     BANGKOK_TZ,
@@ -346,6 +347,13 @@ class YieldCurveHistory(BaseModel):
             that year and where it existed but was not quoted — use :meth:`columns_by_year` to
             tell the two apart.
 
+            ``df.attrs`` carries ``missing_years``, ``unavailable_years``, ``kind``,
+            ``start_date`` and ``end_date``. The two gap lists are there because a DataFrame is
+            where this history usually *leaves* settfex, and a frame silently missing a year looks
+            exactly like a frame whose year had no data — the same shape of loss this release
+            exists to close. ``df.attrs`` survives copy, column selection and ``head()`` on both
+            pandas majors, which is why the analyst-consensus frames already use it.
+
         Raises:
             ImportError: If pandas is not installed.
             ValueError: If ``layout`` is not recognized.
@@ -354,6 +362,8 @@ class YieldCurveHistory(BaseModel):
             >>> df = history.to_dataframe()
             >>> df.shape
             (1608, 54)
+            >>> df.attrs["missing_years"]        # years whose fetch failed and was skipped
+            []
         """
         try:
             import pandas as pd
@@ -364,7 +374,8 @@ class YieldCurveHistory(BaseModel):
             ) from exc
 
         if layout == "long":
-            return pd.DataFrame(self.to_long(), columns=["as_of", "column", "value"])
+            long_frame = pd.DataFrame(self.to_long(), columns=["as_of", "column", "value"])
+            return self._with_provenance(long_frame)
         if layout != "wide":
             error_msg = f"layout must be 'wide' or 'long', got {layout!r}"
             logger.error(error_msg)
@@ -375,6 +386,18 @@ class YieldCurveHistory(BaseModel):
             columns=self.columns,
             index=pd.Index([row.as_of for row in self.rows], name="as_of"),
         )
+        return self._with_provenance(frame)
+
+    def _with_provenance(self, frame: pd.DataFrame) -> pd.DataFrame:
+        """Attach the gap lists to ``df.attrs`` so they survive the frame boundary.
+
+        Both layouts get them: a long frame loses a year just as quietly as a wide one.
+        """
+        frame.attrs["kind"] = self.kind.value
+        frame.attrs["start_date"] = self.start_date
+        frame.attrs["end_date"] = self.end_date
+        frame.attrs["missing_years"] = list(self.missing_years)
+        frame.attrs["unavailable_years"] = list(self.unavailable_years)
         return frame
 
 
@@ -674,6 +697,7 @@ class YieldCurveHistoryService:
         end_date: date | datetime | str | None = None,
         *,
         kind: HistoryKind | str = HistoryKind.TENOR,
+        check_availability: bool = True,
     ) -> list[dict[str, Any]]:
         """
         Fetch a span of history as raw wide dicts, without validation.
@@ -682,13 +706,23 @@ class YieldCurveHistoryService:
             start_date: Inclusive start (defaults to 1 January of the end year).
             end_date: Inclusive end (defaults to today in Asia/Bangkok).
             kind: ``"tenor"`` (default) or ``"bond"``.
+            check_availability: If True (default), spend one request on ``/availyear`` so years
+                ThaiBMA does not serve are reported rather than silently contributing nothing.
 
         Returns:
             Raw rows keeping their original lowercase ``asof`` key, ascending, sliced to the span.
 
+            .. warning::
+               A bare ``list`` has nowhere to carry an accounting, so unlike
+               :meth:`fetch_history` this method reports a gap **only** through a WARNING —
+               there is no ``unavailable_years`` to read afterwards. Use :meth:`fetch_history`
+               when you need the gap in the return value.
+
         Raises:
             ValueError: If ``start_date`` is after ``end_date``.
-            FetchError: On a non-2xx status.
+            FetchError: On a non-2xx status, or when ThaiBMA serves **none** of the requested
+                years — a total loss raises, because an empty list would otherwise be
+                indistinguishable from "those years had no business days".
 
         Example:
             >>> raw = await service.fetch_history_raw("2026-01-01")
@@ -697,7 +731,30 @@ class YieldCurveHistoryService:
         """
         resolved_kind = _coerce_kind(kind)
         start, end = await self._resolve_span(start_date, end_date)
-        years = range(start.year, end.year + 1)
+        # Until 0.24.0 this went straight to `range(start.year, end.year + 1)` and never called
+        # `_select_years`, so it skipped the availability clamp that `fetch_history` applies. The
+        # per-year endpoints answer a year they do not serve with HTTP 200 and an EMPTY LIST, so a
+        # 1995-2001 span quietly returned only the 1999-2001 rows -- no exception, no warning, and
+        # nothing in the return value to say four years were dropped. That is precisely the case
+        # `availability.py` was written to prevent, and this method was the one path that bypassed
+        # it.
+        years, unavailable = await self._select_years(
+            start, end, check_availability=check_availability
+        )
+        if not years:
+            error_msg = (
+                f"ThaiBMA serves none of the years {unavailable} requested for {start}..{end}. "
+                f"Returning an empty list here would be indistinguishable from a span that "
+                f"genuinely holds no rows."
+            )
+            logger.error(error_msg)
+            raise FetchError(error_msg)
+        if unavailable:
+            logger.warning(
+                f"fetch_history_raw is returning rows for {years} only; ThaiBMA does not serve "
+                f"{unavailable}. A raw list cannot carry that gap -- use fetch_history() if you "
+                f"need `unavailable_years` in the return value."
+            )
 
         async with AsyncDataFetcher(config=self.config) as fetcher:
             payloads = await asyncio.gather(

@@ -7,6 +7,327 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-09-21
+
+The one breaking release of the silent-loss cycle. 0.22.0–0.23.0 closed the SEC listing path
+case by case; this one closes the **class** — library-wide — and redesigns the two container types
+whose design made a loss invisible even after it had been recorded.
+
+Published first as **`0.24.0rc1`** ([pre-release](https://pypi.org/project/settfex/0.24.0rc1/)) and
+validated offline by the downstream consumer that reported this whole class of bug. That validation
+found two further defects, both fixed here: the `__getitem__` typing collapse and the lone
+unflagged company match.
+
+The whole cycle reduces to one rule, and the fault matrix that lands here is built to keep it true:
+
+> a response is silently lost ⟺ **(nothing checks the HTTP status)** AND **(the response model
+> validates the error body)**
+
+Sweeping 33 public entry points × 5 injected faults found **15** paths where both held. All 165
+cells now pass, plus 10 more asserting the signal survives the way *out*.
+
+### Data completeness advisory
+
+**If you persisted results from settfex before 0.24.0, check them.** Most of the defects below
+returned a *successful-looking* answer, and for most nothing above DEBUG was logged — so **your
+logs are not a reliable index of which calls were affected**. Some do leave a trace: from 0.22.0
+the listing began emitting shortfall WARNINGs, and row 12 raised outright. They are ordered **wrong
+data first**: a wrong answer is worse than a missing one, because nothing downstream can detect it.
+
+🔴 *wrong* = the value returned was incorrect · 🟠 *missing* = the value was incomplete.
+
+| # | Kind | Function(s) | Affected | Symptom | Fixed |
+|---|---|---|---|---|---|
+| 1 | 🔴 **wrong** | `resolve_company`, `SecCompany`, `get_sec_documents` | **0.13.0 – 0.23.0** | A query the SEC did not resolve as an *identifier* — a company **name**, or a symbol that is not an SEC issuer (ETF, warrant, DW) — returned an arbitrary substring match on a **different company's** name, alphabetically first. You received that company's filings under the name you asked for. `CHINA` → `ASEAN CHINA INVESTMENT FUND L.P.`; `ปตท` (PTT) → `กองทุนสำรองเลี้ยงชีพพนักงานบริษัท ปตท.` (the PTT employees' provident fund) | **0.24.0** |
+| 2 | 🔴 wrong | `parse_dmy_date`, `parse_year` | 0.13.0 – 0.20.0 | Buddhist-era input returned a date **543 years in the future** (`30/06/2568` → `2568-06-30`) | 0.21.0 |
+| 3 | 🟠 missing | SEC listings, `lang="th"` | 0.13.0 – 0.20.0 | **Every** Thai-language listing returned `[]` — indistinguishable from "this issuer filed nothing" | 0.21.0 |
+| 4 | 🟠 missing | SEC listings | 0.13.0 – 0.21.0 | A page could lose **every** row to a missing download link and still return `[]`, raising nothing | 0.22.0 |
+| 5 | 🟠 missing | SEC listings | 0.13.0 – 0.21.0 | Two of five download-URL shapes were unrecognised, so Key Financial Ratio rows vanished (CPALL: 13 of 15) | 0.22.0 |
+| 6 | 🟠 missing | SEC listings, Thai 56-1/56-2 | 0.21.0 | `receive_date` was `None` — for an annual report, the only filing timestamp the model exposes | 0.22.0 |
+| 7 | 🟠 missing | `download_all`, `download_sec_documents` | 0.13.0 – 0.21.0 | Failed downloads were dropped from the result, so a **partial batch was shaped exactly like a complete one** | 0.22.0 |
+| 8 | 🟠 missing | SEC listings | 0.13.0 – 0.22.0 | The listing never checked the HTTP status, so an error page parsed to zero rows and returned `[]` | 0.22.1 |
+| 9 | 🟠 missing | SEC listings | 0.13.0 – 0.22.0 | A broken "display all results" page deleted its **whole section**, inline rows included | 0.22.1 |
+| 10 | 🟠 missing | `download_sec_document(s)` | 0.13.0 – 0.22.0 | A fifth download shape was unrecognised, so pre-2014 filings were unreachable | 0.22.1 |
+| 11 | 🟠 missing | SEC listings, 56-1/56-2 | 0.13.0 – 0.22.1 | Sections truncated **even with `follow_view_more=True`** (CPALL th 56-1: 11 of 23; PTT 56-2: 10 of 15, both languages) | 0.22.2 |
+| 12 | 🟠 missing | `get_sec_documents` with several categories | 0.13.0 – 0.22.2 | One failing report code **discarded the documents every other code had parsed** | 0.23.0 |
+| 13 | 🟠 missing | ~23 JSON call sites across SET, TFEX, SEC, ThaiBMA | **≤ 0.23.0** | `fetch_json` never checked the HTTP status. Where the response model tolerated an empty payload, an HTTP error or error page validated into a **successful-looking empty result** — e.g. `get_index_info_list` returned `[]` on HTTP 503 | **0.24.0** |
+| 14 | 🟠 missing | `fetch_history_raw` (ThaiBMA) | **0.17.0 – 0.23.0** | Years ThaiBMA does not serve answer `200 + []`; this method skipped the availability clamp, so those years vanished silently | **0.24.0** |
+| 15 | 🟠 missing | `SecDocumentList`, `DownloadResult` | 0.22.0 – 0.23.0 | `sorted()`, slicing, `list()` and comprehensions returned a plain `list`, dropping `.accounting` / `.failed` | **0.24.0** |
+| 16 | 🟠 missing | SEC listings | 0.22.1 – 0.23.0 | A section that fell back to truncated rows left `has_losses` **`False`** — the flag callers branch on reported "clean" | **0.24.0** |
+
+**What to do**
+
+1. **Re-fetch anything you persisted with an affected version.** The stored data cannot be repaired
+   in place, because the defects produced valid-looking output.
+2. **For row 1, verify identity, not just completeness.** Compare the stored `company_name` — on
+   the `CompanyMatch` you resolved, or on any `SecDocument` in a stored listing — against the
+   issuer you intended. Or re-resolve by **ticker** under 0.24.0 and check that `unique_id` matches
+   what you stored:
+
+   ```python
+   resolved = await resolve_company("CPALL")          # a ticker: the site flags it, so it is safe
+   assert resolved.unique_id == stored.unique_id      # mismatch => the stored records are another
+                                                      # company's; re-fetch under 0.24.0
+   ```
+
+   It is the only row where re-fetching without checking leaves you holding plausible, wrong
+   records.
+3. **After upgrading, branch on the signals** rather than on the absence of an exception:
+   `docs.accounting.has_losses`, `.failed_codes`, `.degraded_sections`, `result.is_complete`.
+   Since 0.23.0 a partial failure does **not** raise.
+
+### Breaking
+
+#### `SecDocumentList` and `DownloadResult` are Pydantic models, not `list` subclasses (issue #134)
+
+Both carried their completeness information as **instance attributes on a `list` subclass**, so
+every operation that builds a *new* list — slicing, `sorted()`, `list()`, `+`, a comprehension —
+returned a plain `list` without them. Six of eight ordinary operations dropped the evidence, in
+silence. 0.23.0 made it sharper by recording *which report code failed* there, so `sorted(docs, …)`
+discarded that too.
+
+The information is now a **field**, which means it also survives `model_dump()`, JSON, and every
+boundary a pipeline or an agent puts the result through. That last part is the point: function
+calling hands back JSON, so a signal that is not serialized does not exist at the tool boundary.
+
+```python
+# before — 0.23.0
+docs = await get_sec_documents("CPALL")
+recent = sorted(docs, key=lambda d: d.year or 0)   # a plain list; .accounting is GONE
+files = await sec.download_all(docs)
+for f in sorted(files, key=lambda f: f.size):      # a plain list; .failed is GONE
+    ...
+
+# after — 0.24.0
+docs = await get_sec_documents("CPALL")
+recent = sorted(docs.documents, key=lambda d: d.year or 0)   # sort the field
+docs.accounting.has_losses                                   # read it off the object
+docs[:5].accounting                                          # or off a slice — it is carried
+
+files = await sec.download_all(docs)
+for f in sorted(files.files, key=lambda f: f.size):
+    ...
+if not files.is_complete:
+    print([f.target for f in files.failed])
+```
+
+What is **kept**, so ordinary use is unchanged: `len()`, `bool()`, iteration, integer indexing,
+`in`, `filter()`, `completeness()`, `summary()`, `repr()`, `categories()`, `available_years()`,
+`years_by_category()`, `is_complete`. **Slicing returns a model**, never a bare list.
+
+Two details worth stating explicitly, because neither is guessable:
+
+- **A slice carries the accounting of the whole source call, not of the slice.** `docs[0:0]` still
+  reports the two rows the *listing* lost. This is deliberate and is the rule `filter()` already
+  followed — narrowing a result must never hide a loss from exactly the caller who narrowed it.
+- **`sorted(docs)` and `list(docs)` still return plain lists**, because iteration is kept. Removing
+  iteration would break every consumer for no gain, so this edge is documented rather than closed.
+
+##### ⚠️ `isinstance(x, list)` is now `False` — and it fails *silently*
+
+Every other break here raises. This one takes the other branch:
+
+```python
+if isinstance(docs, list):      # was True, is now False
+    save(docs)                  # ...so this silently stops running
+else:
+    save([docs])                # ...and a list-of-one-listing is written instead
+```
+
+Nothing warns. Grep for `isinstance(..., list)`, `type(x) is list` and any `list`-typed signature
+that receives one of these, and switch to `docs.documents` / `files.files`. `dict(docs)` also
+stops working, but loudly — use `docs.model_dump()`.
+
+#### `resolve_company` raises instead of guessing (new `AmbiguousCompanyError`)
+
+When several issuers matched and the site flagged none as *the* match, `resolve_company` returned
+`matches[0]`. The autocomplete does substring matching over company **names** and returns them
+**alphabetically, not by relevance**, so the first row is arbitrary — and when the query is not an
+SEC-registered issuer at all, *every* candidate is unrelated. Live-probed 2026-09-20:
+
+| query | what it is | candidates | what 0.23.0 returned |
+|---|---|---|---|
+| `CHINA` | a SET **ETF** — no SEC issuer exists | 60, none flagged | `ASEAN CHINA INVESTMENT FUND L.P.` |
+| `UBOT` | also an ETF | 13, none flagged | `KUBOTA AYUTTHAYA (HUAHENGLEE) COMPANY LIMITED` |
+| `ปตท` (PTT) | a Thai name fragment | 17, none flagged | `กองทุนสำรองเลี้ยงชีพพนักงานบริษัท ปตท.` (the PTT employees' provident fund) — while the real issuer `บริษัท ปตท. จำกัด (มหาชน)` sat **fifth in the same list** |
+
+Every downstream listing and download then attached that company's filings to the requested name.
+This release is about incompleteness that never reaches the return value, and a confident wrong
+answer is its sharpest form.
+
+`AmbiguousCompanyError` is a **`ValueError`**, not a `FetchError`, for the same reason
+`CompanyNotFoundError` is: the request succeeded, and retrying returns the same candidates forever.
+It carries `.candidates`, so recovering does not mean re-running the search:
+
+```python
+try:
+    docs = await get_sec_documents(query)
+except AmbiguousCompanyError as exc:
+    for candidate in exc.candidates:            # CompanyMatch objects
+        print(candidate.unique_id, candidate.company_name)
+```
+
+Rate over the sampled domain: **2 of 156** symbols spanning all nine `securityType` codes, and
+**0 of 156** ever returned more than one flagged row — which is what makes "no primary" a safe
+trigger rather than a tie-break.
+
+Also verified, and worth knowing because the natural reading is wrong: `CompanyMatch.is_primary`
+does **not** mean "the best match". It means *the site resolved your query as an identifier*. A
+ticker flags (case-insensitively), the `uniqueIDReference` flags, and a **name never does — not
+even the exact full legal name**.
+
+#### A **single** unflagged candidate is ambiguous too — new `allow_name_match`
+
+`resolve_company` returned a lone candidate whose `Flag` was `False`, reasoning that one candidate
+leaves nothing to be ambiguous *between*. That is true of the candidates and false of the question.
+An unflagged row means the site did **not** resolve the query as an *identifier*, so the row is a
+substring match on a company **name** — which is:
+
+- exactly right when the caller typed a name (`CP ALL PUBLIC COMPANY LIMITED`), and
+- an unrelated company when they typed a ticker the SEC does not know — the `UBOT` → `KUBOTA`
+  failure above, with one candidate instead of thirteen.
+
+The library cannot distinguish those without a heuristic, so the caller declares intent:
+
+```python
+await get_sec_documents("CPALL")                                    # ticker: flagged, resolves
+await get_sec_documents("CP ALL PUBLIC COMPANY LIMITED",
+                        allow_name_match=True)                      # name: never flags
+await resolve_company("UBOT")                                       # raises — not an SEC issuer
+```
+
+The error is `AmbiguousCompanyError` (same type as the multi-candidate case, since the recovery is
+identical), it **carries the single candidate on `.candidates`** so an agent can inspect and decide
+without a second request, and its message names the flag. `allow_name_match` affects **only** the
+single-candidate case — several unflagged candidates stay ambiguous whatever was intended.
+
+Added as a keyword-only parameter on `resolve_company`, `get_sec_documents` and `SecCompany`;
+`search_companies` is unchanged, since it resolves nothing.
+
+> **On the evidence, plainly:** of 156 sampled symbols spanning all nine `securityType` codes,
+> exactly **one** hit this case — and that probe recorded aggregates only, so which symbol it was
+> and whether it was wrong cannot be recovered. Name-shaped queries were 3/3 correct. What
+> justifies a breaking default here is the **cost of being wrong** — an entire issuer's filings
+> attached to the wrong company — not a measured frequency.
+
+#### `SecCompany.resolve()` raises `CompanyNotFoundError`, not `SymbolNotFoundError`
+
+The identical condition — the search ran and matched no issuer — was already a
+`CompanyNotFoundError` through `get_sec_documents`, so `except FetchError` caught it through one
+entry point and not the other, for the same input. `SymbolNotFoundError` is a `FetchError`
+subclass; this is an input error. (`settfex.services.sec.sec` therefore no longer re-exports
+`SymbolNotFoundError`; import it from `settfex.exceptions`.)
+
+#### Six response fields are now required (minor)
+
+`IndexListResponse.indices`, `IndexInfoListResponse.index_industry_sectors`,
+`ConsensusOverallResponse.overall` and the four `AnalystConsensus` aggregates no longer default to
+empty. **Required is not non-empty** — `{"overall": []}` still validates; only a *missing* key
+fails — so no documented tolerance is lost. An envelope whose only field defaults to `[]` validates
+any JSON object, an error payload included, into a successful-looking empty result.
+
+This breaks code that **constructs** these models by hand without those fields; it does not change
+what any live payload does. Confirmed across the whole input domain before shipping: the consensus
+aggregates are present for covered *and* uncovered symbols, an unknown symbol 500s before
+validation is reached, and `overall` is present in all four cases (covered, uncovered, unknown,
+whole-market).
+
+### Changed
+
+#### Every exception-behaviour change in one table
+
+| # | Where | Was | Now | Why it mattered |
+|---|---|---|---|---|
+| 1 | `ResponseParseError` | a bare `ValueError` | also a `ParseError` → `FetchError` | the library's **most common** real failure was outside the family every service tells you to catch; **49 of 165** cells |
+| 2 | `validate_or_raise` / `validate_list_or_raise` | re-raised pydantic's `ValidationError` | wrap in `ResponseParseError`, original on `__cause__` | a 200 carrying an error page arrived as "validation failed"; **42 cells** |
+| 3 | `AsyncDataFetcher.fetch_json` | never read the status | non-2xx → `HTTPStatusError` | ~23 call sites, none checking; an HTTP 503 arrived as "validation failed". Parsing sits **outside** the retry loop, so a parse failure is still never retried |
+| 4 | 8 response-shape checks | bare `ValueError` | `ResponseParseError` | they are parse failures; additive, since it *is* a `ValueError` |
+| 5 | `get_stock_info` on a non-object payload | `AttributeError` from a DEBUG log line | `ResponseParseError` | a crash is not an error contract |
+| 6 | SET index directory / holiday calendar | an empty result | `ResponseParseError` | an empty holiday calendar makes `is_holiday()` `False` for every date — silently asserting the market never closes |
+| 7 | the six envelope fields above | optional, defaulted | required | an error payload validated into an empty success |
+| 8 | `get_sec_documents`, unresolvable issuer | `[]` | `CompanyNotFoundError` (`ValueError`) | "no such issuer" and "the lookup broke" were the same answer, so a backfill recorded the window as covered either way |
+| 9 | `SecCompany.resolve()`, not found | `SymbolNotFoundError` (a `FetchError`) | `CompanyNotFoundError` (`ValueError`) | the same condition was an input error through one entry point and a transport error through the other |
+| 10 | `resolve_company`, several candidates, none flagged | returned `matches[0]` | `AmbiguousCompanyError` with `.candidates` | a confident wrong company |
+| 10b | `resolve_company`, **one** candidate, not flagged | returned it | `AmbiguousCompanyError` with that one candidate, unless `allow_name_match=True` | the site did not resolve the query as an identifier, so it is a name substring hit |
+| 11 | `fetch_history_raw`, no year served | `[]` | `FetchError` | indistinguishable from a span that genuinely holds no rows |
+| 12 | ThaiBMA availability, both halves down | raised one cause, **dropped the other** | raises the first, other as a PEP 678 note | one endpoint fixed while the other was equally broken |
+
+Deliberately untouched: **user-input** errors. Symbols, dates and languages still raise
+`InvalidSymbolError` / `InvalidDateError` / `InvalidLanguageError`, and a user-built `FetcherConfig`
+still raises pydantic's `ValidationError` — none of those pass through the response helpers, so the
+split is structural rather than maintained by hand.
+
+#### `fetch_history_raw` no longer bypasses the availability clamp
+
+It went straight to `range(start.year, end.year + 1)` and never called `_select_years`. Because the
+per-year endpoints answer a year they do not serve with **HTTP 200 and an empty list**, a 1995–1999
+span returned only the 1999 rows: no exception, no warning, and nothing in the return value to say
+four years were dropped — precisely the case `availability.py` exists to prevent, bypassed by the
+one method that skipped it. A bare `list` has nowhere to carry an accounting, so the severity
+splits: a **partial** gap warns and names `fetch_history()` as where the gap *is* readable; a
+**total** one raises. Opt out with `check_availability=False`.
+
+### Added
+
+- **`ListingAccounting.degraded_sections`** — a `DegradedSection` (category, url, reason,
+  status_code, error_type) per section that fell back to its truncated inline rows because its
+  "display all results" page failed, and **it sets `has_losses`**. 0.22.1 made that fallback
+  correct; the fallback was still announced only in a log line, so the one flag callers branch on
+  reported a clean listing while a section was knowingly short. Live on the very first sweep: the
+  Thai `fs-kf` page has answered HTTP 500 since at least 2026-09-20 (an upstream bug), and CPALL
+  `lang="th"` now reports `has_losses=True`, `degraded_sections=[('key_financial_ratio', 500)]` and
+  `completeness()` of `(10, 15)` where it previously looked clean.
+
+- **`YieldCurveHistory.to_dataframe()` carries its gaps in `df.attrs`** — `missing_years`,
+  `unavailable_years`, `kind`, `start_date`, `end_date`, in both layouts. A DataFrame is where this
+  history usually *leaves* settfex, and a frame silently missing a year looks exactly like a frame
+  whose year had no data. `df.attrs` survives copy, column selection and `head()` on both pandas
+  majors, which is why the analyst-consensus frames already use it.
+
+- **`tests/services/test_fault_matrix.py`** — 33 entry points × 5 faults (`500+html`, `200+html`,
+  `200+{}`, `200+[]`, `503+json`), plus rows asserting the signal survives `model_dump()`, a JSON
+  round trip, slicing, `filter()` and `repr()`. Its rule is in the module docstring because it was
+  learned the hard way: **inject at `AsyncDataFetcher.fetch`, the lowest layer, never by mocking
+  the code under test.** An earlier sweep mocked `fetch_json` and produced artifacts —
+  `JSONDecodeError` where the real wrapper raises `ResponseParseError` — that would have been
+  reported as findings.
+
+- **A regression test that the SET holiday 401/403/429 retry is unaffected by change 3.** It
+  provably is — `_fetch_with_retry` calls `fetch()` and reads `status_code` itself, never
+  `fetch_json` — but "provably" is the kind of claim that deserves a test rather than a comment,
+  because the next person to touch `fetch_json` will not re-derive it.
+
+### Migration
+
+1. **Grep for `isinstance(..., list)` and `list`-typed parameters** that receive a
+   `SecDocumentList` or `DownloadResult`. This is the only change here that fails silently.
+2. **Sort and derive from the field**: `sorted(docs.documents, …)`, `list(files.files)`.
+   Reading `.accounting` / `.failed` off the returned object keeps working and is still the
+   recommended habit.
+3. **`except FetchError` now catches more, not less** — response-parse failures joined the family
+   rather than leaving it. If you relied on a `ValidationError` escaping, it is on `__cause__`.
+4. **Add `except AmbiguousCompanyError`** where you resolve issuers from free text or from symbols
+   that may not be SEC issuers (ETFs, warrants, DWs). It is a `ValueError`, so a bare
+   `except FetchError: retry` will *not* catch it — which is the point.
+5. **`SymbolNotFoundError` from `SecCompany.resolve()` becomes `CompanyNotFoundError`.** If you
+   imported it from `settfex.services.sec.sec`, that incidental re-export is gone — import from
+   **`settfex.exceptions`**, which is where every exception in this library is exported from:
+
+   ```python
+   from settfex.exceptions import AmbiguousCompanyError, CompanyNotFoundError   # both live here
+   ```
+
+   Note this crosses the family boundary: `SymbolNotFoundError` is a `FetchError`,
+   `CompanyNotFoundError` is a `ValueError`. A handler that caught the SEC "not found" case via
+   `except FetchError` will stop catching it — deliberately, since retrying never helps. The
+   library still has **two** "not found" taxonomies (SET 404 → `SymbolNotFoundError`, SEC →
+   `CompanyNotFoundError`); unifying them behind a shared base is tracked on #135 for pre-1.0.
+6. **If you construct** `IndexListResponse`, `IndexInfoListResponse`, `ConsensusOverallResponse` or
+   `AnalystConsensus` by hand, supply the now-required fields (an empty list is fine).
+7. **If you look up issuers by company NAME, pass `allow_name_match=True`.** A name never flags, so
+   a name lookup now raises `AmbiguousCompanyError` by default. Symbol lookups are unaffected — a
+   real ticker flags — and every example in these docs uses a symbol, so nothing documented breaks.
+
 ## [0.23.0] - 2026-09-20
 
 ### Fixed

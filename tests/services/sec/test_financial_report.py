@@ -5,7 +5,7 @@ from datetime import date
 
 import pytest
 
-from settfex.exceptions import InvalidDateError
+from settfex.exceptions import CompanyNotFoundError, FetchError, InvalidDateError
 from settfex.services.sec.company import CompanyMatch
 from settfex.services.sec.financial_report import (
     DocumentCategory,
@@ -324,15 +324,26 @@ class TestGetSecDocuments:
         assert len(docs) == 2 and docs[0].category == DocumentCategory.FORM_56_1
 
     @pytest.mark.asyncio
-    async def test_unresolved_company_returns_empty(self) -> None:
+    async def test_unresolved_company_raises_an_input_error(self) -> None:
+        """Changed in 0.24.0 (D10): a no-match raises instead of returning an empty list.
+
+        `CompanyNotFoundError` is a ValueError, NOT a FetchError, and the distinction is the fix:
+        the request succeeded and the site answered that it knows no such issuer, which is a fact
+        about the input. Returning [] made that identical to a lookup that broke, so a backfill
+        recorded the window as covered either way.
+        """
         from unittest.mock import AsyncMock, patch
 
-        with patch(
-            "settfex.services.sec.financial_report.resolve_company",
-            new=AsyncMock(return_value=None),
+        with (
+            patch(
+                "settfex.services.sec.financial_report.resolve_company",
+                new=AsyncMock(return_value=None),
+            ),
+            pytest.raises(CompanyNotFoundError) as excinfo,
         ):
-            docs = await get_sec_documents("NOPE")
-        assert docs == [] and isinstance(docs, SecDocumentList)
+            await get_sec_documents("NOPE")
+        assert "NOPE" in str(excinfo.value)
+        assert not isinstance(excinfo.value, FetchError), "an input error, not a fetch failure"
 
 
 def _doc(category: DocumentCategory, year: int | None, *, section: str = "S") -> SecDocument:
@@ -352,7 +363,7 @@ def _doc(category: DocumentCategory, year: int | None, *, section: str = "S") ->
 class TestSecDocumentList:
     def _sample(self) -> SecDocumentList:
         return SecDocumentList(
-            [
+            documents=[
                 _doc(DocumentCategory.FINANCIAL_STATEMENT, 2026),
                 _doc(DocumentCategory.FINANCIAL_STATEMENT, 2025),
                 _doc(DocumentCategory.FINANCIAL_STATEMENT, 2025),  # duplicate year
@@ -362,9 +373,22 @@ class TestSecDocumentList:
             ]
         )
 
-    def test_is_a_list(self) -> None:
+    def test_it_behaves_like_a_list_without_being_one(self) -> None:
+        """0.24.0 replaced the list subclass with a model — this pins both halves of that.
+
+        It was ``isinstance(docs, list)`` until 0.24.0. The subclass made ``accounting`` a side
+        channel that 6 of 8 ordinary list operations silently discarded (issue #134), so the type
+        changed and the *interface* was kept. ``isinstance`` is the one check that now fails
+        quietly, by taking the other branch, which is why the migration notes lead with it.
+        """
         docs = self._sample()
-        assert isinstance(docs, list) and len(docs) == 6
+        assert not isinstance(docs, list), "the silent break, pinned so it is never a surprise"
+        assert len(docs) == 6
+        assert bool(docs) is True, "`if docs:` must still mean 'it has documents'"
+        assert bool(SecDocumentList()) is False, "a BaseModel is otherwise always truthy"
+        assert docs[0].category is DocumentCategory.FINANCIAL_STATEMENT
+        assert [d.year for d in docs][:2] == [2026, 2025]
+        assert docs.documents[0] is docs[0], "the real list is one attribute away"
 
     def test_categories_in_enum_order(self) -> None:
         assert self._sample().categories() == [

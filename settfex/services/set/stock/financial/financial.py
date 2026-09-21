@@ -15,7 +15,7 @@ from settfex.services.set.constants import (
 )
 from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
-from settfex.utils.parsing import decode_json, validate_list_or_raise
+from settfex.utils.parsing import ResponseParseError, decode_json, validate_list_or_raise
 
 
 class Account(BaseModel):
@@ -177,7 +177,7 @@ class FinancialService:
             if not isinstance(data, list):
                 error_msg = f"Expected list response, got {type(data)}"
                 logger.error(error_msg)
-                raise ValueError(error_msg)
+                raise ResponseParseError(error_msg)
 
             logger.info(f"Successfully fetched {len(data)} {account_type} statements for {symbol}")
 

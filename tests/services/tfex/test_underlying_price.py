@@ -4,7 +4,6 @@ from collections.abc import Iterator
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from pydantic import ValidationError
 
 from settfex.services.tfex.underlying_price import (
     TFEXUnderlyingPriceService,
@@ -82,7 +81,10 @@ class TestTFEXUnderlyingPriceService:
     async def test_fetch_missing_required_field_raises(self, mock_fetcher: AsyncMock) -> None:
         bad = {k: v for k, v in MOCK_UNDERLYING_PRICE.items() if k != "marketStatus"}
         mock_fetcher.fetch_json.return_value = bad
-        with pytest.raises(ValidationError):
+        # Changed in 0.24.0: a response that does not match the model is a parse
+        # failure, so it is a ResponseParseError -- both a FetchError and a
+        # ValueError -- with the pydantic detail chained as __cause__.
+        with pytest.raises(ResponseParseError):
             await TFEXUnderlyingPriceService().get_underlying_price("S50M26C880")
 
     @pytest.mark.asyncio
@@ -112,6 +114,9 @@ class TestTFEXUnderlyingPriceService:
             '"statisticsAsOf":"2026-06-17T00:00:00+07:00","pe":15.39,"pbv":1.53}'
         )
         fake_response = Mock()
+        # fetch_json checks the status before decoding (0.24.0), so the mock must carry a real
+        # one -- a bare Mock() compares as neither 2xx nor not-2xx.
+        fake_response.status_code = 200
         fake_response.text = body
         with (
             patch.object(AsyncDataFetcher, "fetch", AsyncMock(return_value=fake_response)),

@@ -13,6 +13,26 @@ Designed for both humans and AI/LLM agents. Every service exposes three tiers:
 All I/O is async. Language arguments accept ``en``/``th`` (plus ``english``/``thai`` aliases);
 symbols are auto-normalized (uppercased).
 
+Completeness signals — check these; a partial failure does **not** raise:
+
+- ``docs.accounting.has_losses`` — the one flag to branch on
+- ``docs.accounting.failed_codes`` — a whole sub-search that never ran
+- ``docs.accounting.degraded_sections`` — a section that fell back to truncated rows
+- ``files.is_complete`` / ``files.failed`` — a partial download batch
+
+Exceptions come in two families, and the split is what you act on:
+
+- ``settfex.exceptions.FetchError`` — transport, HTTP or parse; a retry may help
+- ``ValueError`` subclasses — ``InvalidSymbolError``, ``CompanyNotFoundError``,
+  ``AmbiguousCompanyError``; the request succeeded and the input was wrong, so a retry never helps
+
+Looking an SEC issuer up by company **name** needs ``allow_name_match=True``. Without it a lone
+unflagged match raises ``AmbiguousCompanyError`` carrying the candidate, because the site did not
+resolve the query as an identifier and the row may be an unrelated company.
+
+If you persisted results from a version before 0.24.0, see the data completeness advisory in
+``CHANGELOG.md`` — earlier versions could return incomplete or wrong data with no error.
+
 Usage:
     >>> import asyncio
     >>> from settfex.services.set import SetIndex, Stock, get_stock_list
@@ -35,7 +55,7 @@ Usage:
     >>> asyncio.run(main())
 """
 
-__version__ = "0.23.0"
+__version__ = "0.24.0"
 __author__ = "batt"
 __license__ = "MIT"
 

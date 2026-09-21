@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from pydantic import ValidationError
 
 from settfex.services.tfex.list import (
     TFEXSeriesListResponse,
@@ -53,7 +52,10 @@ class TestSeriesListService:
     async def test_fetch_invalid_series_item_raises(self, mock_fetcher) -> None:
         bad_series = {k: v for k, v in MOCK_SERIES.items() if k != "symbol"}
         mock_fetcher.fetch_json.return_value = {"series": [bad_series]}
-        with pytest.raises(ValidationError):
+        # Changed in 0.24.0: a response that does not match the model is a parse
+        # failure, so it is a ResponseParseError -- both a FetchError and a
+        # ValueError -- with the pydantic detail chained as __cause__.
+        with pytest.raises(ResponseParseError):
             await TFEXSeriesListService().fetch_series_list()
 
     @pytest.mark.asyncio

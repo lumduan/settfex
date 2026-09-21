@@ -186,3 +186,92 @@ class TestConvenienceFunction:
 
         assert availability.first_date == date(1999, 9, 15)
         assert mock_fetcher.cls.call_args.kwargs["config"].timeout == 33
+
+
+class TestTheTwoHalvesFailTogether:
+    """F5 — one logical answer, so a partial is never returned; both causes always survive.
+
+    ``/avail`` gives the window and ``/availyear`` gives the years, and an availability with only
+    one of them is not a usable answer: the history service clamps a requested span against
+    ``years`` and reports the gap. So unlike the SEC listing legs, there is deliberately **no**
+    severity ladder here and no ``missing_half`` field — the halves fail as a unit.
+
+    What 0.24.0 changed is narrower: the bare ``gather`` raised the first cause and **discarded the
+    other**, so with both endpoints down a caller saw one failure and could spend a while fixing
+    one endpoint while the other was equally broken. The second cause now rides along as a PEP 678
+    note — no new type, no changed signature, and ``except FetchError`` still catches it.
+    """
+
+    @staticmethod
+    def _boom(*, window: BaseException | None, years: BaseException | None):
+        async def route(url: str, headers=None, **kwargs):
+            failure = years if "availyear" in url else window
+            if failure is not None:
+                raise failure
+            return _response(AVAILYEAR if "availyear" in url else AVAIL)
+
+        return route
+
+    @pytest.mark.asyncio
+    async def test_one_half_failing_fails_the_whole_answer(self) -> None:
+        """No partial availability: a window with no years would clamp nothing, silently."""
+        with patch("settfex.services.thaibma.availability.AsyncDataFetcher") as mock:
+            instance = AsyncMock()
+            instance.fetch = AsyncMock(
+                side_effect=self._boom(window=None, years=FetchError("years endpoint down"))
+            )
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=None)
+            mock.return_value = instance
+            with pytest.raises(FetchError, match="years endpoint down"):
+                await YieldCurveAvailabilityService().fetch_availability()
+
+    @pytest.mark.asyncio
+    async def test_both_failing_carries_the_second_cause_as_a_note(self) -> None:
+        """Re-raising one exception must not silently drop the other."""
+        with patch("settfex.services.thaibma.availability.AsyncDataFetcher") as mock:
+            instance = AsyncMock()
+            instance.fetch = AsyncMock(
+                side_effect=self._boom(
+                    window=FetchError("window endpoint down"),
+                    years=FetchError("years endpoint down"),
+                )
+            )
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=None)
+            mock.return_value = instance
+            with pytest.raises(FetchError) as excinfo:
+                await YieldCurveAvailabilityService().fetch_availability()
+
+        assert "window endpoint down" in str(excinfo.value), "the first half is the raised cause"
+        notes = getattr(excinfo.value, "__notes__", [])
+        assert len(notes) == 1, "one note for the OTHER half, never for the raised one"
+        assert "years endpoint down" in notes[0]
+        assert "availyear" in notes[0], "the note must name which endpoint, not just the error"
+
+    @pytest.mark.asyncio
+    async def test_it_is_still_catchable_as_fetch_error(self) -> None:
+        """Deliberately not an ExceptionGroup: `except FetchError` does not catch one."""
+        with patch("settfex.services.thaibma.availability.AsyncDataFetcher") as mock:
+            instance = AsyncMock()
+            instance.fetch = AsyncMock(
+                side_effect=self._boom(window=FetchError("a"), years=ResponseParseError("b"))
+            )
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=None)
+            mock.return_value = instance
+            with pytest.raises(FetchError) as excinfo:
+                await YieldCurveAvailabilityService().fetch_availability()
+        assert not isinstance(excinfo.value, BaseExceptionGroup)
+
+    @pytest.mark.asyncio
+    async def test_nothing_fires_when_both_halves_answer(self) -> None:
+        """The discipline every signal in this release is held to."""
+        with patch("settfex.services.thaibma.availability.AsyncDataFetcher") as mock:
+            instance = AsyncMock()
+            instance.fetch = AsyncMock(side_effect=self._boom(window=None, years=None))
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=None)
+            mock.return_value = instance
+            availability = await YieldCurveAvailabilityService().fetch_availability()
+        assert availability.years and availability.first_date

@@ -81,8 +81,11 @@ class IndexInfo(BaseModel):
 class IndexInfoListResponse(BaseModel):
     """Envelope model for the index info/list endpoint."""
 
+    # Required, with no default. An envelope whose only field defaults to an empty list validates
+    # ANY JSON object -- an error payload included -- into a successful-looking empty result, which
+    # is the second half of the silent-loss rule in issue #135. Required is not non-empty: a genuine
+    # `{...: []}` still validates; only a missing key fails.
     index_industry_sectors: list[IndexInfo] = Field(
-        default_factory=list,
         alias="indexIndustrySectors",
         description="Quotations for all indices of the requested type",
     )

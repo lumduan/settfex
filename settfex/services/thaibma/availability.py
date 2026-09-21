@@ -17,6 +17,7 @@ across 28 calendar years.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Sequence
 from datetime import date, datetime
 from typing import Any
 
@@ -89,6 +90,39 @@ class YieldCurveAvailability(BaseModel):
         return max(start, self.first_date), min(end, self.last_date)
 
 
+#: Labels for the two halves, used when one of them fails so the message names which endpoint.
+_AVAILABILITY_HALVES = ("/yieldcurve/avail (window)", "/yieldcurve/availyear (years)")
+
+
+def _raise_first_with_notes(outcomes: Sequence[Any]) -> None:
+    """Raise the first failed half, carrying any other failure as a PEP 678 note.
+
+    Deliberately not an ``ExceptionGroup`` despite the 3.11+ floor: ``except FetchError`` does not
+    catch one, so it would silently break every existing handler. Same reasoning, and the same
+    mechanism, as the SEC per-report-code isolation.
+    """
+    failures = [
+        (label, outcome)
+        for label, outcome in zip(_AVAILABILITY_HALVES, outcomes, strict=True)
+        if isinstance(outcome, BaseException)
+    ]
+    if not failures:
+        return
+    first_label, first = failures[0]
+    if not isinstance(first, Exception):  # pragma: no cover - BaseException never reaches here
+        raise first
+    for label, other in failures[1:]:
+        first.add_note(
+            f"The other half of the availability answer also failed: {label} raised "
+            f"{type(other).__name__}: {other}"
+        )
+    logger.error(
+        f"ThaiBMA availability failed on {first_label} "
+        f"({type(first).__name__}: {first}); {len(failures)} of 2 half/halves failed"
+    )
+    raise first
+
+
 class YieldCurveAvailabilityService:
     """Fetch the ThaiBMA yield-curve availability window and the list of years with data."""
 
@@ -130,7 +164,19 @@ class YieldCurveAvailabilityService:
 
         async with AsyncDataFetcher(config=self.config) as fetcher:
             if include_years:
-                window_data, years_data = await asyncio.gather(
+                # The two halves are ONE logical answer -- a window without its years, or years
+                # without their window, is not a usable availability -- so they fail together and
+                # loudly. That decision is why there is no partial mode here and no
+                # `missing_half` field: the severity ladder used elsewhere in this release
+                # ("a partial loss reports, a total loss raises") does not apply to a value whose
+                # halves are not independently meaningful.
+                #
+                # `return_exceptions=True` is only so that a second failure is not discarded:
+                # a bare gather raises the first cause and drops the other, which would leave a
+                # caller debugging one broken endpoint while both were down. PEP 678 notes carry
+                # it with no new type and no changed signature, exactly as the SEC report-code
+                # isolation does.
+                outcomes = await asyncio.gather(
                     fetch_thaibma_json(
                         fetcher,
                         f"{self.base_url}{THAIBMA_AVAIL_ENDPOINT}",
@@ -141,7 +187,10 @@ class YieldCurveAvailabilityService:
                         f"{self.base_url}{THAIBMA_AVAIL_YEAR_ENDPOINT}",
                         context="thaibma yield curve available years",
                     ),
+                    return_exceptions=True,
                 )
+                _raise_first_with_notes(outcomes)
+                window_data, years_data = outcomes
             else:
                 window_data = await fetch_thaibma_json(
                     fetcher,

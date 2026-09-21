@@ -24,6 +24,27 @@ pip install settfex[examples]
 
 This includes pandas, matplotlib, and jupyter notebook support.
 
+<!-- REMOVE AFTER 0.26.0 — upgrade notice, kept for two minor releases.
+     The permanent copy is the advisory in CHANGELOG.md; do not duplicate the table here. -->
+## Upgrading to 0.24
+
+**If you stored results from settfex before 0.24.0, check them.** Earlier versions could return
+incomplete data, or — for company lookup by name — another company's data, without any error.
+Re-fetch anything persisted with an affected version, and for name lookups verify the company
+identity too. The [data completeness advisory](https://github.com/lumduan/settfex/blob/v0.24.0/CHANGELOG.md#data-completeness-advisory) lists the
+affected versions per function.
+
+0.24.0 is a breaking release: result containers are Pydantic models (`isinstance(x, list)` is now
+`False`, **silently** — it takes the other branch rather than raising), and several error types
+changed. See [Migration](https://github.com/lumduan/settfex/blob/v0.24.0/CHANGELOG.md#migration).
+
+## Versioning policy
+
+- **0.x:** a minor bump may break. Pin `settfex>=0.23,<0.24` until you have migrated.
+- **1.0 guarantees:** every public entry point passes the fault-injection contract (no silent data
+  loss), and breaking changes require a major bump.
+- **From 0.24 on:** a `DeprecationWarning` one minor release before any removal or behaviour change.
+
 ## 📓 Interactive Examples
 
 **New to settfex? Start here!** We have comprehensive Jupyter notebook examples that teach you everything step-by-step:

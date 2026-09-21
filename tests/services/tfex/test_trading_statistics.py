@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from pydantic import ValidationError
 
 from settfex.services.tfex.trading_statistics import (
     TradingStatistics,
@@ -53,7 +52,10 @@ class TestTradingStatisticsService:
     async def test_fetch_missing_required_field_raises(self, mock_fetcher) -> None:
         bad = {k: v for k, v in MOCK_TRADING_STATS.items() if k != "dayToMaturity"}
         mock_fetcher.fetch_json.return_value = bad
-        with pytest.raises(ValidationError):
+        # Changed in 0.24.0: a response that does not match the model is a parse
+        # failure, so it is a ResponseParseError -- both a FetchError and a
+        # ValueError -- with the pydantic detail chained as __cause__.
+        with pytest.raises(ResponseParseError):
             await TradingStatisticsService().fetch_trading_statistics("S50Z25")
 
     @pytest.mark.asyncio

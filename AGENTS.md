@@ -107,11 +107,36 @@ Indices: `get_index_list(lang)`, `get_index_info(symbol, lang)`,
 
 | I want… | Call |
 |---|---|
-| resolve a company to its SEC id | `resolve_company(query, lang)` |
+| resolve a company to its SEC id | `resolve_company(query, lang, allow_name_match=False)` |
 | list filings (financial statements, 56-1, 56-2, ratios, MD&A) | `get_sec_documents(query, types=..., from_date=..., to_date=...)` |
 | download the actual file(s) | `download_sec_document(target)` / `download_sec_documents(targets)` |
 
 Dates here are **dd/mm/yyyy**. Pass a wide window to see full year history.
+
+⚠️ **Not every SET symbol is an SEC issuer.** ETFs, warrants, DWs and `-F` foreign lines do not
+file, so resolving one of them raises rather than guessing (0.24.0):
+
+| outcome | exception | what to do |
+|---|---|---|
+| nothing matched | `CompanyNotFoundError` | report that no issuer exists; do not retry |
+| several matched, none flagged | `AmbiguousCompanyError` | read `exc.candidates` (each a `CompanyMatch`) and ask which one, or pass an exact symbol |
+| **exactly one matched, not flagged** | `AmbiguousCompanyError` | the site did not recognise your query as an *identifier*, so that row is a substring hit on a company **name**. If you meant a name, pass `allow_name_match=True`; if you meant a symbol, it is not an SEC issuer |
+
+**Searching by company name?** Pass `allow_name_match=True` — a name never flags, so a name lookup
+always lands in that third row:
+
+```python
+await get_sec_documents("CP ALL PUBLIC COMPANY LIMITED", allow_name_match=True)
+await resolve_company("ปตท", allow_name_match=True)   # still raises: 17 candidates, none flagged
+```
+
+It only ever affects the **single**-candidate case. Several unflagged candidates stay ambiguous
+whatever you intended.
+
+Both are **`ValueError`s, not `FetchError`s**, because the request succeeded — retrying returns the
+same answer forever, so `except FetchError: retry` must not be what catches them. Before 0.24.0 the
+second case returned an arbitrary alphabetically-first company: `CHINA` (an ETF) resolved to
+`ASEAN CHINA INVESTMENT FUND L.P.` and every filing listed under it was the wrong company's.
 
 `lang="th"` works and returns the **Thai-language filing documents** — different files from the
 English ones, not a translated index. Years and dates come back as **C.E.** in the model even
@@ -140,15 +165,25 @@ a partial failure announces itself. `repr(docs)` states it too.
 As of 2026-09-20 SEC's Thai `fs-kf` page answers HTTP 500, which is an upstream bug, not a settfex
 one; it shows up as a `key_financial_ratio` shortfall on Thai listings.
 
-⚠️ Read `.accounting` / `.reported_counts` off the object `get_sec_documents` returned: like
-`DownloadResult`, `SecDocumentList` is a `list` subclass, so slicing, `sorted()`, `list()` and
-comprehensions return a plain `list` and silently drop them.
+As of 0.24.0 `SecDocumentList` is a **Pydantic model** `{documents, accounting, reported_counts}`
+that still iterates, indexes and slices like the list it used to be — and a **slice keeps the
+accounting** (of the whole call, not of the slice). So `model_dump()` and JSON carry the
+completeness signal, which matters here more than anywhere: what you receive from a tool call is
+JSON, so a signal that does not serialize does not reach you at all.
+
+⚠️ `isinstance(docs, list)` is now `False` — it fails *silently*, by taking the other branch. Use
+`docs.documents` where a real list is needed. `sorted(docs)` and `list(docs)` still give plain
+lists, so sort `docs.documents`.
+
+⚠️ A section whose "display all results" page failed lands on `accounting.degraded_sections` and
+sets `has_losses` — that is how the live Thai `fs-kf` HTTP 500 above surfaces.
 
 `download_sec_documents(...)` returns a `DownloadResult` — a list of the files that downloaded,
 which also carries `.failed` (each with its target and reason) and `.is_complete`. Check it before
 reporting a batch as done; dead links on the SEC host arrive as HTML under HTTP 200, not as errors.
-⚠️ Read `.failed` off **that** object: it is a `list` subclass, so slicing, `sorted()`, `list()` and
-comprehensions all return a plain `list` and drop the failure report without warning.
+Also a Pydantic model since 0.24.0 (`{files, failed, requested}` + computed `is_complete`), so the
+failure report survives `model_dump()` and slicing. ⚠️ `isinstance(files, list)` is `False`; use
+`files.files`.
 
 ### ThaiBMA bonds — `from settfex.services.thaibma import ...`
 
@@ -234,22 +269,61 @@ being wrong, so none of them will announce itself.
 
 ## Errors you should expect
 
+Everything is importable from one place:
+
 ```python
 from settfex.exceptions import (
-    FetchError,            # HTTP/transport failure; carries .status_code and .symbol
-    SymbolNotFoundError,   # subclass of FetchError; HTTP 404, may carry .suggestion
-    StaleDataError,        # ThaiBMA rolled back and you asked it to raise
-    InvalidSymbolError,    # empty symbol — raised before any request
-    InvalidLanguageError,  # unrecognized lang
-    InvalidDateError,      # malformed date string — raised before any request
+    # --- the FETCH family: `except FetchError` catches all of these ---
+    FetchError,              # HTTP/transport failure; carries .status_code and .symbol
+    HTTPStatusError,         # a non-2xx, with .url and .report_code as data
+    SymbolNotFoundError,     # HTTP 404 on a SET endpoint; may carry .suggestion
+    StaleDataError,          # ThaiBMA rolled back and you asked it to raise
+    ParseError,              # a response arrived intact and could not be mapped
+    IncompleteListingError,  # a ParseError: rows classified, then every one was lost
+    # --- INPUT errors: ValueErrors, NOT caught by `except FetchError` ---
+    CompanyNotFoundError,    # SEC: the search ran and matched no issuer
+    AmbiguousCompanyError,   # SEC: several matched, none flagged; carries .candidates
+    InvalidSymbolError,      # empty symbol — raised before any request
+    InvalidLanguageError,    # unrecognized lang
+    InvalidDateError,        # malformed date string — raised before any request
 )
-from settfex.utils.parsing import ResponseParseError
+from settfex.utils.parsing import ResponseParseError   # also a ParseError since 0.24.0
 ```
 
-`InvalidSymbolError`, `InvalidLanguageError` and `InvalidDateError` are raised **before** any
-network call, so they always mean your arguments are wrong, never that the API is down.
+**The split is the thing to internalise: a `FetchError` may be worth retrying; a `ValueError`
+never is.** An input error means the request *succeeded* and your argument was wrong, so a retry
+loop on one spins forever. `InvalidSymbolError`, `InvalidLanguageError` and `InvalidDateError` are
+raised before any network call at all.
+
+⚠️ Two "not found" taxonomies coexist today: a SET 404 is a `SymbolNotFoundError` (a `FetchError`),
+while the SEC equivalent is a `CompanyNotFoundError` (a `ValueError`). Catch both if you handle
+both hosts. Unifying them is tracked on #135.
+
+⚠️ `ResponseParseError` is also what a **WAF block page** currently surfaces as — right family,
+wrong diagnosis. If you see it repeatedly from one host, **stop and back off**; do not retry.
 
 ---
+
+## Timed instructions
+
+If you are told to do something at a particular time, that instruction needs **a date, a clock time
+and a timezone** — `2026-09-21 17:00 ICT`. Relative words (*today*, *tonight*, *after close*) are
+ambiguous the moment a conversation spans midnight or is resumed later, and they give no signal
+that they have gone stale.
+
+**Check the current time before acting on one.** If the window has passed, say so and ask rather
+than substituting the nearest equivalent — the reason a window was chosen (avoiding market hours,
+avoiding another system's traffic) usually does not survive being moved by a day.
+
+## Communication language
+
+- All prose you write is in English: reports and chat replies to the operator, commit messages,
+  PR descriptions, GitHub issues and comments, docs, ADRs, and code comments.
+- Thai appears only as verbatim source data: document titles, labels (e.g. `สอบทาน`), company
+  names, URLs, quoted page text, and fixture contents. Keep it exactly as the source has it —
+  never translate or transliterate the data itself.
+- When a Thai value's meaning matters to the reader, add an English gloss next to it:
+  `สอบทาน` (reviewed).
 
 ## Working on the repo itself
 
@@ -280,3 +354,10 @@ settfex is **not officially affiliated** with SET or TFEX. It reads **public** m
 Browser impersonation and session caching exist to access that public data reliably and to
 *reduce* request volume (~25× fewer requests) — not to evade rate limits or terms of service.
 Respect both.
+
+**If you are sweeping many symbols, budget it.** These are other people's servers, and they push
+back: a 929-symbol sweep at concurrency 8 drew connection resets and then a WAF block page — an
+**HTTP 200 whose body reads `Request Rejected`** — for every request for about an hour
+(2026-09-20). Use concurrency 1 with jittered pauses, decide a request budget before you start,
+prefer a stratified sample over a census, and **stop at the first block signal** rather than
+retrying into it.

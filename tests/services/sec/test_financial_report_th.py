@@ -256,7 +256,7 @@ class TestReportedCounts:
     def test_counts_survive_filter(self) -> None:
         """Otherwise the cross-check evaporates exactly when someone narrows the result."""
         docs = SecDocumentList(
-            _documents("th_ptt_fs_h1_2025.html").documents,
+            documents=_documents("th_ptt_fs_h1_2025.html").documents,
             reported_counts=_documents("th_ptt_fs_h1_2025.html").reported_counts,
         )
         narrowed = docs.filter(category=DocumentCategory.FINANCIAL_STATEMENT)
@@ -267,7 +267,7 @@ class TestReportedCounts:
 
     def test_completeness_reports_holdings_against_the_sites_number(self) -> None:
         result = _documents("th_ptt_fs_h1_2025.html")
-        docs = SecDocumentList(result.documents, reported_counts=result.reported_counts)
+        docs = SecDocumentList(documents=result.documents, reported_counts=result.reported_counts)
         assert docs.completeness()["mda"] == (2, 2)
 
 

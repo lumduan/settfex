@@ -8,7 +8,7 @@ from curl_cffi import requests
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from settfex.exceptions import FetchError
+from settfex.exceptions import FetchError, HTTPStatusError
 from settfex.utils.parsing import decode_json
 
 # Static default request headers, built once at import and copied per request. Copying a
@@ -418,6 +418,13 @@ class AsyncDataFetcher:
             Parsed JSON data (dict, list, or primitive)
 
         Raises:
+            HTTPStatusError: If the response status is not 2xx. Checked here rather than at each
+                of the ~23 call sites, because the audit behind issue #135 found that none of them
+                checked it: a JSON service was protected only *incidentally*, by the error body
+                failing to parse or validate. That protection holds only where a model has a
+                required field, and an HTTP 503 arrived as "validation failed" rather than as a
+                transport error. No settfex service gives a non-2xx the meaning "no data", so
+                raising here is uniformly correct.
             ResponseParseError: If the response body is not valid JSON or contains a
                 NaN/Infinity literal (rejected to avoid silent financial-data corruption).
             Exception: If the request itself fails after all retries.
@@ -428,6 +435,15 @@ class AsyncDataFetcher:
             json_headers.update(headers)
 
         response = await self.fetch(url, headers=json_headers, method=method, json_body=json_body)
+
+        if not 200 <= response.status_code < 300:
+            message = (
+                f"Request failed: HTTP {response.status_code} for {url}. The body was not "
+                f"parsed — an error payload can validate into an empty result, which is then "
+                f"indistinguishable from 'no data'."
+            )
+            logger.error(message)
+            raise HTTPStatusError(message, status_code=response.status_code, url=url)
 
         # Decode via the shared helper: rejects NaN/Infinity (silent-corruption guard)
         # and raises ResponseParseError (a ValueError) with URL context on bad JSON.

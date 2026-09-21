@@ -21,6 +21,8 @@ from typing import Any, TypeVar
 from loguru import logger
 from pydantic import BaseModel, ValidationError
 
+from settfex.exceptions import ParseError
+
 __all__ = [
     "ResponseParseError",
     "decode_json",
@@ -31,12 +33,22 @@ __all__ = [
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
-class ResponseParseError(ValueError):
+class ResponseParseError(ParseError, ValueError):
     """Raised when an API response cannot be decoded or fails structural validation.
 
-    Subclasses :class:`ValueError` to remain compatible with the service layer's
-    documented ``Raises: ValueError`` contract while carrying actionable context
-    (the symbol/endpoint that produced the bad payload).
+    **Both** a :class:`~settfex.exceptions.ParseError` and a :class:`ValueError`, deliberately.
+
+    It began as a plain ``ValueError`` to match the service layer's documented
+    ``Raises: ValueError`` contract. That was right about compatibility and wrong about reach: it
+    is the exception a malformed or non-JSON response body actually produces — the single most
+    common real failure — and as a bare ``ValueError`` it escaped ``except FetchError``, the
+    handler every service documents. The library therefore had two unrelated "parse error" types,
+    and the one that fires most often was outside the family. A fault-injection sweep put a number
+    on it: 49 of 165 injected-fault cells raised something no documented handler catches.
+
+    Adding :class:`~settfex.exceptions.ParseError` as a base is purely additive — nothing is
+    removed from the MRO, so ``except ValueError`` keeps working exactly as before, and
+    ``except FetchError`` / ``except ParseError`` now work too.
     """
 
 
@@ -73,8 +85,11 @@ def decode_json(text: str, *, context: str) -> Any:
 def validate_or_raise(model_cls: type[ModelT], data: Any, *, context: str) -> ModelT:
     """Validate ``data`` into ``model_cls``, logging symbol/endpoint context on failure.
 
-    The original :class:`pydantic.ValidationError` is re-raised unchanged so callers that
-    catch it keep working; the actionable context is emitted to the error log.
+    The ``pydantic.ValidationError`` is wrapped in a :class:`ResponseParseError` (which is a
+    ``ParseError``, a ``FetchError`` and a ``ValueError``) and chained as ``__cause__``, so a
+    malformed response is catchable with the same ``except FetchError`` every service documents.
+    Until 0.24.0 it was re-raised unchanged, which kept ``except ValidationError`` working but put
+    the library's most common real failure outside the documented handler.
 
     Args:
         model_cls: Target Pydantic model.
@@ -85,13 +100,25 @@ def validate_or_raise(model_cls: type[ModelT], data: Any, *, context: str) -> Mo
         A validated ``model_cls`` instance.
 
     Raises:
-        pydantic.ValidationError: If ``data`` does not satisfy the model.
+        ResponseParseError: If ``data`` does not satisfy the model. It is both a
+            :class:`~settfex.exceptions.ParseError` and a :class:`ValueError`, and it chains the
+            original ``pydantic.ValidationError`` as ``__cause__``.
     """
     try:
         return model_cls.model_validate(data)
-    except ValidationError:
-        logger.error(f"Validation failed for {context} ({model_cls.__name__})")
-        raise
+    except ValidationError as exc:
+        # Wrapped rather than re-raised. A response that arrives intact and does not match the
+        # model is a PARSE failure, and callers are told to handle those with `except FetchError`
+        # -- a bare pydantic ValidationError escapes that, and says "validation failed" for what is
+        # usually a 200 carrying an error page. The original is chained, so the field-level detail
+        # is one `__cause__` away and `except ValidationError` on the cause still works.
+        #
+        # This is RESPONSE validation only. User input keeps its own contract: InvalidSymbolError /
+        # InvalidDateError / InvalidLanguageError, and a user-built FetcherConfig still raises
+        # pydantic's ValidationError, because none of those pass through here.
+        message = f"Validation failed for {context} ({model_cls.__name__})"
+        logger.error(message)
+        raise ResponseParseError(f"{message}: {exc}") from exc
 
 
 def validate_list_or_raise(model_cls: type[ModelT], data: Any, *, context: str) -> list[ModelT]:
@@ -107,7 +134,8 @@ def validate_list_or_raise(model_cls: type[ModelT], data: Any, *, context: str) 
 
     Raises:
         ResponseParseError: If ``data`` is not a list.
-        pydantic.ValidationError: If any element fails validation (logged with its index).
+        ResponseParseError: If ``data`` is not an array, or any element fails validation
+            (logged with its index; the pydantic error is chained as ``__cause__``).
     """
     if not isinstance(data, list):
         raise ResponseParseError(f"Expected a JSON array for {context}, got {type(data).__name__}")
@@ -115,9 +143,12 @@ def validate_list_or_raise(model_cls: type[ModelT], data: Any, *, context: str) 
     for index, item in enumerate(data):
         try:
             validated.append(model_cls.model_validate(item))
-        except ValidationError:
-            logger.error(
+        except ValidationError as exc:
+            # Same reasoning as validate_or_raise: a response that does not match the model is a
+            # parse failure, and belongs in the family callers are told to catch.
+            message = (
                 f"Validation failed for {context} ({model_cls.__name__}) at item index {index}"
             )
-            raise
+            logger.error(message)
+            raise ResponseParseError(f"{message}: {exc}") from exc
     return validated

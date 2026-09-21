@@ -26,7 +26,7 @@ from settfex.services.set.constants import SET_BASE_URL, SET_STOCK_INFO_ENDPOINT
 from settfex.services.set.index.composition import BidOffer
 from settfex.services.set.stock.utils import normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
-from settfex.utils.parsing import decode_json, validate_or_raise
+from settfex.utils.parsing import ResponseParseError, decode_json, validate_or_raise
 
 
 def parse_signs(sign: str | None) -> list[str]:
@@ -384,8 +384,17 @@ class StockInfoService:
                 raise_for_status(response.status_code, error_msg, symbol=symbol)
 
             data = decode_json(response.text, context=f"{symbol} (stock info)")
+            if not isinstance(data, dict):
+                # Guarded because the debug line below used to call .keys() on whatever arrived,
+                # so a JSON array surfaced as AttributeError -- a crash, not an error contract.
+                error_msg = (
+                    f"Expected an object response for {symbol} (stock info), "
+                    f"got {type(data).__name__}"
+                )
+                logger.error(error_msg)
+                raise ResponseParseError(error_msg)
             logger.debug(f"Raw response keys: {list(data.keys())}")
-            return data  # type: ignore[no-any-return]
+            return data
 
 
 async def get_stock_info(

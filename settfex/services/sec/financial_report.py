@@ -9,18 +9,19 @@ from __future__ import annotations
 
 import asyncio
 import re
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import StrEnum
 from html import unescape
-from typing import Literal
+from typing import Literal, overload
 from urllib.parse import urljoin, urlparse
 
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from settfex.exceptions import (
+    CompanyNotFoundError,
     FetchError,
     HTTPStatusError,
     IncompleteListingError,
@@ -207,6 +208,29 @@ class CodeFailure(BaseModel):
     url: str | None = Field(default=None, description="The URL involved, when known")
 
 
+class DegradedSection(BaseModel):
+    """One section that fell back to its truncated inline rows, and why.
+
+    The third member of the family :class:`CodeFailure` and
+    :class:`~settfex.services.sec.download.FailedDownload` belong to — "what did not make it",
+    whether that was a file, a whole search, or one section's completeness.
+
+    A "display all results" page holds the COMPLETE list for its section and *replaces* the inline
+    rows, so a broken one is a **partial** loss: the truncated rows are still a real answer, and
+    keeping them is what ``follow_view_more=False`` would have given. Until 0.24.0 that fallback
+    was announced only in a log line, and ``has_losses`` stayed ``False`` — so the one flag callers
+    branch on said the listing was clean while a section was knowingly short.
+    """
+
+    category: str = Field(description="The category whose section fell back, e.g. 'mda'")
+    url: str = Field(description="The ViewMore page that could not be used")
+    reason: str = Field(description="Why it was unusable, in one line")
+    status_code: int | None = Field(default=None, description="HTTP status, when there was one")
+    error_type: str | None = Field(
+        default=None, description="Exception class name, when the page could not be fetched at all"
+    )
+
+
 class ListingAccounting(BaseModel):
     """Where every row and column of a listing went — the parser's own account of itself.
 
@@ -246,6 +270,10 @@ class ListingAccounting(BaseModel):
         default_factory=list,
         description="Report-code searches that failed while their siblings succeeded",
     )
+    degraded_sections: list[DegradedSection] = Field(
+        default_factory=list,
+        description="Sections that kept their truncated inline rows because ViewMore failed",
+    )
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -282,10 +310,16 @@ class ListingAccounting(BaseModel):
         """True if anything was lost or not understood — the one flag worth branching on.
 
         Includes a failed report code since 0.23.0: a search that never ran is the largest loss of
-        all, and this flag is what callers branch on.
+        all, and this flag is what callers branch on. Includes a degraded section since 0.24.0, for
+        the same reason — a section that knowingly fell back to its truncated rows is short, and
+        the flag said "clean" while a WARNING in the log said otherwise.
         """
         return bool(
-            self.no_link or self.unknown_sections or self.unmapped_headers or self.failed_codes
+            self.no_link
+            or self.unknown_sections
+            or self.unmapped_headers
+            or self.failed_codes
+            or self.degraded_sections
         )
 
     @computed_field  # type: ignore[prop-decorator]
@@ -332,52 +366,107 @@ class ListingAccounting(BaseModel):
             if (failure.code, failure.error) not in seen:
                 self.failed_codes.append(failure)
                 seen.add((failure.code, failure.error))
+        degraded_seen = {(d.category, d.url) for d in self.degraded_sections}
+        for section in other.degraded_sections:
+            if (section.category, section.url) not in degraded_seen:
+                self.degraded_sections.append(section)
+                degraded_seen.add((section.category, section.url))
 
 
-class SecDocumentList(list[SecDocument]):
-    """A ``list[SecDocument]`` with convenience helpers for years / categories / filtering.
+class SecDocumentList(BaseModel):
+    """The documents a listing produced, **and the parser's account of everything it received**.
 
-    It **is** a plain list — indexing, iteration, ``len()``, slicing and passing it to
-    ``download_sec_documents(...)`` all work unchanged. The extra methods make the common
-    "see which years exist → pick a subset → download them" flow a one-liner.
+    Until 0.24.0 this was a ``list[SecDocument]`` subclass carrying ``accounting`` and
+    ``reported_counts`` as instance attributes. That made the completeness signal a **side
+    channel**: 6 of 8 ordinary list operations — slicing, ``sorted()``, ``list()``, ``+``, a
+    comprehension — build a *new* list, and a new list has no instance attributes, so the evidence
+    that a listing was incomplete vanished with no exception and no warning (issue #134). It got
+    sharper in 0.23.0, when ``accounting.failed_codes`` began recording *which report code failed*:
+    ``sorted(docs, …)`` discarded that too.
+
+    A Pydantic model makes the signal a **field**, so it survives ``model_dump()``, JSON, and every
+    round trip a pipeline or an agent puts the result through. That is the point — function-calling
+    results are JSON, so a signal that reaches the return value could still be lost on the way out.
+
+    The list-like surface is kept, so ordinary use is unchanged::
+
+        docs = await get_sec_documents("CPALL")
+        len(docs), bool(docs), docs[0], [d.year for d in docs]   # all exactly as before
+        if docs.accounting.has_losses:                           # a field now, not an attribute
+            ...
 
     .. warning::
-       **Deriving a new list drops the accounting** (issue #134, whose scope now covers this type
-       as well as ``DownloadResult``). ``accounting`` and ``reported_counts`` live on the instance,
-       so slicing, ``sorted()``, ``list()``, concatenation and comprehensions return a plain
-       ``list`` without them — 6 of 8 ordinary operations. ``copy.copy()`` and :meth:`filter` are
-       the exceptions; ``filter`` survives only because it was wired through deliberately.
+       **``isinstance(docs, list)`` is now ``False``.** Unlike the operations this redesign fixes,
+       that one fails *silently* — it takes the other branch rather than raising. Code that
+       dispatches on the type instead of the interface wants ``docs.documents``. ``dict(docs)``
+       raises now too, but loudly; use ``docs.model_dump()``.
 
-       This matters more since 0.23.0, because ``accounting.failed_codes`` records *which report
-       code failed*, so ``sorted(docs, …)`` would discard that too. Every failed code is therefore
-       **also logged at WARNING** — a log line cannot be sliced away. Read the accounting off the
-       object ``fetch_documents`` returned, before deriving anything from it. A redesign that
-       removes the edge is breaking and is tracked for a later release.
+    .. note::
+       **A slice carries the accounting of the whole call, not of the slice.** ``docs[:5]`` is a
+       ``SecDocumentList`` whose ``accounting`` still describes every row the *listing* received,
+       including rows the slice does not contain. That is deliberate, and it is the rule
+       :meth:`filter` already followed: narrowing a result must never hide a loss from exactly the
+       caller who narrowed it. ``reported_counts`` is carried across for the same reason.
+
+       ``sorted(docs)`` and ``list(docs)`` still return plain lists, because iteration is kept —
+       removing it would break every consumer for no gain. Sort ``docs.documents``, and read the
+       accounting off the object the call returned.
     """
 
-    def __init__(
-        self,
-        iterable: Iterable[SecDocument] = (),
-        *,
-        reported_counts: Mapping[str, int] | None = None,
-        accounting: ListingAccounting | None = None,
-    ) -> None:
-        super().__init__(iterable)
-        self.reported_counts: dict[str, int] = dict(reported_counts or {})
-        """How many records the site said each section holds, keyed by category value.
+    documents: list[SecDocument] = Field(
+        default_factory=list, description="The filings this listing yielded, in page order"
+    )
+    reported_counts: dict[str, int] = Field(
+        default_factory=dict,
+        description="How many records the site said each section holds, keyed by category value",
+    )
+    accounting: ListingAccounting = Field(
+        default_factory=ListingAccounting,
+        description="What the parser did with every row and column it received",
+    )
 
-        This describes the **sections the search returned**, not this list's contents, and it
-        stays true after filtering — which is the point: you compare what you have against what
-        the site said existed. See :meth:`completeness`.
-        """
-        self.accounting: ListingAccounting = accounting or ListingAccounting()
-        """What the parser did with every row and column it received.
+    model_config = ConfigDict(populate_by_name=True)
 
-        The other half of the cross-check, and deliberately not folded into
-        :attr:`reported_counts`: that one is the **site's** number, this one is **ours**. A
-        shortfall against the site's number is usually truncation; a non-zero
-        ``accounting.no_link`` is always a loss. See :class:`ListingAccounting`.
+    # -- the list-like surface -------------------------------------------------------------
+    #
+    # Iteration, length, truthiness and integer indexing are kept so that every existing caller
+    # keeps working. `__len__` is what restores `if docs:` — a BaseModel is otherwise always
+    # truthy, which would have quietly inverted the meaning of an empty listing.
+
+    def __iter__(self) -> Iterator[SecDocument]:  # type: ignore[override]
+        return iter(self.documents)
+
+    def __len__(self) -> int:
+        return len(self.documents)
+
+    def __contains__(self, item: object) -> bool:
+        return item in self.documents
+
+    @overload
+    def __getitem__(self, index: int) -> SecDocument: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> SecDocumentList: ...
+
+    def __getitem__(self, index: int | slice) -> SecDocument | SecDocumentList:
+        """Integer indexing yields a document; slicing yields a **model**, never a bare list.
+
+        The overloads are not decoration. Without them the annotation collapses to the union, and
+        **every** consumer call is a type error under mypy strict -- ``docs[0].year`` reports
+        "Item SecDocumentList of SecDocument | SecDocumentList has no attribute year", and
+        ``docs[:5].accounting`` reports the mirror image. settfex ships ``py.typed``, so its hints
+        are a shipped interface, not an internal convenience; the library itself never indexes
+        these containers, which is exactly why an internally-green ``mypy settfex/`` said nothing.
         """
+        if isinstance(index, slice):
+            return SecDocumentList(
+                documents=self.documents[index],
+                reported_counts=dict(self.reported_counts),
+                accounting=self.accounting,
+            )
+        return self.documents[index]
+
+    # -- the helpers -----------------------------------------------------------------------
 
     def completeness(self) -> dict[str, tuple[int, int]]:
         """Per category: ``(documents here, records the site said that section holds)``.
@@ -389,7 +478,7 @@ class SecDocumentList(list[SecDocument]):
         this the caller has to re-derive the number from the raw HTML to notice.
         """
         held: dict[str, int] = {}
-        for document in self:
+        for document in self.documents:
             held[document.category.value] = held.get(document.category.value, 0) + 1
         keys = {*held, *self.reported_counts}
         return {
@@ -398,7 +487,7 @@ class SecDocumentList(list[SecDocument]):
 
     def categories(self) -> list[DocumentCategory]:
         """Distinct categories present, in ``DocumentCategory`` enum order."""
-        present = {d.category for d in self}
+        present = {d.category for d in self.documents}
         return [c for c in DocumentCategory if c in present]
 
     def available_years(self, category: DocumentCategory | str | None = None) -> list[int]:
@@ -408,7 +497,11 @@ class SecDocumentList(list[SecDocument]):
         Documents without a year (``year is None``) are ignored.
         """
         cat = _coerce_category(category) if category is not None else None
-        years = {d.year for d in self if d.year is not None and (cat is None or d.category == cat)}
+        years = {
+            d.year
+            for d in self.documents
+            if d.year is not None and (cat is None or d.category == cat)
+        }
         return sorted(years, reverse=True)
 
     def years_by_category(self) -> dict[str, list[int]]:
@@ -435,16 +528,16 @@ class SecDocumentList(list[SecDocument]):
         # client-side year filter cannot change. Without this the cross-check would evaporate
         # exactly when someone narrows a result.
         counts = (
-            self.reported_counts
+            dict(self.reported_counts)
             if cat is None
             else {k: v for k, v in self.reported_counts.items() if k == cat.value}
         )
         return SecDocumentList(
-            (
+            documents=[
                 d
-                for d in self
+                for d in self.documents
                 if (cat is None or d.category == cat) and (year is None or d.year == year)
-            ),
+            ],
             reported_counts=counts,
             # Carried whole, for the same reason: it describes the PARSE that produced these
             # documents, which no client-side filter can change. Narrowing it would hide a loss
@@ -467,13 +560,15 @@ class SecDocumentList(list[SecDocument]):
                 f"{cat:<{width}} : {', '.join(str(y) for y in years) or '-'}"
                 for cat, years in by_cat.items()
             ]
-        elif not self.accounting.failed_codes:
+        elif not self.accounting.failed_codes and not self.accounting.degraded_sections:
             return "(no documents)"
         for failure in self.accounting.failed_codes:
             lines.append(
                 f"FAILED {failure.code} ({', '.join(failure.categories) or 'no category'}): "
                 f"{failure.error_type}: {failure.error}"
             )
+        for degraded in self.accounting.degraded_sections:
+            lines.append(f"DEGRADED {degraded.category}: {degraded.reason}")
         return "\n".join(lines)
 
     def __repr__(self) -> str:
@@ -482,6 +577,10 @@ class SecDocumentList(list[SecDocument]):
         if self.accounting.failed_codes:
             parts.append(
                 f"FAILED code(s): {', '.join(f.code for f in self.accounting.failed_codes)}"
+            )
+        if self.accounting.degraded_sections:
+            parts.append(
+                f"DEGRADED: {', '.join(d.category for d in self.accounting.degraded_sections)}"
             )
         if self.accounting.no_link:
             parts.append(f"{self.accounting.no_link} row(s) lost")
@@ -756,28 +855,47 @@ def _require_listing_page(html: str, url: str, code: str) -> None:
     raise ParseError(message, url=url, rows_parsed=0)
 
 
-def _view_more_is_usable(status_code: int, html: str, url: str, code: str) -> bool:
+def _view_more_degradation(
+    status_code: int, html: str, url: str, code: str, category: DocumentCategory
+) -> DegradedSection | None:
     """Is this "display all results" page fit to replace its section's inline rows?
 
-    Returns False (with a WARNING) instead of raising, so a broken ViewMore page costs the caller
-    the *completeness* of one section rather than the whole listing. See the call site for why.
+    Returns a :class:`DegradedSection` (with a WARNING) instead of raising, so a broken ViewMore
+    page costs the caller the *completeness* of one section rather than the whole listing; ``None``
+    means the page is usable. See the call site for why the severity is set this way.
+
+    Returning the record rather than a bare ``False`` is 0.24.0's change: the log line was the only
+    place the fallback was stated, so ``has_losses`` reported a clean parse for a listing that had
+    knowingly kept truncated rows.
     """
     if not 200 <= status_code < 300:
+        reason = (
+            f"the 'display all results' page answered HTTP {status_code}; kept the truncated "
+            f"inline rows for this section"
+        )
         logger.warning(
             f"The 'display all results' page for report code {code!r} at {url} answered HTTP "
             f"{status_code}. Keeping the truncated inline rows for that section instead of "
             f"replacing them; `completeness()` will show the shortfall."
         )
-        return False
+        return DegradedSection(
+            category=category.value, url=url, reason=reason, status_code=status_code
+        )
     lowered = html.lower()
     if not any(marker in lowered for marker in _LISTING_MARKERS):
+        reason = (
+            "the 'display all results' page was not a listing page (no result table, no section "
+            "heading); kept the truncated inline rows for this section"
+        )
         logger.warning(
             f"The 'display all results' page for report code {code!r} at {url} is not a listing "
             f"page (no result table, no section heading). Keeping the truncated inline rows for "
             f"that section; `completeness()` will show the shortfall."
         )
-        return False
-    return True
+        return DegradedSection(
+            category=category.value, url=url, reason=reason, status_code=status_code
+        )
+    return None
 
 
 # ViewMore slug -> the category whose complete list that page holds.
@@ -1103,8 +1221,10 @@ def _log_listing_summary(
         logger.warning(
             f"{head}, but the parse was not clean: {accounting.no_link} row(s) lost to a missing "
             f"download link, {len(accounting.unknown_sections)} unrecognised section(s), "
-            f"{len(accounting.unmapped_headers)} unmapped column(s). The site reports "
-            f"{total_reported} record(s). Inspect `.accounting` on the returned list."
+            f"{len(accounting.unmapped_headers)} unmapped column(s), "
+            f"{len(accounting.failed_codes)} failed report code(s), "
+            f"{len(accounting.degraded_sections)} degraded section(s). The site reports "
+            f"{total_reported} record(s). Inspect `.accounting` on the returned listing."
         )
         return
     if short and follow_view_more:
@@ -1247,7 +1367,7 @@ class FinancialReportService:
                 + "; ".join(f"{c}={type(e).__name__}" for c, e in failures)
             )
             raise first_error
-        listing = SecDocumentList(docs, reported_counts=reported, accounting=accounting)
+        listing = SecDocumentList(documents=docs, reported_counts=reported, accounting=accounting)
         _log_listing_summary(listing, unique_id=unique_id, follow_view_more=follow_view_more)
         return listing
 
@@ -1385,6 +1505,19 @@ class FinancialReportService:
                         f"not be fetched ({type(page).__name__}: {page}). Keeping the truncated "
                         f"inline rows for that section; `completeness()` will show the shortfall."
                     )
+                    accounting.degraded_sections.append(
+                        DegradedSection(
+                            category=cat.value,
+                            url=url,
+                            reason=(
+                                f"the 'display all results' page could not be fetched "
+                                f"({type(page).__name__}: {page}); kept the truncated inline rows "
+                                f"for this section"
+                            ),
+                            status_code=getattr(page, "status_code", None),
+                            error_type=type(page).__name__,
+                        )
+                    )
                     continue
                 # A ViewMore page holds the COMPLETE list for its section and REPLACES the inline
                 # rows, so an unusable one here does not merely add nothing -- on 0.22.0 it
@@ -1400,7 +1533,9 @@ class FinancialReportService:
                 #
                 # This is not hypothetical: on 2026-09-20 the live Thai `fs-kf` page answered
                 # HTTP 500 on every attempt while the other five slug/language pairs answered 200.
-                if not _view_more_is_usable(page.status_code, page.text, url, code):
+                degraded = _view_more_degradation(page.status_code, page.text, url, code, cat)
+                if degraded is not None:
+                    accounting.degraded_sections.append(degraded)
                     continue
                 vm = _map_rows(
                     parse_report_tables(page.text),
@@ -1430,6 +1565,7 @@ async def get_sec_documents(
     lang: Language = "en",
     follow_view_more: bool = True,
     config: FetcherConfig | None = None,
+    allow_name_match: bool = False,
 ) -> SecDocumentList:
     """
     Convenience: resolve a symbol/name and list its SEC disclosure documents (all 5 categories
@@ -1445,13 +1581,26 @@ async def get_sec_documents(
         config: Optional fetcher configuration.
 
     Returns:
-        A :class:`SecDocumentList` (a list with ``years_by_category()`` / ``available_years()`` /
-        ``filter()`` / ``summary()`` helpers); empty if the company cannot be resolved.
+        A :class:`SecDocumentList` — a model with ``documents`` plus ``accounting`` /
+        ``reported_counts``, and ``years_by_category()`` / ``available_years()`` / ``filter()`` /
+        ``summary()`` helpers. It iterates and indexes like the list it used to be.
+
+    Raises:
+        CompanyNotFoundError: The search succeeded and matched no issuer (an input error).
+        AmbiguousCompanyError: Several issuers matched and none was flagged as the match, or a
+            single unflagged one matched without ``allow_name_match=True``. It carries the
+            candidates, so the caller can choose without a second request.
+        FetchError: On a transport failure, or when every requested report code failed.
     """
-    company = await resolve_company(query, lang, config=config)
+    company = await resolve_company(query, lang, config=config, allow_name_match=allow_name_match)
     if company is None:
-        logger.warning(f"No SEC company matched query={query!r}; returning no documents")
-        return SecDocumentList()
+        # Raised, not returned as []. A lookup that FAILED now raises from the fetch layer, so
+        # reaching here means the search succeeded and matched nothing -- a fact about the input.
+        # Returning an empty list conflated the two and let a backfill record the window as
+        # covered either way (D10).
+        error_msg = f"No SEC issuer matched {query!r}"
+        logger.error(error_msg)
+        raise CompanyNotFoundError(error_msg)
     service = FinancialReportService(config=config)
     return await service.fetch_documents(
         company.unique_id,

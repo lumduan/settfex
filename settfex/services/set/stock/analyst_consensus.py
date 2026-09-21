@@ -280,14 +280,14 @@ class AnalystConsensus(BaseModel):
     target_price_year: int | None = Field(
         default=None, alias="targetPriceYear", description="Year the target prices refer to"
     )
-    average: ConsensusStatistic | None = Field(
-        default=None, description="Average across covering brokers"
-    )
-    median: ConsensusStatistic | None = Field(
-        default=None, description="Median across covering brokers"
-    )
-    high: ConsensusStatistic | None = Field(default=None, description="Highest broker estimate")
-    low: ConsensusStatistic | None = Field(default=None, description="Lowest broker estimate")
+    # Required, no default. A real payload ALWAYS carries the four aggregate rows -- an
+    # uncovered symbol gets them zero-filled rather than omitted (see the CLAUDE.md gotcha), so
+    # their absence means the body is not a consensus payload at all. `symbol` cannot serve as the
+    # guard here because the service injects it rather than reading it from the response.
+    average: ConsensusStatistic | None = Field(description="Average across covering brokers")
+    median: ConsensusStatistic | None = Field(description="Median across covering brokers")
+    high: ConsensusStatistic | None = Field(description="Highest broker estimate")
+    low: ConsensusStatistic | None = Field(description="Lowest broker estimate")
     consensuses: list[AnalystConsensusRow] = Field(
         default_factory=list,
         description="One row per covering broker (settrade's wire name, kept verbatim)",
@@ -533,9 +533,11 @@ class ConsensusOverallResponse(BaseModel):
         alias="marketTime",
         description="Market timestamp settrade computed the summary at (timezone-aware, +07:00)",
     )
-    overall: list[ConsensusOverall] = Field(
-        default_factory=list, description="Summary rows, one per symbol"
-    )
+    # Required, with no default. An envelope whose only field defaults to an empty list validates
+    # ANY JSON object -- an error payload included -- into a successful-looking empty result, which
+    # is the second half of the silent-loss rule in issue #135. Required is not non-empty: a genuine
+    # `{...: []}` still validates; only a missing key fails.
+    overall: list[ConsensusOverall] = Field(description="Summary rows, one per symbol")
 
     model_config = ConfigDict(populate_by_name=True)
 

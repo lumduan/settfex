@@ -10,7 +10,7 @@ from settfex.exceptions import InvalidSymbolError, raise_for_status
 from settfex.services.set.constants import SET_BASE_URL, SET_TRADING_STAT_ENDPOINT
 from settfex.services.set.stock.utils import Language, normalize_language, normalize_symbol
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
-from settfex.utils.parsing import decode_json, validate_list_or_raise
+from settfex.utils.parsing import ResponseParseError, decode_json, validate_list_or_raise
 
 
 class TradingStat(BaseModel):
@@ -151,7 +151,7 @@ class TradingStatService:
             if not isinstance(data, list):
                 error_msg = f"Expected list response, got {type(data).__name__}"
                 logger.error(error_msg)
-                raise ValueError(error_msg)
+                raise ResponseParseError(error_msg)
 
             # Validate each record using Pydantic (context-rich on failure)
             trading_stats = validate_list_or_raise(
@@ -230,7 +230,7 @@ class TradingStatService:
             if not isinstance(data, list):
                 error_msg = f"Expected list response, got {type(data).__name__}"
                 logger.error(error_msg)
-                raise ValueError(error_msg)
+                raise ResponseParseError(error_msg)
 
             logger.debug(f"Raw response: {len(data)} records")
             return data
