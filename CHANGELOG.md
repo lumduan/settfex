@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.2] - 2026-09-22
+
+### Fixed
+
+- **settfex destroyed the host application's loguru handlers at import**
+  ([#146](https://github.com/lumduan/settfex/issues/146)). `settfex/utils/logging.py` ran
+  `setup_logger(level="ERROR")` at module import, and `setup_logger()` called `logger.remove()`
+  **with no argument** — which removes *every* handler in the process, not just settfex's. Because
+  `settfex/utils/__init__.py` imports that module, **any** import path into settfex triggered it.
+
+  A host that had configured loguru before importing settfex lost:
+
+  - its **file sinks entirely — including `ERROR`**, not just `WARNING`/`INFO`;
+  - everything below `ERROR` on any sink;
+  - control of its own output format, because settfex's handler became the only one in the
+    process and re-rendered the host's surviving records in settfex's format.
+
+  Nothing raised and nothing was logged about it, so the first symptom was usually an empty log
+  file.
+
+  Now: **settfex touches no handlers at import**, and the package root calls
+  `logger.disable("settfex")` so the library is silent unless asked. `setup_logger()` keeps its
+  signature, enables settfex, and removes **only the handler ids it added itself** — so calling it
+  repeatedly neither accumulates sinks nor takes one of yours.
+
+### Changed
+
+- **settfex's own log lines no longer appear by default.** Errors are still **raised as
+  exceptions** — only the printing changed. Opt in with either:
+
+  ```python
+  from settfex.utils.logging import setup_logger
+  setup_logger(level="INFO")          # settfex configures logging for you
+
+  import settfex                      # import FIRST
+  from loguru import logger
+  logger.enable("settfex")            # or route settfex through sinks you already have
+  ```
+
+  ⚠️ **`logger.enable("settfex")` must come after `import settfex`.** settfex disables itself at
+  import and in loguru the later call wins, so an `enable()` issued before the import — at
+  application startup, with settfex imported lazily later — is **silently undone**. Nothing
+  raises; the logs simply never appear.
+
+  ⚠️ **`setup_logger()` installs unfiltered sinks** — they receive every record in the process,
+  including your application's, and print them in settfex's format. If you already configure
+  loguru yourself, prefer `logger.enable("settfex")`. A `filter` option is under consideration for
+  0.25.0; adding one now would be new public API, and filtering by default would silence callers
+  who use `setup_logger()`/`get_logger()` for their own application logs.
+
 ## [0.24.1] - 2026-09-21
 
 ### Fixed

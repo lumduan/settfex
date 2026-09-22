@@ -38,6 +38,63 @@ affected versions per function.
 `False`, **silently** — it takes the other branch rather than raising), and several error types
 changed. See [Migration](https://github.com/lumduan/settfex/blob/v0.24.0/CHANGELOG.md#migration).
 
+## Logging
+
+settfex is **silent by default** — it installs no loguru handlers and emits no records until you
+ask. Importing settfex will never touch logging you have already configured.
+
+```python
+import settfex                    # import FIRST — see the note below
+from loguru import logger
+
+logger.enable("settfex")          # settfex's records flow through YOUR sinks, in YOUR format
+```
+
+> ⚠️ **`logger.enable("settfex")` must come AFTER `import settfex`.** settfex disables itself at
+> import, and in loguru the later call wins — so an `enable()` issued at application startup, with
+> settfex imported lazily later, is **silently undone** by that import. Nothing raises; the logs
+> simply never appear.
+
+
+Or let settfex configure logging for you (useful in a script or notebook):
+
+```python
+from settfex.utils.logging import setup_logger
+setup_logger(level="INFO")
+setup_logger(level="DEBUG", log_file="logs/settfex.log")
+```
+
+⚠️ `setup_logger()` installs **unfiltered** sinks: they receive every record in the process,
+including your application's, rendered in settfex's format. If your app already configures loguru,
+use `logger.enable("settfex")` instead.
+
+> Before 0.24.2, importing settfex deleted every loguru handler in the process — see
+> [#146](https://github.com/lumduan/settfex/issues/146). Errors have always been raised as
+> exceptions; only whether settfex *prints* has changed.
+
+### Forwarding settfex's logs to stdlib `logging`
+
+settfex uses loguru. If your application uses the standard library, bridge them with a sink —
+this stays in your code rather than in the library, so settfex imposes nothing:
+
+```python
+import logging
+from loguru import logger
+
+class _ToStdlib(logging.Handler):
+    pass
+
+def _sink(message):
+    record = message.record
+    logging.getLogger(record["name"]).log(
+        logging.getLevelName(record["level"].name), record["message"]
+    )
+
+logger.remove()                   # only your own handlers; settfex adds none
+logger.add(_sink)
+logger.enable("settfex")          # AFTER `import settfex` — see the note above
+```
+
 ## Known issues
 
 - **A flagged SEC company match can still be the wrong company.** `is_primary` means the SEC site

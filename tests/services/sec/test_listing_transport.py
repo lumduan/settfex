@@ -73,6 +73,9 @@ def _captured(level: str = "WARNING") -> tuple[list[str], Any]:
     """Collect loguru messages at ``level`` and above, replacing the default sink."""
     records: list[str] = []
     logger.remove()
+    # settfex is disabled by default since 0.24.2 (#146), so a sink alone captures
+    # nothing from it. Capturing settfex's own records is an explicit opt-in.
+    logger.enable("settfex")
     sink_id = logger.add(lambda m: records.append(m.record["message"]), level=level)
     return records, sink_id
 
