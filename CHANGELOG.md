@@ -41,9 +41,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from settfex.utils.logging import setup_logger
   setup_logger(level="INFO")          # settfex configures logging for you
 
+  import settfex                      # import FIRST
   from loguru import logger
   logger.enable("settfex")            # or route settfex through sinks you already have
   ```
+
+  ⚠️ **`logger.enable("settfex")` must come after `import settfex`.** settfex disables itself at
+  import and in loguru the later call wins, so an `enable()` issued before the import — at
+  application startup, with settfex imported lazily later — is **silently undone**. Nothing
+  raises; the logs simply never appear.
 
   ⚠️ **`setup_logger()` installs unfiltered sinks** — they receive every record in the process,
   including your application's, and print them in settfex's format. If you already configure

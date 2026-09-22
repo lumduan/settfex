@@ -52,8 +52,13 @@ def setup_logger(
        only settfex's.** If your application already configures loguru, calling this will also
        print *your* lines to stderr in settfex's format. Prefer::
 
+           import settfex                      # import FIRST
            from loguru import logger
            logger.enable("settfex")           # route settfex's records through YOUR sinks
+
+       ⚠️ That ``enable`` must come **after** ``import settfex``. The package root disables
+       settfex at import and loguru lets the later call win, so an ``enable()`` issued before
+       the import is silently undone — no error, the records simply never arrive.
 
        ``setup_logger()`` is for callers who want settfex to configure logging for them — a
        script or a notebook — not for applications that already have their own. A ``filter``

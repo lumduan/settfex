@@ -236,3 +236,64 @@ def test_no_import_path_destroys_the_host_sink(entry_point: str, tmp_path: Path)
     assert "survived" in log.read_text(encoding="utf-8"), (
         f"`{entry_point}` destroyed the host's sink (issue #146)"
     )
+
+
+class TestEnableMustComeAfterTheImport:
+    """Order matters, and loguru gives no warning when you get it wrong.
+
+    The package root calls ``logger.disable("settfex")`` at import, and in loguru **the later
+    call wins**. So a host that enables settfex at application startup and imports settfex lazily
+    later — a perfectly ordinary arrangement — has its ``enable()`` silently undone by the import.
+
+    Nothing raises, nothing is logged, and the symptom is the one this whole issue is about:
+    expected log lines that never appear. These two tests pin both orders so the documented
+    requirement cannot drift away from the behaviour.
+    """
+
+    SCENARIO = """
+        from loguru import logger
+        logger.remove()
+        logger.add({log!r}, level="DEBUG", format="{{name}} | {{message}}")
+
+        {first}
+        {second}
+
+        from settfex.services.sec.financial_report import FinancialReportService as _F
+        _F()
+        logger.remove()
+    """
+
+    def test_enable_before_the_import_is_silently_undone(self, tmp_path: Path) -> None:
+        """The trap. Documented in the README, the CHANGELOG and the setup_logger docstring."""
+        log = tmp_path / "before.log"
+        result = run_in_fresh_interpreter(
+            self.SCENARIO.format(
+                log=str(log),
+                first='logger.enable("settfex")',
+                second="import settfex  # noqa: F401  -- the import undoes the enable above",
+            ),
+            tmp_path,
+        )
+        assert result.returncode == 0, result.stderr
+        text = log.read_text(encoding="utf-8")
+        assert "settfex." not in text, (
+            "enable() before the import appeared to work. If settfex no longer disables at "
+            "import, the ordering note in the README/CHANGELOG/docstring is now wrong and must "
+            "be removed — do not just delete this test."
+        )
+
+    def test_enable_after_the_import_works(self, tmp_path: Path) -> None:
+        """The documented order, and the one every snippet in the docs shows."""
+        log = tmp_path / "after.log"
+        result = run_in_fresh_interpreter(
+            self.SCENARIO.format(
+                log=str(log),
+                first="import settfex  # noqa: F401",
+                second='logger.enable("settfex")',
+            ),
+            tmp_path,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "settfex." in log.read_text(encoding="utf-8"), (
+            'logger.enable("settfex") after `import settfex` must make settfex audible'
+        )

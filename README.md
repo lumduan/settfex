@@ -44,9 +44,17 @@ settfex is **silent by default** — it installs no loguru handlers and emits no
 ask. Importing settfex will never touch logging you have already configured.
 
 ```python
+import settfex                    # import FIRST — see the note below
 from loguru import logger
+
 logger.enable("settfex")          # settfex's records flow through YOUR sinks, in YOUR format
 ```
+
+> ⚠️ **`logger.enable("settfex")` must come AFTER `import settfex`.** settfex disables itself at
+> import, and in loguru the later call wins — so an `enable()` issued at application startup, with
+> settfex imported lazily later, is **silently undone** by that import. Nothing raises; the logs
+> simply never appear.
+
 
 Or let settfex configure logging for you (useful in a script or notebook):
 
@@ -84,7 +92,7 @@ def _sink(message):
 
 logger.remove()                   # only your own handlers; settfex adds none
 logger.add(_sink)
-logger.enable("settfex")
+logger.enable("settfex")          # AFTER `import settfex` — see the note above
 ```
 
 ## Known issues
