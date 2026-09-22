@@ -487,6 +487,8 @@ class TestTheRawEscapeHatchIsClampedToo:
         from loguru import logger
 
         records: list[str] = []
+        # settfex is disabled by default since 0.24.2 (#146); capturing its records opts in.
+        logger.enable("settfex")
         sink = logger.add(lambda m: records.append(m), level="WARNING", format="{message}")
         try:
             mock_fetcher.fetch.side_effect = _router({1999: INTPTTM_1999})

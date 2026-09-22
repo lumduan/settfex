@@ -1,5 +1,18 @@
-"""Logging utilities using loguru."""
+"""Logging utilities using loguru.
 
+settfex is **silent by default**. The package root calls ``logger.disable("settfex")`` at import,
+so nothing here emits a record until the caller opts in — with :func:`setup_logger`, or with
+``logger.enable("settfex")`` to route settfex's records through sinks the caller already has.
+
+⚠️ **Nothing in this module touches loguru handlers at import time.** Until 0.24.2 it did: a
+module-level ``setup_logger(level="ERROR")`` call ran ``logger.remove()`` with no argument, which
+removes **every** handler in the process — so merely importing settfex deleted the host
+application's sinks, file sinks included, and left one stderr handler at ERROR. The host then lost
+everything below ERROR, lost ERROR from its files, and saw its surviving output re-rendered in
+settfex's format. See issue #146.
+"""
+
+import contextlib
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -8,6 +21,11 @@ from loguru import logger
 
 if TYPE_CHECKING:
     from loguru import Logger
+
+#: Handler ids added by :func:`setup_logger`, so it can remove **its own** and nothing else.
+#: ``logger.add()`` returns an id and the old code discarded it, which is why the only way it
+#: could clean up was ``logger.remove()`` -- the blunt call that took the host's sinks with it.
+_OWN_HANDLER_IDS: list[int] = []
 
 
 def setup_logger(
@@ -29,12 +47,37 @@ def setup_logger(
         format_string: Custom format string. If None, uses default format
         colorize: Whether to colorize console output
 
+    .. warning::
+       **The sinks this installs are unfiltered — they receive EVERY record in the process, not
+       only settfex's.** If your application already configures loguru, calling this will also
+       print *your* lines to stderr in settfex's format. Prefer::
+
+           from loguru import logger
+           logger.enable("settfex")           # route settfex's records through YOUR sinks
+
+       ``setup_logger()`` is for callers who want settfex to configure logging for them — a
+       script or a notebook — not for applications that already have their own. A ``filter``
+       option is under consideration for 0.25.0; adding one here would be new public API, and
+       filtering by default would silence people who use this function for their own app logs.
+
+    Calling this repeatedly is safe: it removes the handlers it previously added, and only those.
+
     Example:
         >>> from settfex.utils.logging import setup_logger
         >>> setup_logger(level="DEBUG", log_file="logs/settfex.log")
     """
-    # Remove default handler
-    logger.remove()
+    # Enable settfex's own records. The package root disables them at import so that a
+    # caller who never asks for logs never gets any; calling this function IS the ask.
+    logger.enable("settfex")
+
+    # Remove only the handlers THIS function added previously, so calling it twice does not
+    # accumulate sinks -- and never the caller's, which is the whole point of #146.
+    global _OWN_HANDLER_IDS
+    for handler_id in _OWN_HANDLER_IDS:
+        # Already gone is fine: the caller may have removed it, or run logger.remove().
+        with contextlib.suppress(ValueError):
+            logger.remove(handler_id)
+    _OWN_HANDLER_IDS = []
 
     # Default format with timestamp, level, and message
     if format_string is None:
@@ -46,13 +89,15 @@ def setup_logger(
         )
 
     # Add console handler (stderr)
-    logger.add(
-        sys.stderr,
-        format=format_string,
-        level=level,
-        colorize=colorize,
-        backtrace=True,
-        diagnose=True,
+    _OWN_HANDLER_IDS.append(
+        logger.add(
+            sys.stderr,
+            format=format_string,
+            level=level,
+            colorize=colorize,
+            backtrace=True,
+            diagnose=True,
+        )
     )
 
     # Add file handler if log_file is specified
@@ -60,15 +105,17 @@ def setup_logger(
         log_path = Path(log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
-        logger.add(
-            str(log_path),
-            format=format_string,
-            level=level,
-            rotation=rotation,
-            retention=retention,
-            compression="zip",
-            backtrace=True,
-            diagnose=True,
+        _OWN_HANDLER_IDS.append(
+            logger.add(
+                str(log_path),
+                format=format_string,
+                level=level,
+                rotation=rotation,
+                retention=retention,
+                compression="zip",
+                backtrace=True,
+                diagnose=True,
+            )
         )
 
         logger.info(f"Logging to file: {log_path}")
@@ -79,7 +126,12 @@ def get_logger() -> "Logger":
     Get the configured loguru logger instance.
 
     Returns:
-        Loguru logger instance
+        The global loguru logger instance.
+
+    .. note::
+       This is loguru's process-wide logger, not a settfex-specific one. Records it emits from
+       **your** modules are unaffected by settfex being disabled — ``logger.disable("settfex")``
+       filters on the *record's* module name, so only settfex's own records are suppressed.
 
     Example:
         >>> from settfex.utils.logging import get_logger
@@ -87,9 +139,3 @@ def get_logger() -> "Logger":
         >>> log.info("This is a log message")
     """
     return logger
-
-
-# Initialize with default configuration
-# Users can override by calling setup_logger() in their code
-# Default to ERROR level for production use - users can change to DEBUG/INFO if needed
-setup_logger(level="ERROR", colorize=True)

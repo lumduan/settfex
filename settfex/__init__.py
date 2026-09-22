@@ -55,9 +55,11 @@ Usage:
     >>> asyncio.run(main())
 """
 
-__version__ = "0.24.1"
+__version__ = "0.24.2"
 __author__ = "batt"
 __license__ = "MIT"
+
+from loguru import logger as _loguru_logger
 
 # Public API exports - import commonly used classes/functions
 from settfex.exceptions import (
@@ -134,6 +136,21 @@ from settfex.services.thaibma import (
 # Utility exports
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.logging import setup_logger
+
+# settfex is SILENT BY DEFAULT.
+#
+# Disabled here at the PACKAGE ROOT rather than in utils/logging.py: this runs for every import
+# path into the package and survives a refactor of the utils module, so there is no import order
+# in which settfex starts emitting records unasked. Placed after the imports above because no
+# settfex module logs at import time (verified), and E402 requires imports to stay contiguous.
+#
+# This replaces a module-level setup_logger(level="ERROR") call whose logger.remove() -- with no
+# argument -- deleted EVERY handler in the process, the host application's included, so merely
+# importing settfex destroyed the host's sinks and left one stderr handler at ERROR. See #146.
+#
+# Opt in with settfex.utils.logging.setup_logger(), or logger.enable("settfex") to route
+# settfex's records through sinks you already have.
+_loguru_logger.disable("settfex")
 
 __all__ = [
     # Version info

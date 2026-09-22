@@ -31,6 +31,9 @@ def _mode(path: Path) -> int:
 def _capture_warnings() -> tuple[list[str], int]:
     """Collect loguru WARNING records; returns the list and the sink id to remove."""
     messages: list[str] = []
+    # settfex is disabled by default since 0.24.2 (#146), so a sink alone captures
+    # nothing from it. Capturing settfex's own records is an explicit opt-in.
+    logger.enable("settfex")
     sink_id = logger.add(lambda m: messages.append(str(m)), level="WARNING")
     return messages, sink_id
 
