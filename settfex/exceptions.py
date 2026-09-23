@@ -102,13 +102,19 @@ class NotFoundError(Exception):
 
 
 class SymbolNotFoundError(FetchError, NotFoundError):
-    """A symbol or index was not found (HTTP 404).
+    """A symbol or index was not found.
+
+    Usually a SET HTTP 404. Since 0.25.0 also the analyst-consensus table's HTTP 500 for a symbol
+    the SET stock list does not know — ``status_code`` then stays ``500``, the status the server
+    actually sent.
 
     Also a :class:`NotFoundError` (0.25.0), the catch that means "do not retry".
 
-    ``suggestion`` is a close match from the SET stock-symbol list when one is available — but only
-    if that list was already fetched earlier this session (it is never fetched on demand); ``None``
-    otherwise. When present, the suggestion is also appended to the error message.
+    ``suggestion`` is a close match from the SET stock-symbol list when one is available, and
+    ``None`` otherwise. On a 404 the list is only consulted if it was already fetched earlier in
+    this process (a 404 never triggers a fetch); the analyst-consensus classification is the one
+    path that loads it, once per event loop. When present, the suggestion is also appended to the
+    error message.
     """
 
     def __init__(

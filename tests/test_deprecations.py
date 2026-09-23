@@ -15,10 +15,12 @@ Four properties, each of which a deprecation period depends on:
 from __future__ import annotations
 
 import ast
+import json
 import warnings
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from packaging.version import Version
@@ -26,13 +28,43 @@ from packaging.version import Version
 import settfex
 import settfex.deprecations as deprecations
 from settfex.deprecations import DEPRECATIONS, Deprecation, warn_deprecated
+from settfex.services.set.stock.analyst_consensus import get_consensus_overall
+from settfex.utils.data_fetcher import FetchResponse
 
 PACKAGE_ROOT = Path(settfex.__file__).resolve().parent
 
 
+async def _consensus_overall_for_an_unlisted_symbol() -> None:
+    """get_consensus_overall() for a symbol the SET stock list says is not listed."""
+    body = json.dumps({"marketTime": "2026-08-15T03:20:05+07:00", "overall": []})
+    empty = FetchResponse(
+        status_code=200,
+        content=body.encode("utf-8"),
+        text=body,
+        headers={"Content-Type": "application/json"},
+        url="https://www.settrade.com/api/set-fund/consensus/stock/overall",
+        elapsed=0.0,
+    )
+
+    async def not_listed(symbol: str) -> bool:
+        return False
+
+    with (
+        patch("settfex.services.set.stock.analyst_consensus.AsyncDataFetcher") as cls,
+        patch("settfex.services.set.list._is_listed_symbol", not_listed),
+    ):
+        fetcher = AsyncMock()
+        fetcher.fetch.return_value = empty
+        cls.return_value.__aenter__.return_value = fetcher
+        cls.return_value.__aexit__.return_value = None
+        await get_consensus_overall("NOSUCH")
+
+
 #: One trigger per registered deprecation: an async callable that performs the deprecated action
 #: with the network faked, and must emit that entry's warning. Keyed by deprecation id.
-TRIGGERS: dict[str, Callable[[], Awaitable[Any]]] = {}
+TRIGGERS: dict[str, Callable[[], Awaitable[Any]]] = {
+    "consensus-overall-unknown-symbol": _consensus_overall_for_an_unlisted_symbol,
+}
 
 
 class TestTheRegistryIsComplete:

@@ -2,12 +2,14 @@
 
 import asyncio
 import difflib
+import weakref
+from dataclasses import dataclass, field
 from typing import Any
 
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
-from settfex.exceptions import register_symbol_suggester
+from settfex.exceptions import FetchError, register_symbol_suggester
 from settfex.services.set.asset_type import SECURITY_TYPE_TO_ASSET_TYPE, AssetType
 from settfex.services.set.constants import SET_BASE_URL, SET_STOCK_LIST_ENDPOINT
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
@@ -186,6 +188,74 @@ def suggest_symbol(symbol: str) -> str | None:
         return None
     matches = difflib.get_close_matches(symbol.strip().upper(), _KNOWN_SYMBOLS, n=1, cutoff=0.6)
     return matches[0] if matches else None
+
+
+@dataclass
+class _ListingLoad:
+    """One event loop's attempt at loading the stock list for :func:`_is_listed_symbol`."""
+
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    failed: bool = False
+
+
+# Keyed by event loop, because an asyncio.Lock belongs to the loop that first uses it and a caller
+# may run several asyncio.run() calls in one process. Weak, so a finished loop takes its entry with
+# it rather than leaving a dead lock behind.
+_LISTING_LOADS: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, _ListingLoad] = (
+    weakref.WeakKeyDictionary()
+)
+
+# The list is a side lookup, not the call the user made: one attempt, no retry ladder, a short
+# timeout, and no index enrichment (~10 extra requests the lookup does not need).
+_LISTING_CHECK_CONFIG = FetcherConfig(max_retries=0, timeout=10)
+
+
+def _listing_load_for(loop: asyncio.AbstractEventLoop) -> _ListingLoad:
+    """This loop's load state. A loop that cannot be weakly referenced gets a fresh one per call,
+    which costs the once-per-loop guarantee (a failed load is retried) but never raises."""
+    try:
+        state = _LISTING_LOADS.get(loop)
+        if state is None:
+            state = _LISTING_LOADS[loop] = _ListingLoad()
+        return state
+    except TypeError:
+        return _ListingLoad()
+
+
+async def _is_listed_symbol(symbol: str) -> bool | None:
+    """Is ``symbol`` a listed SET security? ``None`` when that cannot be known.
+
+    For endpoints that answer an unknown symbol and a listed-but-unserved one identically — the
+    analyst-consensus table (HTTP 500 for both) and its summary (an empty list for both). Only the
+    SET stock list can tell the two apart.
+
+    Uses the in-process list when :func:`get_stock_list` already filled it. Otherwise loads it
+    **once per event loop** — one request, no retries, no index enrichment. A failed load is
+    remembered for the rest of that loop and answered with ``None``, so a broken list endpoint
+    never adds a request to every later lookup. A trailing ``-R`` / ``-F`` (NVDR, foreign line) is
+    also checked without its suffix, so a valid line of a listed company is never called unknown.
+    """
+    wanted = symbol.strip().upper()
+    if not wanted:
+        return None
+    state = _listing_load_for(asyncio.get_running_loop())
+    async with state.lock:
+        if _KNOWN_SYMBOLS is None and not state.failed:
+            try:
+                await StockListService(config=_LISTING_CHECK_CONFIG).fetch_stock_list(
+                    include_indices=False
+                )
+            except FetchError as exc:
+                state.failed = True
+                logger.warning(
+                    f"Could not load the SET stock list to classify '{wanted}' ({exc}); "
+                    f"treating listing status as unknown for the rest of this event loop"
+                )
+    if _KNOWN_SYMBOLS is None:
+        return None
+    known = set(_KNOWN_SYMBOLS)
+    base = wanted[:-2] if wanted.endswith(("-R", "-F")) else wanted
+    return wanted in known or base in known
 
 
 class StockListService:

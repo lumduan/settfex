@@ -2,13 +2,20 @@
 
 import json
 import sys
+import warnings
 from datetime import datetime
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from settfex.exceptions import FetchError, InvalidLanguageError, InvalidSymbolError
+from settfex.exceptions import (
+    FetchError,
+    InvalidLanguageError,
+    InvalidSymbolError,
+    NotFoundError,
+    SymbolNotFoundError,
+)
 from settfex.services.set.stock import Stock
 from settfex.services.set.stock.analyst_consensus import (
     AnalystConsensus,
@@ -508,6 +515,10 @@ class TestAnalystConsensusService:
     async def test_http_500_is_fetch_error_not_symbol_not_found(self, mock_fetcher) -> None:
         """500 means "no consensus record" - and it fires for VALID symbols like ABICO,
         so a SymbolNotFoundError (and its "did you mean 'ABICO'?" suggester) would be absurd.
+
+        Since 0.25.0 this holds for a symbol the SET stock list does NOT rule out - listed, or the
+        list could not be loaded (the suite default, see tests/conftest.py). An UNLISTED symbol is
+        a SymbolNotFoundError now; see TestUnknownSymbolsAreNotUncoveredOnes.
         """
         mock_fetcher.fetch.return_value = _response(SAMPLE_ERROR_500, status_code=500)
         with pytest.raises(FetchError, match="No analyst consensus") as excinfo:
@@ -657,3 +668,110 @@ class TestConvenienceAndStock:
         service = stock.analyst_consensus_service
         assert service.config is config
         assert stock.analyst_consensus_service is service
+
+
+# --- 0.25.0: an unknown symbol is not an uncovered one -------------------------------------------
+
+
+@pytest.fixture
+def listing(monkeypatch):
+    """Set what the SET stock list says about any symbol, and record who asked.
+
+    ``True`` listed, ``False`` not listed, ``None`` unknowable. Overrides the suite-wide default in
+    tests/conftest.py, which answers ``None`` so no test can reach the network.
+    """
+    asked: list[str] = []
+
+    def _set(answer: bool | None) -> list[str]:
+        async def fake(symbol: str) -> bool | None:
+            asked.append(symbol)
+            return answer
+
+        monkeypatch.setattr("settfex.services.set.list._is_listed_symbol", fake)
+        return asked
+
+    return _set
+
+
+@pytest.mark.asyncio
+class TestUnknownSymbolsAreNotUncoveredOnes:
+    """Settrade answers a typo and an uncovered listed symbol identically: HTTP 500 on the table,
+    an empty list on the summary. Before 0.25.0 both were "no coverage", so `except FetchError:
+    retry` retried a typo forever. The SET stock list is what tells them apart."""
+
+    async def test_an_unlisted_symbol_is_symbol_not_found(self, mock_fetcher, listing) -> None:
+        listing(False)
+        mock_fetcher.fetch.return_value = _response(SAMPLE_ERROR_500, status_code=500)
+        with pytest.raises(SymbolNotFoundError) as excinfo:
+            await AnalystConsensusService().fetch_analyst_consensus("CPALLL")
+        exc = excinfo.value
+        assert isinstance(exc, FetchError) and isinstance(exc, NotFoundError)
+        assert (exc.status_code, exc.symbol) == (500, "CPALLL"), "documented attributes kept"
+        assert str(exc).startswith("No analyst consensus for 'CPALLL' (HTTP 500)")
+
+    async def test_it_suggests_the_listed_symbol_it_resembles(
+        self, mock_fetcher, listing, monkeypatch
+    ) -> None:
+        listing(False)
+        monkeypatch.setattr("settfex.services.set.list._KNOWN_SYMBOLS", ["CPALL", "PTT", "GULF"])
+        mock_fetcher.fetch.return_value = _response(SAMPLE_ERROR_500, status_code=500)
+        with pytest.raises(SymbolNotFoundError) as excinfo:
+            await AnalystConsensusService().fetch_analyst_consensus("CPALLL")
+        assert excinfo.value.suggestion == "CPALL"
+
+    @pytest.mark.parametrize("answer", [True, None], ids=["listed", "list-unavailable"])
+    async def test_a_symbol_the_list_does_not_rule_out_stays_a_plain_fetch_error(
+        self, mock_fetcher, listing, answer
+    ) -> None:
+        listing(answer)
+        mock_fetcher.fetch.return_value = _response(SAMPLE_ERROR_500, status_code=500)
+        with pytest.raises(FetchError) as excinfo:
+            await AnalystConsensusService().fetch_analyst_consensus("ABICO")
+        assert type(excinfo.value) is FetchError
+
+    async def test_the_raw_table_call_classifies_too(self, mock_fetcher, listing) -> None:
+        listing(False)
+        mock_fetcher.fetch.return_value = _response(SAMPLE_ERROR_500, status_code=500)
+        with pytest.raises(SymbolNotFoundError):
+            await AnalystConsensusService().fetch_analyst_consensus_raw("CPALLL")
+
+    async def test_the_whole_market_summary_is_never_classified(
+        self, mock_fetcher, listing
+    ) -> None:
+        """It passes symbol="SET" internally; a 500 there is an outage, never a typo."""
+        asked = listing(False)
+        mock_fetcher.fetch.return_value = _response(SAMPLE_ERROR_500, status_code=500)
+        with pytest.raises(FetchError) as excinfo:
+            await AnalystConsensusService().fetch_overall()
+        assert not isinstance(excinfo.value, SymbolNotFoundError)
+        assert asked == [], "the whole-market call must not even ask"
+
+    async def test_an_empty_summary_for_an_unlisted_symbol_warns(
+        self, mock_fetcher, listing
+    ) -> None:
+        """Success -> raise is a return-semantics change, so 0.25.0 warns and 0.26.0 raises."""
+        listing(False)
+        mock_fetcher.fetch.return_value = _response(SAMPLE_OVERALL_EMPTY)
+        with pytest.warns(DeprecationWarning, match="consensus-overall-unknown-symbol") as record:
+            response = await get_consensus_overall("NOSUCH")
+        assert response.count == 0, "the answer itself is unchanged until 0.26.0"
+        assert record[0].filename == __file__, "attributed to the caller, not to settfex"
+
+    async def test_an_empty_summary_for_a_listed_symbol_is_silent(
+        self, mock_fetcher, listing
+    ) -> None:
+        listing(True)
+        mock_fetcher.fetch.return_value = _response(SAMPLE_OVERALL_EMPTY)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            await AnalystConsensusService().fetch_overall("TCC")
+        assert not [w for w in caught if issubclass(w.category, DeprecationWarning)]
+
+    async def test_the_raw_summary_never_warns(self, mock_fetcher, listing) -> None:
+        asked = listing(False)
+        mock_fetcher.fetch.return_value = _response(SAMPLE_OVERALL_EMPTY)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            await AnalystConsensusService().fetch_overall_raw("NOSUCH")
+        assert not [w for w in caught if issubclass(w.category, DeprecationWarning)]
+        assert asked == [], "the raw variant does no classification at all"

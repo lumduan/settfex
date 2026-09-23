@@ -31,8 +31,12 @@ Host specifics (live-probed 2026-08-16):
   "Outperform Market"). :meth:`fetch_analyst_consensus` therefore takes NO ``lang`` argument, on
   purpose; do not "restore" one. The *overall* endpoint does honour ``lang``.
 - **An uncovered symbol is HTTP 500**, not 404 - and "uncovered" includes perfectly valid SET
-  symbols (ABICO), DRs (GOOG80) and warrants (JAS-W4). It is therefore mapped to
-  :class:`~settfex.exceptions.FetchError`, never ``SymbolNotFoundError``.
+  symbols (ABICO), DRs (GOOG80) and warrants (JAS-W4), so a listed symbol stays a plain
+  :class:`~settfex.exceptions.FetchError`. But a *typo* gets the same 500. Since 0.25.0 the SET
+  stock list (loaded at most once per event loop) tells the two apart, and a symbol that is not
+  listed at all raises ``SymbolNotFoundError`` - a ``FetchError`` subclass, so older handlers
+  still catch it. The summary endpoint's ``overall: []`` for an unlisted symbol warns (0.26.0
+  raises).
 - **A covered-but-unrated symbol returns zeros, not nulls.** Low-profile stocks (TCC, MORE,
   PROUD) answer HTTP 200 with ``"consensuses": []`` and every aggregate row filled with ``0.0``.
   Those zeros are kept verbatim; :attr:`AnalystConsensus.has_coverage` is the flag, and the
@@ -49,7 +53,13 @@ from typing import TYPE_CHECKING, Any, Literal
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
-from settfex.exceptions import FetchError, InvalidSymbolError, raise_for_status
+from settfex.deprecations import warn_deprecated
+from settfex.exceptions import (
+    FetchError,
+    InvalidSymbolError,
+    SymbolNotFoundError,
+    raise_for_status,
+)
 from settfex.services.set.constants import (
     SETTRADE_ANALYST_CONSENSUS_ENDPOINT,
     SETTRADE_BASE_URL,
@@ -708,6 +718,17 @@ def _build_dataframe(
     return frame
 
 
+async def _is_unlisted(symbol: str) -> bool:
+    """True only when the SET stock list says ``symbol`` is NOT listed — never on "unknowable".
+
+    Imported at call time, not at module top: ``list.py`` is a sibling service, and importing it
+    here at load time would reorder package initialisation.
+    """
+    from settfex.services.set.list import _is_listed_symbol
+
+    return await _is_listed_symbol(symbol) is False
+
+
 class AnalystConsensusService:
     """
     Service for fetching IAA analyst-consensus research from settrade.com.
@@ -729,17 +750,42 @@ class AnalystConsensusService:
         self.base_url = SETTRADE_BASE_URL
         logger.info(f"AnalystConsensusService initialized with base_url={self.base_url}")
 
-    async def _fetch_json(self, url: str, *, symbol: str, context: str) -> Any:
-        """GET ``url`` with settrade headers and map its non-200 statuses to typed errors."""
+    async def _fetch_json(
+        self, url: str, *, symbol: str, context: str, classify_unknown: bool = False
+    ) -> Any:
+        """GET ``url`` with settrade headers and map its non-200 statuses to typed errors.
+
+        ``classify_unknown`` is for the per-symbol table endpoint only: its HTTP 500 means both
+        "no such symbol" and "no coverage", and the SET stock list is what tells them apart. The
+        whole-market summary passes ``symbol="SET"`` and must never be classified.
+        """
         async with AsyncDataFetcher(config=self.config) as fetcher:
             response = await fetcher.fetch(url, headers=_build_settrade_headers(symbol))
 
         # AsyncDataFetcher.fetch() retries EXCEPTIONS only, never a bad status - check here.
         if response.status_code != 200:
             if response.status_code == 500:
-                # Settrade answers an uncovered symbol with 500 rather than 404, and "uncovered"
-                # includes valid SET symbols (ABICO), DRs (GOOG80) and warrants (JAS-W4) - so
-                # this is NOT SymbolNotFoundError, whose suggester would produce the absurd
+                if classify_unknown and await _is_unlisted(symbol):
+                    # Not listed on SET at all, so there is no consensus to find and nothing to
+                    # retry. Before 0.25.0 this was the same plain FetchError as "no coverage",
+                    # which `except FetchError: retry` retried forever for a typo.
+                    from settfex.services.set.list import suggest_symbol
+
+                    error_msg = (
+                        f"No analyst consensus for '{symbol}' (HTTP 500): '{symbol}' is not a "
+                        f"listed SET symbol. Settrade answers an unknown symbol and an uncovered "
+                        f"one with the same 500; the SET stock list tells them apart."
+                    )
+                    logger.error(error_msg)
+                    raise SymbolNotFoundError(
+                        error_msg,
+                        status_code=500,
+                        symbol=symbol,
+                        suggestion=suggest_symbol(symbol),
+                    )
+                # Listed (or unknowable): settrade simply has no consensus record. Valid SET
+                # symbols (ABICO), DRs (GOOG80) and warrants (JAS-W4) all land here - so this is
+                # NOT SymbolNotFoundError, whose suggester would produce the absurd
                 # "'ABICO' not found - did you mean 'ABICO'?".
                 error_msg = (
                     f"No analyst consensus for '{symbol}' (HTTP 500). Settrade answers a symbol "
@@ -781,8 +827,10 @@ class AnalystConsensusService:
 
         Raises:
             InvalidSymbolError: If the symbol is empty.
-            FetchError: If settrade has no consensus record for the symbol (reported as HTTP
-                500), on bot-protection blocks (403), and on other HTTP or transport failures.
+            SymbolNotFoundError: If the symbol is not listed on SET at all (0.25.0). A
+                ``FetchError`` subclass carrying ``status_code=500`` and a ``suggestion``.
+            FetchError: If settrade has no consensus record for a listed symbol (reported as
+                HTTP 500), on bot-protection blocks (403), and on other HTTP or transport failures.
             ResponseParseError: If the response cannot be parsed.
 
         Example:
@@ -802,7 +850,7 @@ class AnalystConsensusService:
         logger.info(f"Fetching analyst consensus for '{symbol}' from {url}")
 
         context = f"{symbol} (analyst-consensus)"
-        data = await self._fetch_json(url, symbol=symbol, context=context)
+        data = await self._fetch_json(url, symbol=symbol, context=context, classify_unknown=True)
         if not isinstance(data, dict):
             raise ResponseParseError(
                 f"Expected a JSON object for {context}, got {type(data).__name__}"
@@ -860,7 +908,7 @@ class AnalystConsensusService:
         logger.info(f"Fetching raw analyst consensus for '{symbol}' from {url}")
 
         context = f"{symbol} (analyst-consensus)"
-        data = await self._fetch_json(url, symbol=symbol, context=context)
+        data = await self._fetch_json(url, symbol=symbol, context=context, classify_unknown=True)
         if not isinstance(data, dict):
             raise ResponseParseError(
                 f"Expected a JSON object for {context}, got {type(data).__name__}"
@@ -884,7 +932,9 @@ class AnalystConsensusService:
         Returns:
             ConsensusOverallResponse holding one row for a covered symbol, every covered SET
             stock when ``symbol`` is None, and ZERO rows when settrade does not know the symbol
-            (it answers HTTP 200 with an empty list rather than an error - check ``count``)
+            (it answers HTTP 200 with an empty list rather than an error - check ``count``).
+            Since 0.25.0 that case also emits a ``DeprecationWarning`` when the SET stock list
+            says the symbol is not listed: **0.26.0 raises** ``SymbolNotFoundError`` there.
 
         Raises:
             InvalidSymbolError: If a symbol is given but is blank.
@@ -908,6 +958,10 @@ class AnalystConsensusService:
         )
 
         if symbol and response.count == 0:
+            if await _is_unlisted(normalize_symbol(symbol)):
+                # Not listed on SET: 0.26.0 raises SymbolNotFoundError here. Until then the
+                # answer is unchanged and the caller is warned (deprecation policy).
+                warn_deprecated("consensus-overall-unknown-symbol")
             logger.warning(
                 f"No consensus summary for '{normalize_symbol(symbol)}': settrade returned an "
                 f"empty 'overall' list under HTTP 200 (unknown symbol, or a listed symbol with "
@@ -991,8 +1045,10 @@ async def get_analyst_consensus(
 
     Raises:
         InvalidSymbolError: If the symbol is empty.
-        FetchError: If settrade has no consensus record for the symbol (HTTP 500) or on other
-            HTTP/transport failures.
+        SymbolNotFoundError: If the symbol is not listed on SET at all (0.25.0) - a
+            ``FetchError`` subclass carrying ``status_code=500`` and a ``suggestion``.
+        FetchError: If settrade has no consensus record for a listed symbol (HTTP 500) or on
+            other HTTP/transport failures.
         ResponseParseError: If the response cannot be parsed.
 
     Example:
@@ -1058,8 +1114,10 @@ async def get_analyst_consensus_dataframes(
     Raises:
         ImportError: If pandas is not installed ("pip install settfex[dataframe]").
         InvalidSymbolError: If the symbol is empty.
-        FetchError: If settrade has no consensus record for the symbol (HTTP 500) or on other
-            HTTP/transport failures.
+        SymbolNotFoundError: If the symbol is not listed on SET at all (0.25.0) - a
+            ``FetchError`` subclass carrying ``status_code=500`` and a ``suggestion``.
+        FetchError: If settrade has no consensus record for a listed symbol (HTTP 500) or on
+            other HTTP/transport failures.
         ResponseParseError: If the response cannot be parsed.
 
     Example:

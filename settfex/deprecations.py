@@ -55,7 +55,22 @@ class Deprecation(BaseModel):
 
 #: The registry. An entry is added in the release that starts warning, and removed in the
 #: release that makes the change — never before, and never silently.
-DEPRECATIONS: tuple[Deprecation, ...] = ()
+DEPRECATIONS: tuple[Deprecation, ...] = (
+    Deprecation(
+        id="consensus-overall-unknown-symbol",
+        what=(
+            "get_consensus_overall() / fetch_overall() answers a symbol that is not listed on SET "
+            "with an empty summary (count 0) — the same answer as a listed symbol that simply has "
+            "no analyst coverage."
+        ),
+        replacement=(
+            "It will raise SymbolNotFoundError (a NotFoundError) instead; catch NotFoundError "
+            "around the call to prepare, and keep treating count == 0 as 'no coverage'."
+        ),
+        since="0.25.0",
+        changes_in="0.26.0",
+    ),
+)
 
 _BY_ID: dict[str, Deprecation] = {d.id: d for d in DEPRECATIONS}
 
