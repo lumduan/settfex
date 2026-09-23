@@ -289,7 +289,10 @@ from settfex.exceptions import (
     InvalidLanguageError,    # unrecognized lang
     InvalidDateError,        # malformed date string — raised before any request
 )
-from settfex.utils.parsing import ResponseParseError   # also a ParseError since 0.24.0
+from settfex.utils.parsing import (
+    ResponseParseError,      # also a ParseError since 0.24.0
+    BlockedError,            # a WAF block page (0.25.0): stop, never retry
+)
 ```
 
 **The split is the thing to internalise: a `FetchError` may be worth retrying; a `ValueError`
@@ -315,8 +318,12 @@ except FetchError:
 Neither class moved family; taking `SymbolNotFoundError` out of `FetchError` would break existing
 handlers, so that is a 1.0 decision, tracked on #135.
 
-⚠️ `ResponseParseError` is also what a **WAF block page** currently surfaces as — right family,
-wrong diagnosis. If you see it repeatedly from one host, **stop and back off**; do not retry.
+⚠️ A **WAF block page** raises **`BlockedError`** (0.25.0) — **stop and back off; never retry**,
+because every further request deepens the block. It is a `ResponseParseError` subclass so older
+handlers still catch it, which also makes it a `ValueError`: catch `BlockedError` **before**
+`ValueError` if you treat `ValueError` as bad input. Only SEC's block page is recognised; a SET
+block may still arrive as a plain `ResponseParseError` — if one keeps repeating from one host,
+treat it the same way.
 
 ---
 

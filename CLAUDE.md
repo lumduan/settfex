@@ -101,9 +101,15 @@ evidence from that sweep was unusable, and the host stayed hostile long after th
   a block page, or a 429. Retrying deepens the block, and fast retries deepen it fastest.
 - **A sample beats a census.** 156 symbols across all nine `securityType` codes answered the
   `resolve_company` question as well as 929 would have, at a sixth of the cost.
-- **A block page is not a parse failure.** It currently surfaces as `ResponseParseError` — right
-  family, wrong diagnosis, and a caller retrying "a bad response" will make things worse. A
-  dedicated `BlockedError` is tracked on #135 for 0.25.0.
+- **A block page is not a parse failure — since 0.25.0 it raises `BlockedError`.** The fetcher
+  recognises SEC's BIG-IP page (`<title>Request Rejected</title>` + `Your support ID is:`) on the
+  first 2xx that carries it, raises without retrying, and batches (`download_all`, ThaiBMA
+  `fetch_curves` and history) stop sending. It subclasses `ResponseParseError`, so every older
+  handler still catches it — which also makes it a `ValueError`: catch `BlockedError` first. Only
+  the SEC page is recognised; no SET/Incapsula block page has ever been captured. Before 0.25.0 a
+  download **saved the block page as the filing** (it has no Content-Type). When one fires in the
+  wild, `exc.body` (support ID screened) is the byte-exact fixture the synthetic test page is
+  waiting to be replaced by.
 
 ### Scheduled actions need an absolute time — relative words are ambiguous
 

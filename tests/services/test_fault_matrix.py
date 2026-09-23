@@ -12,6 +12,11 @@ Learned the hard way: an earlier sweep mocked ``fetch_json`` and produced artifa
 been reported as findings. Patching only ``.fetch`` leaves every wrapper, validator, retry loop
 and envelope model real, so what the matrix reports is what a caller would actually see.
 
+One check sits *inside* ``fetch`` and is therefore out of this matrix's reach: since 0.25.0
+``fetch`` recognises a bot-protection block page and raises ``BlockedError``. Replacing ``fetch``
+bypasses that detector, so block pages are tested one layer lower, at ``_make_request``, in
+``tests/utils/test_blocked_error.py``.
+
 **The rule this matrix exists to keep closed**, distilled from the #135 audit::
 
     silent  ⟺  (no HTTP status check)  AND  (the response model validates the error body)

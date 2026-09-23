@@ -61,7 +61,7 @@ from settfex.services.thaibma.utils import (
     stateless_config,
 )
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
-from settfex.utils.parsing import ResponseParseError
+from settfex.utils.parsing import BlockedError, ResponseParseError
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -649,13 +649,29 @@ class YieldCurveHistoryService:
             semaphore = asyncio.Semaphore(max(1, max_concurrency))
             bar = _make_progress_bar(len(years), resolved_kind) if progress else None
 
+            # The first block page stops the batch from sending anything more: every further
+            # request to a host that is blocking us deepens the block. Years still queued are not
+            # requested, and land on `missing_years` like any other year that failed.
+            blocked: BlockedError | None = None
+
             async with AsyncDataFetcher(config=self.config) as fetcher:
 
                 async def fetch_one(year: int) -> list[dict[str, Any]]:
+                    nonlocal blocked
                     async with semaphore:
                         try:
+                            if blocked is not None:
+                                logger.warning(
+                                    f"Not requesting ThaiBMA history for {year}: {blocked.url} "
+                                    f"answered with a bot-protection block page earlier in this "
+                                    f"batch"
+                                )
+                                missing.append(year)
+                                return []
                             return await self._fetch_year_payload(fetcher, year, resolved_kind)
                         except Exception as exc:  # noqa: BLE001 - tolerant batch fetch
+                            if isinstance(exc, BlockedError) and blocked is None:
+                                blocked = exc
                             if not continue_on_error:
                                 raise
                             logger.warning(f"Skipping ThaiBMA history for {year}: {exc}")
