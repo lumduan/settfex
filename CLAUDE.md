@@ -339,13 +339,27 @@ the endpoint degrades under polling and the ladder lowered the odds of its own n
 raised type and status were unchanged, so nothing a caller could catch behaved differently — only
 the latency.)
 
+**Additive, not a change: raising a strict subclass of the previously raised exception, keeping
+every documented attribute.** Every `except` a caller wrote still catches it, and every attribute
+they read is still there. (Adopted 2026-09-23 for 0.25.0: an unknown analyst-consensus symbol
+became a `SymbolNotFoundError` where it was a plain `FetchError`, and a WAF block page became a
+`BlockedError` where it was a `ResponseParseError`.) The one test that pins an *exact* type
+(`type(e) is FetchError`) is the thing that changes. Narrowing the other way — a raise that some
+existing `except` stops catching — is a change and needs the warning period.
+
 0.24.0 is the last release exempt: its breaks are the ones the fault-injection audit forced, and
 they are documented in the CHANGELOG's **Data completeness advisory** and **Migration** sections
 instead. Everything after it gets the warning period.
 
-A `DeprecationWarning` is part of the **L1 surface** — `tests/golden/api_surface.json` records it,
-so *removing the warning* is itself the breaking change and the golden diff shows it. That is what
-stops a deprecation being announced and then quietly skipped.
+**How a deprecation is declared (since 0.25.0): `settfex/deprecations.py`, and nowhere else.**
+Register a `Deprecation` in `DEPRECATIONS` (what changes, the replacement, `since`, `changes_in`)
+and emit it with `warn_deprecated(id)` — the only `warnings.warn` in the package, enforced by
+`tests/test_deprecations.py`, which also triggers every entry and fails once the installed version
+reaches an entry's `changes_in`. The L1 golden (`tests/golden/api_surface.json`, format 2) records
+the registry **by content** in a top-level `deprecations` list, so *removing a warning* is a golden
+diff someone has to review. That is what stops a deprecation being announced and then quietly
+skipped. (Until 0.25.0 this paragraph claimed the golden already recorded warnings. It did not —
+the generator recorded none, and no warning existed yet to notice.)
 
 ## Dependency policy
 
