@@ -7,6 +7,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-09-23
+
+The seven items the 0.25.0 backlog on #135 held, plus two defects the 2026-09-23 checklist audit on
+#135 found on the way. Nothing is removed and no exception leaves its family; one behaviour starts
+its deprecation period (see **Deprecated**).
+
+### Added
+
+- **`NotFoundError`** (`settfex.exceptions`, also top-level): one catch for "that name does not
+  exist". `SymbolNotFoundError` (a `FetchError`) and `CompanyNotFoundError` (a `ValueError`) are
+  both `NotFoundError`s now, **without moving family** — every handler written before keeps
+  working. Catch it *before* `FetchError`: a retry handler written as `except FetchError` used to
+  retry a SET typo forever. Moving `SymbolNotFoundError` out of `FetchError` would break existing
+  handlers, so that stays a 1.0 decision (#135).
+- **`BlockedError`** (`settfex.utils.parsing`): a bot-protection block page is now named for what
+  it is. The fetcher recognises SEC's BIG-IP ASM page (`<title>Request Rejected</title>` plus
+  `Your support ID is:`) on the first 2xx that carries it and raises **without retrying** —
+  retrying deepens a block. It carries `url`, `status_code`, `content_type`, the headers minus
+  `Set-Cookie`, and the page itself with its support ID screened (kept out of `str(exc)`), so the
+  next real block yields the byte-exact fixture the synthetic test page stands in for. A
+  `ResponseParseError` subclass, so every handler that caught a block page before still does —
+  which also makes it a `ValueError`: **catch `BlockedError` before `ValueError`**. Only the SEC
+  page is recognised; no SET/Incapsula block page has ever been captured. Built from the recorded
+  markers with **zero live requests** (a single polite request cannot reproduce a block page, and
+  tripping the WAF on purpose would block the IP other workloads share).
+- **Batches stop at the first block.** `download_all`, ThaiBMA `fetch_curves` and ThaiBMA history
+  send nothing more once a request comes back blocked. Items not yet requested are recorded as
+  failures — `FailedDownload(error_type="BlockedError", error="not requested: …")`, or a year on
+  `missing_years` — so the return shape is unchanged.
+- **`setup_logger(filter=None)`**: passed to both sinks as loguru's own `filter`.
+  `filter="settfex"` gives settfex-only sinks, which is what an application that also logs through
+  loguru wants (#146 follow-up). The default stays unfiltered, as documented in 0.24.2.
+- **`settfex.deprecations`**: the registry every `DeprecationWarning` now goes through
+  (`DEPRECATIONS`, `warn_deprecated`). The L1 golden records it by content (format 2), and
+  `tests/test_deprecations.py` triggers every entry, bans any other `warnings.warn` in the
+  package, and fails once an entry's `changes_in` release arrives. The warning names the caller's
+  line, not settfex's.
+- **`.github/workflows/live-smoke.yml`** — a weekly run of the integration probes on a Thailand
+  self-hosted runner, **inert**: nothing runs until a runner labelled `thailand` is registered and
+  the repository variable `LIVE_SMOKE_ENABLED` is `true`. Its header states the two reasons it
+  ships switched off (the home egress IP is shared with production capture; the repository is
+  public). With it, `SETTFEX_LIVE_BUDGET=N` caps request attempts in any live run
+  (`tests/integration/conftest.py`).
+
+### Changed
+
+- **Analyst consensus tells an unknown symbol from an uncovered one.** Settrade answers both with
+  HTTP 500 on the table and an empty list on the summary. On a table 500 the SET stock list now
+  decides — the in-process one if `get_stock_list()` already ran, otherwise **one** load per event
+  loop (no index enrichment, no retries; a failed load answers "unknowable" and is not repeated) —
+  and a symbol that is **not listed** raises `SymbolNotFoundError(status_code=500)` with a real
+  `.suggestion`. A listed symbol with no coverage stays the plain `FetchError(500)` it always was,
+  and the whole-market summary is never classified. Additive under the deprecation policy's new
+  sentence: raising a strict subclass that keeps every documented attribute is not a change.
+- **The deprecation policy says how a deprecation is declared**, and its claim that the golden
+  records warnings is now true. Until 0.25.0 it asserted the golden pinned `DeprecationWarning`s;
+  the generator recorded none, and no warning existed yet to notice.
+- **README links work on PyPI.** 87 relative links (docs, examples, `AGENTS.md`, `CHANGELOG.md`)
+  are absolute `blob/main` / `tree/main` URLs; PyPI resolves nothing relative.
+  `tests/test_readme_links.py` now forbids relative links, checks every repo link's target exists,
+  and scopes its tag-pin rule to CHANGELOG anchors — docs links deliberately follow `main`.
+- **The live holiday probe makes one attempt.** `test_live_set_holidays` used a 7-attempt ladder
+  meant for the transient 401, which 0.24.1 stopped retrying; it only ever fired on 403/429, the
+  WAF signals the politeness rule says never to retry.
+- The fault-injection matrix gains a **raised transport error** (`FetchError` from a connection
+  reset, as the real fetcher raises once its retries are spent). Every earlier fault was a
+  *response*; all 33 entry points now also pass against a request that never completes.
+- `AsyncDataFetcher.fetch()` documents that a non-2xx status is **returned**, not raised.
+
+### Deprecated
+
+- **`get_consensus_overall()` / `fetch_overall()` for a symbol that is not listed on SET.** It
+  answers with an empty summary (`count == 0`) — the same answer as a listed symbol with no
+  coverage — and now emits a `DeprecationWarning` (registry id
+  `consensus-overall-unknown-symbol`). **In 0.26.0 it raises `SymbolNotFoundError`.** Wrap the
+  call in `except NotFoundError` to be ready. `fetch_overall_raw()` never warns.
+
+### Fixed
+
+- **A WAF block page was saved to disk as the requested filing.** The download guard rejected
+  HTML only when the response said it was HTML, and the observed BIG-IP page carries no
+  `Content-Type` — so `download()` returned its 242 bytes as a `DownloadedFile` and `download_all`
+  wrote them under the filing's filename. Found by the 2026-09-23 checklist audit on #135; closed
+  by `BlockedError`.
+- **A "display all results" (ViewMore) page could reduce a section's rows (U-7).** A successful page
+  replaced the inline rows with no comparison, so a short or placeholder-only page deleted rows
+  while `has_losses` stayed `False`; and a page that failed to *map* raised out of the loop, so the
+  whole report code landed on `failed_codes` and every sibling category lost its rows. Both now
+  degrade like an unusable page: inline rows kept, a `DegradedSection` recorded, the inline
+  page's reported count left for `completeness()`. The rule is a count, not file identity. A
+  single-code listing that used to raise `ParseError` here now returns with `has_losses` — the
+  behaviour the 0.22.x notes already described.
+
+### Dependencies
+
+- **pandas 3.0.5 → 3.0.6** (dev group; `dataframe` / `examples` extras keep their `>=2.0.0` floor,
+  so installs were never held back). Lock-only: the pandas entry alone moved — +16 wheels are
+  upstream's new `cp315`/`cp315t` builds — and upstream's 8 regression fixes and 2 bug fixes touch
+  no API settfex calls. Merged as #145 on 2026-09-23.
+
+### Migration to 0.25
+
+- **Catch `NotFoundError` before `FetchError`** wherever you retry on `FetchError`.
+- **Catch `BlockedError` before `ValueError`** if you treat `ValueError` as bad input — and never
+  retry it.
+- A test that pins `type(e) is FetchError` for an analyst-consensus 500 still passes for a listed
+  symbol; for an unlisted one the type is now `SymbolNotFoundError` (`isinstance(e, FetchError)`
+  still holds).
+- If your application logs through loguru, prefer `setup_logger(filter="settfex")` — or no
+  `setup_logger` at all and `logger.enable("settfex")` after `import settfex`.
+- Before 0.26.0: stop relying on `get_consensus_overall(unknown)` returning an empty summary.
+
 ## [0.24.2] - 2026-09-22
 
 ### Fixed
