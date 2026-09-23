@@ -1,0 +1,81 @@
+# Live smoke — the integration probes against the real SET / TFEX / SEC / ThaiBMA hosts, weekly.
+#
+# INERT BY DESIGN. Nothing runs until BOTH of these are true:
+#   1. a self-hosted runner labelled `thailand` is registered for this repository, and
+#   2. the repository variable LIVE_SMOKE_ENABLED is set to `true`.
+# Until then the job is skipped on every trigger, and no request leaves any machine.
+#
+# Why self-hosted, and why in Thailand: nothing ran the `integration` marker, so the live endpoints
+# had no pass/fail history (#135). GitHub-hosted runners sit outside Thailand, and SET's and SEC's
+# bot protection treats datacenter IPs differently from a Thai residential one, so a green run
+# there would not mean what it appears to mean.
+#
+# BEFORE ENABLING — read these, they are the reason this ships switched off:
+#   * Every machine on the home network shares ONE egress IP with production SET market capture,
+#     which cannot be backfilled. A WAF block on that IP would hit the capture too. Pick a window
+#     that never overlaps a SET session or the sec-idisc-archive's traffic; the schedule below is
+#     a Sunday-morning placeholder, not a verified quiet window.
+#   * This repository is PUBLIC. A self-hosted runner on a public repo can be made to run code
+#     from a pull request. Before registering one, set Settings → Actions → "Fork pull request
+#     workflows" approval to ALL outside contributors (it is `first_time_contributors` today).
+#     This workflow itself runs only on schedule and manual dispatch, never on pull_request.
+#
+# Politeness, enforced rather than remembered (CLAUDE.md, "Live probes — politeness budget"):
+#   * concurrency 1, and `-x`: the first failure may be a WAF block, and the next request deepens it
+#   * SETTFEX_LIVE_BUDGET caps request ATTEMPTS through the fetcher (tests/integration/conftest.py);
+#     the cap refuses the next request rather than sending it. Session warmups (one page view per
+#     site) are not counted.
+#   * no retry ladders: the live tests make one attempt each
+#
+# The holiday endpoint has answered 401 upstream since 2026-09-20 (#140), so it runs as a SIGNAL in
+# its own step (continue-on-error) — it would otherwise keep the gate red for a reason no settfex
+# change can fix.
+
+name: Live smoke
+
+on:
+  schedule:
+    - cron: "17 3 * * 0" # Sundays 03:17 UTC (10:17 Asia/Bangkok) — placeholder, see above
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-smoke
+  cancel-in-progress: false
+
+jobs:
+  live:
+    name: Live endpoints (Thailand runner)
+    if: vars.LIVE_SMOKE_ENABLED == 'true' && github.repository == 'lumduan/settfex'
+    runs-on: [self-hosted, linux, thailand]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      # setup-uv stopped publishing floating major tags at v8 — pin the exact version.
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          # Pinned by hand like every other setup-uv step; the monthly drift report checks them all.
+          version: "0.12.17"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - run: uv python install 3.11
+      - run: uv sync --group dev --frozen
+
+      - name: Live probes (gate)
+        env:
+          SETTFEX_LIVE_BUDGET: "60"
+        run: >-
+          uv run pytest tests/integration -m integration --no-cov -x
+          --deselect tests/integration/test_live_endpoints.py::test_live_set_holidays
+
+      - name: Holiday endpoint (signal, not a gate — #140)
+        continue-on-error: true
+        env:
+          SETTFEX_LIVE_BUDGET: "1"
+        run: >-
+          uv run pytest -m integration --no-cov
+          tests/integration/test_live_endpoints.py::test_live_set_holidays

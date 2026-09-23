@@ -64,8 +64,11 @@ from settfex.utils.session_manager import SessionManager
 
 pytestmark = pytest.mark.integration
 
-# Mirrors scripts/.../verify_holiday.py: the holiday endpoint 401s transiently.
-PATIENT = FetcherConfig(max_retries=6, retry_delay=2.0)
+# One attempt, no ladder. This used to be max_retries=6 because the holiday endpoint's 401 was
+# retried as a transient — but 0.24.1 stopped retrying 401 (it degrades under polling, #140), so
+# the ladder only ever fired on 403/429, which are exactly the WAF signals the live-probe politeness
+# rule says never to retry. A live run from a shared IP gets one attempt.
+ONE_ATTEMPT = FetcherConfig(max_retries=0)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -141,7 +144,7 @@ async def test_live_tfex_series_list():
 @pytest.mark.asyncio
 async def test_live_set_holidays():
     t0 = time.perf_counter()
-    calendar = await get_holidays(config=PATIENT)
+    calendar = await get_holidays(config=ONE_ATTEMPT)
     elapsed = time.perf_counter() - t0
     assert calendar.year == datetime.now(ZoneInfo("Asia/Bangkok")).year
     assert calendar.count >= 10
