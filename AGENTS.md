@@ -273,6 +273,8 @@ Everything is importable from one place:
 
 ```python
 from settfex.exceptions import (
+    # --- the cross-cutting catch: a name that does not exist (0.25.0) ---
+    NotFoundError,           # base of SymbolNotFoundError AND CompanyNotFoundError; never retry
     # --- the FETCH family: `except FetchError` catches all of these ---
     FetchError,              # HTTP/transport failure; carries .status_code and .symbol
     HTTPStatusError,         # a non-2xx, with .url and .report_code as data
@@ -295,9 +297,23 @@ never is.** An input error means the request *succeeded* and your argument was w
 loop on one spins forever. `InvalidSymbolError`, `InvalidLanguageError` and `InvalidDateError` are
 raised before any network call at all.
 
-⚠️ Two "not found" taxonomies coexist today: a SET 404 is a `SymbolNotFoundError` (a `FetchError`),
-while the SEC equivalent is a `CompanyNotFoundError` (a `ValueError`). Catch both if you handle
-both hosts. Unifying them is tracked on #135.
+⚠️ Two "not found" taxonomies still coexist: a SET 404 is a `SymbolNotFoundError` (a
+`FetchError`), while the SEC equivalent is a `CompanyNotFoundError` (a `ValueError`). Since 0.25.0
+both are also a **`NotFoundError`** — catch that one, and catch it **before** `FetchError`, because
+a `SymbolNotFoundError` is a `FetchError` too and a retry handler would otherwise retry a typo
+forever:
+
+```python
+try:
+    data = await get_highlight_data(symbol)
+except NotFoundError:
+    ...          # the name does not exist: fix the input, never retry
+except FetchError:
+    ...          # upstream or transient: a retry may help
+```
+
+Neither class moved family; taking `SymbolNotFoundError` out of `FetchError` would break existing
+handlers, so that is a 1.0 decision, tracked on #135.
 
 ⚠️ `ResponseParseError` is also what a **WAF block page** currently surfaces as — right family,
 wrong diagnosis. If you see it repeatedly from one host, **stop and back off**; do not retry.

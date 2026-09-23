@@ -22,6 +22,7 @@ from typing import Any, NoReturn
 
 __all__ = [
     "FetchError",
+    "NotFoundError",
     "SymbolNotFoundError",
     "StaleDataError",
     "ParseError",
@@ -73,8 +74,37 @@ class FetchError(Exception):
         self.symbol = symbol
 
 
-class SymbolNotFoundError(FetchError):
+class NotFoundError(Exception):
+    """Marker base: the thing you asked for does not exist, so retrying cannot help.
+
+    Two exceptions mean "not found", and for historical reasons they sit in different families:
+    :class:`SymbolNotFoundError` is a :class:`FetchError` (SET answering 404), while
+    :class:`CompanyNotFoundError` is a :class:`ValueError` (the SEC search answering honestly that
+    it knows no such issuer). Neither is worth retrying — but only one of them is caught by
+    ``except FetchError``, so a handler written as ``except FetchError: retry`` retries a typo
+    forever.
+
+    This is the common catch, added in 0.25.0 **without moving either one**: both keep their
+    existing base, so every handler written before 0.25.0 behaves exactly as it did::
+
+        try:
+            ...
+        except NotFoundError:   # a bad name: fix the input, do not retry
+            ...
+        except FetchError:      # upstream or transient: may be worth a retry
+            ...
+
+    **Order matters:** a ``SymbolNotFoundError`` is also a ``FetchError``, so catch
+    ``NotFoundError`` first. Taking ``SymbolNotFoundError`` out of the ``FetchError`` family would
+    break every existing ``except FetchError`` that relies on catching it, so that is a 1.0
+    decision, tracked on #135.
+    """
+
+
+class SymbolNotFoundError(FetchError, NotFoundError):
     """A symbol or index was not found (HTTP 404).
+
+    Also a :class:`NotFoundError` (0.25.0), the catch that means "do not retry".
 
     ``suggestion`` is a close match from the SET stock-symbol list when one is available — but only
     if that list was already fetched earlier this session (it is never fetched on demand); ``None``
@@ -218,8 +248,11 @@ class HTTPStatusError(FetchError):
         self.report_code = report_code
 
 
-class CompanyNotFoundError(ValueError):
+class CompanyNotFoundError(ValueError, NotFoundError):
     """No SEC issuer matched the query.
+
+    Also a :class:`NotFoundError` (0.25.0), shared with :class:`SymbolNotFoundError`, so one
+    ``except NotFoundError`` covers both kinds of bad name.
 
     An **input** error, not a :class:`FetchError`: the request succeeded and the site answered
     honestly that it knows no such issuer. Deliberately separate from a fetch failure, because
