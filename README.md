@@ -25,7 +25,8 @@ pip install settfex[examples]
 This includes pandas, matplotlib, and jupyter notebook support.
 
 <!-- REMOVE AFTER 0.26.0 — upgrade notice, kept for two minor releases.
-     The permanent copy is the advisory in CHANGELOG.md; do not duplicate the table here. -->
+     The permanent copy is the advisory in CHANGELOG.md; do not duplicate the table here.
+     When you remove this section, also unpin issue #142 (decided 2026-09-23). -->
 ## Upgrading to 0.24
 
 **If you stored results from settfex before 0.24.0, check them.** Earlier versions could return
@@ -122,12 +123,12 @@ logger.enable("settfex")          # AFTER `import settfex` — see the note abov
 ### 🎓 Learning Path
 
 **Beginners :** Start with these three notebooks to get comfortable:
-- [Stock List](examples/set/01_stock_list.ipynb) - Discover all Thai stocks
-- [Highlight Data](examples/set/02_highlight_data.ipynb) - Get key metrics like P/E, market cap, dividends
-- [Corporate Actions](examples/set/05_corporate_action.ipynb) - Track dividends and shareholder meetings
+- [Stock List](https://github.com/lumduan/settfex/blob/main/examples/set/01_stock_list.ipynb) - Discover all Thai stocks
+- [Highlight Data](https://github.com/lumduan/settfex/blob/main/examples/set/02_highlight_data.ipynb) - Get key metrics like P/E, market cap, dividends
+- [Corporate Actions](https://github.com/lumduan/settfex/blob/main/examples/set/05_corporate_action.ipynb) - Track dividends and shareholder meetings
 
 **Fundamental Analysis :** Build a complete stock analysis workflow:
-- [Stock List](examples/set/01_stock_list.ipynb) → [Highlight Data](examples/set/02_highlight_data.ipynb) → [Price Performance](examples/set/10_price_performance.ipynb) → [Financial Statements](examples/set/11_financial.ipynb)
+- [Stock List](https://github.com/lumduan/settfex/blob/main/examples/set/01_stock_list.ipynb) → [Highlight Data](https://github.com/lumduan/settfex/blob/main/examples/set/02_highlight_data.ipynb) → [Price Performance](https://github.com/lumduan/settfex/blob/main/examples/set/10_price_performance.ipynb) → [Financial Statements](https://github.com/lumduan/settfex/blob/main/examples/set/11_financial.ipynb)
 
 **Professional Trading :** Master all features for institutional use:
 - All 20 SET notebooks + TFEX notebooks (see below)
@@ -136,85 +137,85 @@ logger.enable("settfex")          # AFTER `import settfex` — see the note abov
 
 All examples include beginner explanations, professional trading use cases, and data export examples:
 
-1. **[Stock List](examples/set/01_stock_list.ipynb)** - Fetch and filter all stocks, build portfolio universes
-2. **[Highlight Data](examples/set/02_highlight_data.ipynb)** - Value screeners, dividend portfolios, risk-adjusted returns
-3. **[Stock Profile](examples/set/03_stock_profile.ipynb)** - Listing details, IPO data, foreign ownership
-4. **[Company Profile](examples/set/04_company_profile.ipynb)** - ESG ratings, governance scores, management
-5. **[Corporate Actions](examples/set/05_corporate_action.ipynb)** - Dividend calendars, shareholder meetings
-6. **[Shareholder Data](examples/set/06_shareholder.ipynb)** - Ownership analysis, free float monitoring
-7. **[NVDR Holders](examples/set/07_nvdr_holder.ipynb)** - NVDR ownership tracking and analysis
-8. **[Board of Directors](examples/set/08_board_of_director.ipynb)** - Board composition and management structure
-9. **[Trading Statistics](examples/set/09_trading_statistics.ipynb)** - Multi-period performance and volatility
-10. **[Price Performance](examples/set/10_price_performance.ipynb)** - Sector comparison and alpha calculation
-11. **[Financial Statements](examples/set/11_financial.ipynb)** - Balance sheet, income, cash flow analysis
-12. **[Earnings Call (Opportunity Day)](examples/set/12_earnings_call.ipynb)** - OPPDAY calendar, YouTube links, Thai transcripts for AI
-13. **[Chart Quotation & Latest Price](examples/set/13_chart_quotation.ipynb)** - Intraday series and the latest traded price relative to now
-14. **[Latest Historical Trading](examples/set/14_latest_historical_trading.ipynb)** - Latest trading-day summary: OHLCV, P/E, P/BV, market cap
-15. **[Market Index](examples/set/15_market_index.ipynb)** - Index directory, SET50/SETESG quotations, constituents, and index membership per stock
-16. **[SET News](examples/set/16_news.ipynb)** - Company news/disclosures for all stocks: symbol/date/keyword filters, Thai headlines
-17. **[Market Holidays](examples/set/17_holiday.ipynb)** - Official market-closure calendar: is the market open, next holiday, long weekends
-18. **[Asset Types & Depositary Receipts](examples/set/18_dr_and_asset_type.ipynb)** - Tell stocks/ETFs/DRs/DWs apart, DR profiles, and TradingView indicative prices
-19. **[Analyst Consensus (IAA)](examples/set/19_analyst_consensus.ipynb)** - Broker target prices, forecasts, research PDF links, and a whole-market buy/hold/sell screener
-20. **[Stock Info](examples/set/20_stock_info.ipynb)** - Live quote block and trading signs (SP/NC/NP/CB/XD): is a symbol suspended, best bid/offer, every security type
+1. **[Stock List](https://github.com/lumduan/settfex/blob/main/examples/set/01_stock_list.ipynb)** - Fetch and filter all stocks, build portfolio universes
+2. **[Highlight Data](https://github.com/lumduan/settfex/blob/main/examples/set/02_highlight_data.ipynb)** - Value screeners, dividend portfolios, risk-adjusted returns
+3. **[Stock Profile](https://github.com/lumduan/settfex/blob/main/examples/set/03_stock_profile.ipynb)** - Listing details, IPO data, foreign ownership
+4. **[Company Profile](https://github.com/lumduan/settfex/blob/main/examples/set/04_company_profile.ipynb)** - ESG ratings, governance scores, management
+5. **[Corporate Actions](https://github.com/lumduan/settfex/blob/main/examples/set/05_corporate_action.ipynb)** - Dividend calendars, shareholder meetings
+6. **[Shareholder Data](https://github.com/lumduan/settfex/blob/main/examples/set/06_shareholder.ipynb)** - Ownership analysis, free float monitoring
+7. **[NVDR Holders](https://github.com/lumduan/settfex/blob/main/examples/set/07_nvdr_holder.ipynb)** - NVDR ownership tracking and analysis
+8. **[Board of Directors](https://github.com/lumduan/settfex/blob/main/examples/set/08_board_of_director.ipynb)** - Board composition and management structure
+9. **[Trading Statistics](https://github.com/lumduan/settfex/blob/main/examples/set/09_trading_statistics.ipynb)** - Multi-period performance and volatility
+10. **[Price Performance](https://github.com/lumduan/settfex/blob/main/examples/set/10_price_performance.ipynb)** - Sector comparison and alpha calculation
+11. **[Financial Statements](https://github.com/lumduan/settfex/blob/main/examples/set/11_financial.ipynb)** - Balance sheet, income, cash flow analysis
+12. **[Earnings Call (Opportunity Day)](https://github.com/lumduan/settfex/blob/main/examples/set/12_earnings_call.ipynb)** - OPPDAY calendar, YouTube links, Thai transcripts for AI
+13. **[Chart Quotation & Latest Price](https://github.com/lumduan/settfex/blob/main/examples/set/13_chart_quotation.ipynb)** - Intraday series and the latest traded price relative to now
+14. **[Latest Historical Trading](https://github.com/lumduan/settfex/blob/main/examples/set/14_latest_historical_trading.ipynb)** - Latest trading-day summary: OHLCV, P/E, P/BV, market cap
+15. **[Market Index](https://github.com/lumduan/settfex/blob/main/examples/set/15_market_index.ipynb)** - Index directory, SET50/SETESG quotations, constituents, and index membership per stock
+16. **[SET News](https://github.com/lumduan/settfex/blob/main/examples/set/16_news.ipynb)** - Company news/disclosures for all stocks: symbol/date/keyword filters, Thai headlines
+17. **[Market Holidays](https://github.com/lumduan/settfex/blob/main/examples/set/17_holiday.ipynb)** - Official market-closure calendar: is the market open, next holiday, long weekends
+18. **[Asset Types & Depositary Receipts](https://github.com/lumduan/settfex/blob/main/examples/set/18_dr_and_asset_type.ipynb)** - Tell stocks/ETFs/DRs/DWs apart, DR profiles, and TradingView indicative prices
+19. **[Analyst Consensus (IAA)](https://github.com/lumduan/settfex/blob/main/examples/set/19_analyst_consensus.ipynb)** - Broker target prices, forecasts, research PDF links, and a whole-market buy/hold/sell screener
+20. **[Stock Info](https://github.com/lumduan/settfex/blob/main/examples/set/20_stock_info.ipynb)** - Live quote block and trading signs (SP/NC/NP/CB/XD): is a symbol suspended, best bid/offer, every security type
 
 ### 📈 TFEX Examples (Thailand Futures Exchange)
 
 Professional derivatives trading workflows with margin calculations and risk management:
 
-1. **[Series List](examples/tfex/01_series_list.ipynb)** - Discover futures/options, rollover monitoring, options chains
-2. **[Trading Statistics](examples/tfex/02_trading_statistics.ipynb)** - Margin requirements, position sizing, P/L tracking
-3. **[Underlying Price](examples/tfex/03_underlying_price.ipynb)** - Underlying instrument prices for TFEX series (SET50 spot for index futures/options)
+1. **[Series List](https://github.com/lumduan/settfex/blob/main/examples/tfex/01_series_list.ipynb)** - Discover futures/options, rollover monitoring, options chains
+2. **[Trading Statistics](https://github.com/lumduan/settfex/blob/main/examples/tfex/02_trading_statistics.ipynb)** - Margin requirements, position sizing, P/L tracking
+3. **[Underlying Price](https://github.com/lumduan/settfex/blob/main/examples/tfex/03_underlying_price.ipynb)** - Underlying instrument prices for TFEX series (SET50 spot for index futures/options)
 
-**[📂 View All Examples](examples/)** - Complete index with learning guides
+**[📂 View All Examples](https://github.com/lumduan/settfex/tree/main/examples/)** - Complete index with learning guides
 
 ## 📚 Full Documentation
 
-**Building an AI agent or LLM tool?** Start with **[AGENTS.md](AGENTS.md)** — the service map,
+**Building an AI agent or LLM tool?** Start with **[AGENTS.md](https://github.com/lumduan/settfex/blob/main/AGENTS.md)** — the service map,
 the flat `get_*()` calling contract, and the failure modes that silently produce wrong answers.
 
 Want to dig deeper? Check out our detailed guides:
 
 ### SET Services
 
-- **[Stock List Service](docs/settfex/services/set/list.md)** - Get all stocks on SET/mai
-- **[Highlight Data Service](docs/settfex/services/set/highlight_data.md)** - Market metrics and valuations
-- **[Stock Profile Service](docs/settfex/services/set/profile_stock.md)** - Listing details and share structure
-- **[Company Profile Service](docs/settfex/services/set/profile_company.md)** - Full company information
-- **[Corporate Action Service](docs/settfex/services/set/corporate_action.md)** - Dividends, meetings, and events
-- **[Shareholder Service](docs/settfex/services/set/shareholder.md)** - Major shareholders and ownership data
-- **[NVDR Holder Service](docs/settfex/services/set/nvdr_holder.md)** - NVDR holder information and ownership
-- **[Board of Director Service](docs/settfex/services/set/board_of_director.md)** - Board of directors and management structure
-- **[Trading Statistics Service](docs/settfex/services/set/trading_stat.md)** - Historical trading performance and metrics
-- **[Price Performance Service](docs/settfex/services/set/price_performance.md)** - Stock, sector, and market price performance comparison
-- **[Financial Service](docs/settfex/services/set/financial.md)** - Balance sheet, income statement, and cash flow data
-- **[Chart Quotation Service](docs/settfex/services/set/chart_quotation.md)** - Intraday/historical price chart series, plus the latest *traded* price relative to now (DRs answer with the indicative price — see below)
-- **[Latest Historical Trading Service](docs/settfex/services/set/latest_historical_trading.md)** - Latest trading day summary with OHLCV and valuation metrics
-- **[Earnings Call (Opportunity Day) Service](docs/settfex/services/set/earnings_call.md)** - OPPDAY earnings-call calendar with YouTube links, as models or a DataFrame
-- **[Market Index Service](docs/settfex/services/set/index.md)** - Index directory (SET50/SET100/sSET/SETESG/...), quotations, constituents, and latest index value
-- **[News Service](docs/settfex/services/set/news.md)** - Company news and disclosures for all stocks, with symbol/date/keyword filters
-- **[Market Holiday Service](docs/settfex/services/set/holiday.md)** - Official SET market-closure calendar for the year, in English or Thai
-- **[DR Profile Service](docs/settfex/services/set/profile_dr.md)** - Depositary Receipt details: issuer, underlying, conversion ratio, and the TradingView "Indicative Price" link
-- **[DR Indicative Price Service](docs/settfex/services/set/dr_indicative_price.md)** - A DR's fair value in THB (underlying × FX ÷ ratio) from TradingView
-- **[Analyst Consensus Service](docs/settfex/services/set/analyst_consensus.md)** - IAA broker target prices, earnings forecasts and research PDF links, plus a market-wide buy/hold/sell screener
-- **[Stock Info Service](docs/settfex/services/set/info.md)** - Live quote block and trading signs (`SP`/`NC`/`NP`/`CB`/`XD`) for every security type, plus best bid/offer
+- **[Stock List Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/list.md)** - Get all stocks on SET/mai
+- **[Highlight Data Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/highlight_data.md)** - Market metrics and valuations
+- **[Stock Profile Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/profile_stock.md)** - Listing details and share structure
+- **[Company Profile Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/profile_company.md)** - Full company information
+- **[Corporate Action Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/corporate_action.md)** - Dividends, meetings, and events
+- **[Shareholder Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/shareholder.md)** - Major shareholders and ownership data
+- **[NVDR Holder Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/nvdr_holder.md)** - NVDR holder information and ownership
+- **[Board of Director Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/board_of_director.md)** - Board of directors and management structure
+- **[Trading Statistics Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/trading_stat.md)** - Historical trading performance and metrics
+- **[Price Performance Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/price_performance.md)** - Stock, sector, and market price performance comparison
+- **[Financial Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/financial.md)** - Balance sheet, income statement, and cash flow data
+- **[Chart Quotation Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/chart_quotation.md)** - Intraday/historical price chart series, plus the latest *traded* price relative to now (DRs answer with the indicative price — see below)
+- **[Latest Historical Trading Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/latest_historical_trading.md)** - Latest trading day summary with OHLCV and valuation metrics
+- **[Earnings Call (Opportunity Day) Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/earnings_call.md)** - OPPDAY earnings-call calendar with YouTube links, as models or a DataFrame
+- **[Market Index Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/index.md)** - Index directory (SET50/SET100/sSET/SETESG/...), quotations, constituents, and latest index value
+- **[News Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/news.md)** - Company news and disclosures for all stocks, with symbol/date/keyword filters
+- **[Market Holiday Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/holiday.md)** - Official SET market-closure calendar for the year, in English or Thai
+- **[DR Profile Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/profile_dr.md)** - Depositary Receipt details: issuer, underlying, conversion ratio, and the TradingView "Indicative Price" link
+- **[DR Indicative Price Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/dr_indicative_price.md)** - A DR's fair value in THB (underlying × FX ÷ ratio) from TradingView
+- **[Analyst Consensus Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/analyst_consensus.md)** - IAA broker target prices, earnings forecasts and research PDF links, plus a market-wide buy/hold/sell screener
+- **[Stock Info Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/info.md)** - Live quote block and trading signs (`SP`/`NC`/`NP`/`CB`/`XD`) for every security type, plus best bid/offer
 
 ### TFEX Services
 
-- **[TFEX Series List Service](docs/settfex/services/tfex/list.md)** - Get all futures and options series on TFEX
-- **[TFEX Trading Statistics Service](docs/settfex/services/tfex/trading_statistics.md)** - Trading statistics, settlement prices, and margin requirements
+- **[TFEX Series List Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/tfex/list.md)** - Get all futures and options series on TFEX
+- **[TFEX Trading Statistics Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/tfex/trading_statistics.md)** - Trading statistics, settlement prices, and margin requirements
 
 ### SEC Services (market.sec.or.th)
 
-- **[SEC Document Service](docs/settfex/services/sec/financial_report.md)** - List and download the raw disclosure documents filed with the Thai SEC (the original financial-statement Excel package, Form 56-1, Form 56-2, Key Financial Ratio, MD&A)
+- **[SEC Document Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/sec/financial_report.md)** - List and download the raw disclosure documents filed with the Thai SEC (the original financial-statement Excel package, Form 56-1, Form 56-2, Key Financial Ratio, MD&A)
 
 ### ThaiBMA Services (www.thaibma.or.th)
 
-- **[Government Bond Yield Curve](docs/settfex/services/thaibma/yield_curve.md)** - The official Thai government bond yield curve for any date back to 1999, the bond quotes behind it, and daily history at **one request per year** (the whole 27-year record in 28 requests)
+- **[Government Bond Yield Curve](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/thaibma/yield_curve.md)** - The official Thai government bond yield curve for any date back to 1999, the bond quotes behind it, and daily history at **one request per year** (the whole 27-year record in 28 requests)
 
 ### Utilities
 
-- **[AsyncDataFetcher](docs/settfex/utils/data_fetcher.md)** - Low-level async HTTP client
-- **[Session Caching](docs/settfex/utils/session_caching.md)** - How we make things 25x faster
+- **[AsyncDataFetcher](https://github.com/lumduan/settfex/blob/main/docs/settfex/utils/data_fetcher.md)** - Low-level async HTTP client
+- **[Session Caching](https://github.com/lumduan/settfex/blob/main/docs/settfex/utils/session_caching.md)** - How we make things 25x faster
 
 ## 🎯 What Can You Do?
 
@@ -243,7 +244,7 @@ drs = stock_list.filter_by_asset_type("dr")     # GOOG80, MICRON01, ...
 etfs = stock_list.filter_by_asset_type("etf")
 ```
 
-**👉 [Learn more about Stock Lists](docs/settfex/services/set/list.md)**
+**👉 [Learn more about Stock Lists](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/list.md)**
 
 ---
 
@@ -268,7 +269,7 @@ constituents = await index.get_constituents()    # 50 stocks with full quote row
 latest = await index.get_latest_price()          # latest traded index value (intraday)
 ```
 
-**👉 [Learn more about Market Indices](docs/settfex/services/set/index.md)**
+**👉 [Learn more about Market Indices](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/index.md)**
 
 ---
 
@@ -287,7 +288,7 @@ print(f"P/E Ratio: {data.pe_ratio}")
 print(f"Dividend Yield: {data.dividend_yield}%")
 ```
 
-**👉 [Learn more about Highlight Data](docs/settfex/services/set/highlight_data.md)**
+**👉 [Learn more about Highlight Data](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/highlight_data.md)**
 
 ---
 
@@ -305,7 +306,7 @@ print(f"IPO Price: {profile.ipo} {profile.currency}")
 print(f"Foreign Limit: {profile.percent_foreign_limit}%")
 ```
 
-**👉 [Learn more about Stock Profiles](docs/settfex/services/set/profile_stock.md)**
+**👉 [Learn more about Stock Profiles](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/profile_stock.md)**
 
 ---
 
@@ -325,7 +326,7 @@ print(f"ESG Rating: {company.setesg_rating}")
 print(f"Executives: {len(company.managements)}")
 ```
 
-**👉 [Learn more about Company Profiles](docs/settfex/services/set/profile_company.md)**
+**👉 [Learn more about Company Profiles](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/profile_company.md)**
 
 ---
 
@@ -348,7 +349,7 @@ for action in actions:
         print(f"Agenda: {action.agenda}")
 ```
 
-**👉 [Learn more about Corporate Actions](docs/settfex/services/set/corporate_action.md)**
+**👉 [Learn more about Corporate Actions](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/corporate_action.md)**
 
 ---
 
@@ -368,7 +369,7 @@ for sh in data.major_shareholders[:5]:
     print(f"{sh.sequence}. {sh.name}: {sh.percent_of_share:.2f}%")
 ```
 
-**👉 [Learn more about Shareholder Data](docs/settfex/services/set/shareholder.md)**
+**👉 [Learn more about Shareholder Data](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/shareholder.md)**
 
 ---
 
@@ -388,7 +389,7 @@ for holder in data.major_shareholders[:5]:
     print(f"{holder.sequence}. {holder.name}: {holder.percent_of_share:.2f}%")
 ```
 
-**👉 [Learn more about NVDR Holder Data](docs/settfex/services/set/nvdr_holder.md)**
+**👉 [Learn more about NVDR Holder Data](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/nvdr_holder.md)**
 
 ---
 
@@ -411,7 +412,7 @@ if chairman:
     print(f"Chairman: {chairman.name}")
 ```
 
-**👉 [Learn more about Board of Directors](docs/settfex/services/set/board_of_director.md)**
+**👉 [Learn more about Board of Directors](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/board_of_director.md)**
 
 ---
 
@@ -435,7 +436,7 @@ for stat in stats:
     print(f"{stat.period}: {stat.close:.2f} THB ({stat.percent_change:+.2f}%)")
 ```
 
-**👉 [Learn more about Trading Statistics](docs/settfex/services/set/trading_stat.md)**
+**👉 [Learn more about Trading Statistics](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/trading_stat.md)**
 
 ---
 
@@ -460,7 +461,7 @@ print(f"Sector ({data.sector.symbol}): {data.sector.ytd_percent_change:+.2f}%")
 print(f"Market ({data.market.symbol}): {data.market.ytd_percent_change:+.2f}%")
 ```
 
-**👉 [Learn more about Price Performance](docs/settfex/services/set/price_performance.md)**
+**👉 [Learn more about Price Performance](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/price_performance.md)**
 
 ---
 
@@ -489,7 +490,7 @@ print(f"1Y data points: {len(chart_1y.quotations)}")
 > **indicative** price instead of SET chart data (see the next section). The top-level
 > `get_latest_price()` function shown here is always SET chart data.
 
-**👉 [Learn more about Chart Quotation & Latest Price](docs/settfex/services/set/chart_quotation.md)**
+**👉 [Learn more about Chart Quotation & Latest Price](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/chart_quotation.md)**
 
 ---
 
@@ -522,7 +523,7 @@ quote = await dr.get_latest_price()                   # DrIndicativeQuotation
 quote = await dr.get_latest_price(prefer_dr_indicative=False)  # SET traded price instead
 ```
 
-**👉 [Learn more about DR Profiles](docs/settfex/services/set/profile_dr.md)** · **[DR Indicative Price](docs/settfex/services/set/dr_indicative_price.md)**
+**👉 [Learn more about DR Profiles](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/profile_dr.md)** · **[DR Indicative Price](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/dr_indicative_price.md)**
 
 ---
 
@@ -553,7 +554,7 @@ halted = await Stock("INGRS").is_suspended()
 > suspension flag. Only `is_suspended` (which reads the per-symbol sign) answers that.
 > A halted symbol returns HTTP 200 with `last`/OHLC/volume `None` and an empty book; use `prior`.
 
-**👉 [Learn more about Stock Info](docs/settfex/services/set/info.md)**
+**👉 [Learn more about Stock Info](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/info.md)**
 
 ---
 
@@ -584,7 +585,7 @@ print(f"{row.buy} buy / {row.hold} hold / {row.sell} sell ({row.bullish}% bullis
 market = await get_consensus_overall()      # every covered SET stock, one request
 ```
 
-**👉 [Learn more about Analyst Consensus](docs/settfex/services/set/analyst_consensus.md)**
+**👉 [Learn more about Analyst Consensus](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/analyst_consensus.md)**
 
 ---
 
@@ -614,7 +615,7 @@ for stmt in income_statements[:3]:
 cash_flows = await get_cash_flow("CPALL")
 ```
 
-**👉 [Learn more about Financial Service](docs/settfex/services/set/financial.md)**
+**👉 [Learn more about Financial Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/financial.md)**
 
 ---
 
@@ -633,7 +634,7 @@ print(f"P/E: {trading.pe}, P/BV: {trading.pbv}")
 print(f"Market Cap: {trading.market_cap:,.0f} THB")
 ```
 
-**👉 [Learn more about Latest Historical Trading](docs/settfex/services/set/latest_historical_trading.md)**
+**👉 [Learn more about Latest Historical Trading](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/latest_historical_trading.md)**
 
 ---
 
@@ -674,7 +675,7 @@ text = await get_earnings_call_transcript(6319)   # …or one presentation's tra
 > blocked/missing/disabled transcript simply comes back as `None`; if your host IP is blocked,
 > pass `proxies={"http": ..., "https": ...}`. Results can vary by IP.
 
-**👉 [Learn more about the Earnings Call Service](docs/settfex/services/set/earnings_call.md)**
+**👉 [Learn more about the Earnings Call Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/earnings_call.md)**
 
 ---
 
@@ -698,7 +699,7 @@ today = news.filter_today()
 fin = news.filter_by_tag("financial-statement")
 ```
 
-**👉 [Learn more about the News Service](docs/settfex/services/set/news.md)**
+**👉 [Learn more about the News Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/news.md)**
 
 ---
 
@@ -732,7 +733,7 @@ thai = await get_holidays(lang="th")
 > *"on SET's published holiday list"* — **weekends are not in the payload**, so combine it with a
 > weekday check to answer "is the market open?".
 
-**👉 [Learn more about the Market Holiday Service](docs/settfex/services/set/holiday.md)**
+**👉 [Learn more about the Market Holiday Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/holiday.md)**
 
 ---
 
@@ -757,7 +758,7 @@ set50_series = series_list.filter_by_underlying("SET50")
 print(f"SET50 contracts: {len(set50_series)}")
 ```
 
-**👉 [Learn more about TFEX Series List](docs/settfex/services/tfex/list.md)**
+**👉 [Learn more about TFEX Series List](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/tfex/list.md)**
 
 ---
 
@@ -781,7 +782,7 @@ max_contracts = int(capital / stats.im)
 print(f"Can trade {max_contracts} contracts with {capital:,.0f} THB")
 ```
 
-**👉 [Learn more about TFEX Trading Statistics](docs/settfex/services/tfex/trading_statistics.md)**
+**👉 [Learn more about TFEX Trading Statistics](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/tfex/trading_statistics.md)**
 
 ---
 
@@ -818,7 +819,7 @@ df = history.to_dataframe()                              # requires: pip install
 df["10Y"].plot(title="Thai 10Y government yield")
 ```
 
-**👉 [Learn more about the ThaiBMA Yield Curve](docs/settfex/services/thaibma/yield_curve.md)**
+**👉 [Learn more about the ThaiBMA Yield Curve](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/thaibma/yield_curve.md)**
 
 ---
 
@@ -830,7 +831,7 @@ First request takes ~2 seconds (warming up). After that? **100ms!** That's 25x f
 
 **Dual-Site Support**: Separate cached sessions for SET and TFEX - each optimized for its own API!
 
-**👉 [Learn about Session Caching](docs/settfex/utils/session_caching.md)**
+**👉 [Learn about Session Caching](https://github.com/lumduan/settfex/blob/main/docs/settfex/utils/session_caching.md)**
 
 ### 🇹🇭 Thai Language Support
 
@@ -943,7 +944,7 @@ service = StockHighlightDataService(config=config)
 data = await service.fetch_highlight_data("CPALL")
 ```
 
-**👉 [Learn more about AsyncDataFetcher](docs/settfex/utils/data_fetcher.md)**
+**👉 [Learn more about AsyncDataFetcher](https://github.com/lumduan/settfex/blob/main/docs/settfex/utils/data_fetcher.md)**
 
 ## 🧪 Optional: Configure Logging
 
@@ -990,7 +991,7 @@ except FetchError as exc:
 
 ## 📋 Changelog
 
-See **[CHANGELOG.md](CHANGELOG.md)** for the full, versioned release history (this project
+See **[CHANGELOG.md](https://github.com/lumduan/settfex/blob/main/CHANGELOG.md)** for the full, versioned release history (this project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and
 [Semantic Versioning](https://semver.org/)).
 
@@ -1019,7 +1020,7 @@ This library is not officially affiliated with the Stock Exchange of Thailand or
 
 ## 🙋 Need Help?
 
-- 📖 Check the [detailed documentation](docs/settfex/)
+- 📖 Check the [detailed documentation](https://github.com/lumduan/settfex/tree/main/docs/settfex/)
 - 🐛 Found a bug? [Open an issue](https://github.com/lumduan/settfex/issues)
 
 ---
