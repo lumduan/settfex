@@ -13,6 +13,10 @@ Regenerate (only for an INTENDED, reviewed surface change):
 
     uv run python -m tests.test_public_api_surface --regen
 
+Format 2 (0.25.0) adds a top-level ``deprecations`` list, taken by content from
+``settfex.deprecations.DEPRECATIONS``: the deprecation policy promises a warning period, and
+recording the registry here is what makes *removing* a warning a reviewed diff.
+
 Running ``--regen`` twice must produce a zero git diff (determinism gate). The
 snapshot never records free-form reprs of pydantic internals: models are recorded
 structurally from ``model_fields`` (never ``inspect.signature`` on a BaseModel —
@@ -204,7 +208,19 @@ def build_snapshot() -> dict[str, Any]:
         module_names.append(info.name)
 
     modules = {name: _module_entry(importlib.import_module(name)) for name in sorted(module_names)}
-    return {"format_version": 1, "package": "settfex", "modules": modules}
+
+    # Format 2 (0.25.0): the deprecation registry is part of the surface. The policy promises a
+    # warning period, and the golden is what makes REMOVING a warning a reviewed diff rather than
+    # a quiet skip. Recorded by content, because a module constant would pin only its type.
+    from settfex.deprecations import DEPRECATIONS
+
+    deprecations = [d.model_dump(mode="json") for d in sorted(DEPRECATIONS, key=lambda d: d.id)]
+    return {
+        "format_version": 2,
+        "package": "settfex",
+        "deprecations": deprecations,
+        "modules": modules,
+    }
 
 
 def canonical(snapshot: dict[str, Any]) -> str:

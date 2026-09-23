@@ -1,5 +1,14 @@
 {
-  "format_version": 1,
+  "deprecations": [
+    {
+      "changes_in": "0.26.0",
+      "id": "consensus-overall-unknown-symbol",
+      "replacement": "It will raise SymbolNotFoundError (a NotFoundError) instead; catch NotFoundError around the call to prepare, and keep treating count == 0 as 'no coverage'.",
+      "since": "0.25.0",
+      "what": "get_consensus_overall() / fetch_overall() answers a symbol that is not listed on SET with an empty summary (count 0) — the same answer as a listed symbol that simply has no analyst coverage."
+    }
+  ],
+  "format_version": 2,
   "modules": {
     "settfex": {
       "all": [
@@ -61,6 +70,7 @@
         "FetcherConfig",
         "setup_logger",
         "FetchError",
+        "NotFoundError",
         "SymbolNotFoundError",
         "StaleDataError",
         "InvalidSymbolError",
@@ -93,6 +103,7 @@
         "InvalidSymbolError",
         "Language",
         "NewsSearchResponse",
+        "NotFoundError",
         "SecCompany",
         "SecDocument",
         "SecDocumentList",
@@ -135,9 +146,95 @@
       ],
       "functions": {}
     },
+    "settfex.deprecations": {
+      "all": [
+        "DEPRECATIONS",
+        "Deprecation",
+        "warn_deprecated"
+      ],
+      "classes": {
+        "Deprecation": {
+          "bases": [
+            "pydantic.main.BaseModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "changes_in": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "id": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "replacement": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "since": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "what": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {
+            "message": {
+              "kind": "function",
+              "params": [],
+              "returns": "str"
+            }
+          },
+          "model_config": {
+            "frozen": true
+          },
+          "mro": [
+            "settfex.deprecations.Deprecation",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        }
+      },
+      "constants": {
+        "DEPRECATIONS": {
+          "type": "tuple"
+        }
+      },
+      "exports": [
+        "DEPRECATIONS",
+        "Deprecation",
+        "warn_deprecated"
+      ],
+      "functions": {
+        "warn_deprecated": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "str",
+              "name": "deprecation_id",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "None"
+        }
+      }
+    },
     "settfex.exceptions": {
       "all": [
         "FetchError",
+        "NotFoundError",
         "SymbolNotFoundError",
         "StaleDataError",
         "ParseError",
@@ -185,13 +282,15 @@
         },
         "CompanyNotFoundError": {
           "bases": [
-            "builtins.ValueError"
+            "builtins.ValueError",
+            "settfex.exceptions.NotFoundError"
           ],
           "kind": "exception",
           "methods": {},
           "mro": [
             "settfex.exceptions.CompanyNotFoundError",
             "builtins.ValueError",
+            "settfex.exceptions.NotFoundError",
             "builtins.Exception",
             "builtins.BaseException",
             "builtins.object"
@@ -383,6 +482,19 @@
             "builtins.object"
           ]
         },
+        "NotFoundError": {
+          "bases": [
+            "builtins.Exception"
+          ],
+          "kind": "exception",
+          "methods": {},
+          "mro": [
+            "settfex.exceptions.NotFoundError",
+            "builtins.Exception",
+            "builtins.BaseException",
+            "builtins.object"
+          ]
+        },
         "ParseError": {
           "bases": [
             "settfex.exceptions.FetchError"
@@ -473,7 +585,8 @@
         },
         "SymbolNotFoundError": {
           "bases": [
-            "settfex.exceptions.FetchError"
+            "settfex.exceptions.FetchError",
+            "settfex.exceptions.NotFoundError"
           ],
           "kind": "exception",
           "methods": {
@@ -510,6 +623,7 @@
           "mro": [
             "settfex.exceptions.SymbolNotFoundError",
             "settfex.exceptions.FetchError",
+            "settfex.exceptions.NotFoundError",
             "builtins.Exception",
             "builtins.BaseException",
             "builtins.object"
@@ -528,6 +642,7 @@
         "InvalidLanguageError",
         "InvalidSymbolError",
         "NoReturn",
+        "NotFoundError",
         "ParseError",
         "StaleDataError",
         "SymbolNotFoundError",
@@ -1180,6 +1295,7 @@
       "exports": [
         "Any",
         "AsyncDataFetcher",
+        "BlockedError",
         "DEFAULT_DOWNLOAD_TIMEOUT",
         "DocumentDownloadService",
         "DownloadResult",
@@ -6219,6 +6335,7 @@
         "Any",
         "AssetType",
         "AsyncDataFetcher",
+        "FetchError",
         "FetcherConfig",
         "SECURITY_TYPE_TO_ASSET_TYPE",
         "SET_BASE_URL",
@@ -7531,6 +7648,7 @@
         "SETTRADE_QUOTE_REFERER",
         "STATISTIC_NAMES",
         "StatisticName",
+        "SymbolNotFoundError",
         "TYPE_CHECKING",
         "decode_json",
         "get_analyst_consensus",
@@ -7539,7 +7657,8 @@
         "normalize_language",
         "normalize_symbol",
         "raise_for_status",
-        "validate_or_raise"
+        "validate_or_raise",
+        "warn_deprecated"
       ],
       "functions": {
         "get_analyst_consensus": {
@@ -14433,6 +14552,7 @@
         "Any",
         "AsyncDataFetcher",
         "BANGKOK_TZ",
+        "BlockedError",
         "DEFAULT_MAX_CONCURRENCY",
         "FetchError",
         "FetcherConfig",
@@ -15240,6 +15360,7 @@
         "Any",
         "AsyncDataFetcher",
         "BANGKOK_TZ",
+        "BlockedError",
         "BondQuote",
         "CurvePoint",
         "DEFAULT_MAX_CONCURRENCY",
@@ -15584,11 +15705,13 @@
       "exports": [
         "Any",
         "AsyncDataFetcher",
+        "BlockedError",
         "FetchError",
         "FetchResponse",
         "FetcherConfig",
         "HTTPStatusError",
-        "decode_json"
+        "decode_json",
+        "looks_like_block_page"
       ],
       "functions": {}
     },
@@ -15808,6 +15931,12 @@
               "default": "True",
               "name": "colorize",
               "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str | FilterFunction | FilterDict | None",
+              "default": "None",
+              "name": "filter",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
             }
           ],
           "returns": "None"
@@ -15816,12 +15945,73 @@
     },
     "settfex.utils.parsing": {
       "all": [
+        "BlockedError",
         "ResponseParseError",
         "decode_json",
+        "looks_like_block_page",
         "validate_list_or_raise",
         "validate_or_raise"
       ],
       "classes": {
+        "BlockedError": {
+          "bases": [
+            "settfex.utils.parsing.ResponseParseError"
+          ],
+          "kind": "exception",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "message",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "url",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "int | None",
+                  "default": "None",
+                  "name": "status_code",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "content_type",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "dict[str, str] | None",
+                  "default": "None",
+                  "name": "headers",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "bytes",
+                  "default": "<bytes>",
+                  "name": "body",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            }
+          },
+          "mro": [
+            "settfex.utils.parsing.BlockedError",
+            "settfex.utils.parsing.ResponseParseError",
+            "settfex.exceptions.ParseError",
+            "settfex.exceptions.FetchError",
+            "builtins.ValueError",
+            "builtins.Exception",
+            "builtins.BaseException",
+            "builtins.object"
+          ]
+        },
         "ResponseParseError": {
           "bases": [
             "settfex.exceptions.ParseError",
@@ -15873,11 +16063,13 @@
       "constants": {},
       "exports": [
         "Any",
+        "BlockedError",
         "ModelT",
         "ParseError",
         "ResponseParseError",
         "TypeVar",
         "decode_json",
+        "looks_like_block_page",
         "validate_list_or_raise",
         "validate_or_raise"
       ],
@@ -15897,6 +16089,17 @@
             }
           ],
           "returns": "Any"
+        },
+        "looks_like_block_page": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "bytes",
+              "name": "content",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "bool"
         },
         "validate_list_or_raise": {
           "kind": "function",

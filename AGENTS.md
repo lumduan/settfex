@@ -226,9 +226,9 @@ being wrong, so none of them will announce itself.
 
 | Behaviour | What you must do |
 |---|---|
-| **Analyst consensus answers an uncovered symbol with HTTP 500, not 404** — and "uncovered" includes perfectly valid SET stocks (`ABICO`), DRs (`GOOG80`) and warrants (`JAS-W4`) | catch `FetchError`; report "no analyst coverage". **Do not** retry it as a typo or suggest a different symbol |
+| **Analyst consensus answers an uncovered symbol with HTTP 500, not 404** — and "uncovered" includes perfectly valid SET stocks (`ABICO`), DRs (`GOOG80`) and warrants (`JAS-W4`) | catch **`NotFoundError` first**: since 0.25.0 a symbol that is not listed on SET raises `SymbolNotFoundError` (with `.suggestion`). What still arrives as a plain `FetchError(500)` is a listed symbol with no coverage — report "no analyst coverage", and **do not** retry it as a typo |
 | **The DR-profile endpoint 404s for every non-DR symbol**, including `CPALL` | a 404 here means "not a DR", not "unknown symbol" |
-| **The consensus summary endpoint fails silently**: an unknown symbol is HTTP 200 with `overall: []` | check `.count`, or use `.get(symbol)` which returns `None` |
+| **The consensus summary endpoint fails silently**: an unknown symbol is HTTP 200 with `overall: []` — since 0.25.0 with a `DeprecationWarning`; **0.26.0 raises `SymbolNotFoundError`** | check `.count`, or use `.get(symbol)` which returns `None`; wrap it in `except NotFoundError` now |
 | **The holiday endpoint returns HTTP 401 for any year but the current one** — and transiently on valid requests too | do not treat 401 as auth failure; there is no auth |
 
 ### Values that are placeholders, not data
@@ -273,10 +273,12 @@ Everything is importable from one place:
 
 ```python
 from settfex.exceptions import (
+    # --- the cross-cutting catch: a name that does not exist (0.25.0) ---
+    NotFoundError,           # base of SymbolNotFoundError AND CompanyNotFoundError; never retry
     # --- the FETCH family: `except FetchError` catches all of these ---
     FetchError,              # HTTP/transport failure; carries .status_code and .symbol
     HTTPStatusError,         # a non-2xx, with .url and .report_code as data
-    SymbolNotFoundError,     # HTTP 404 on a SET endpoint; may carry .suggestion
+    SymbolNotFoundError,     # SET 404, or an unlisted analyst-consensus symbol; .suggestion
     StaleDataError,          # ThaiBMA rolled back and you asked it to raise
     ParseError,              # a response arrived intact and could not be mapped
     IncompleteListingError,  # a ParseError: rows classified, then every one was lost
@@ -287,7 +289,10 @@ from settfex.exceptions import (
     InvalidLanguageError,    # unrecognized lang
     InvalidDateError,        # malformed date string — raised before any request
 )
-from settfex.utils.parsing import ResponseParseError   # also a ParseError since 0.24.0
+from settfex.utils.parsing import (
+    ResponseParseError,      # also a ParseError since 0.24.0
+    BlockedError,            # a WAF block page (0.25.0): stop, never retry
+)
 ```
 
 **The split is the thing to internalise: a `FetchError` may be worth retrying; a `ValueError`
@@ -295,12 +300,30 @@ never is.** An input error means the request *succeeded* and your argument was w
 loop on one spins forever. `InvalidSymbolError`, `InvalidLanguageError` and `InvalidDateError` are
 raised before any network call at all.
 
-⚠️ Two "not found" taxonomies coexist today: a SET 404 is a `SymbolNotFoundError` (a `FetchError`),
-while the SEC equivalent is a `CompanyNotFoundError` (a `ValueError`). Catch both if you handle
-both hosts. Unifying them is tracked on #135.
+⚠️ Two "not found" taxonomies still coexist: a SET 404 is a `SymbolNotFoundError` (a
+`FetchError`), while the SEC equivalent is a `CompanyNotFoundError` (a `ValueError`). Since 0.25.0
+both are also a **`NotFoundError`** — catch that one, and catch it **before** `FetchError`, because
+a `SymbolNotFoundError` is a `FetchError` too and a retry handler would otherwise retry a typo
+forever:
 
-⚠️ `ResponseParseError` is also what a **WAF block page** currently surfaces as — right family,
-wrong diagnosis. If you see it repeatedly from one host, **stop and back off**; do not retry.
+```python
+try:
+    data = await get_highlight_data(symbol)
+except NotFoundError:
+    ...          # the name does not exist: fix the input, never retry
+except FetchError:
+    ...          # upstream or transient: a retry may help
+```
+
+Neither class moved family; taking `SymbolNotFoundError` out of `FetchError` would break existing
+handlers, so that is a 1.0 decision, tracked on #135.
+
+⚠️ A **WAF block page** raises **`BlockedError`** (0.25.0) — **stop and back off; never retry**,
+because every further request deepens the block. It is a `ResponseParseError` subclass so older
+handlers still catch it, which also makes it a `ValueError`: catch `BlockedError` **before**
+`ValueError` if you treat `ValueError` as bad input. Only SEC's block page is recognised; a SET
+block may still arrive as a plain `ResponseParseError` — if one keeps repeating from one host,
+treat it the same way.
 
 ---
 

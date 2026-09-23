@@ -16,6 +16,7 @@ Hardening guarantees:
 """
 
 import json
+import re
 from typing import Any, TypeVar
 
 from loguru import logger
@@ -24,8 +25,10 @@ from pydantic import BaseModel, ValidationError
 from settfex.exceptions import ParseError
 
 __all__ = [
+    "BlockedError",
     "ResponseParseError",
     "decode_json",
+    "looks_like_block_page",
     "validate_list_or_raise",
     "validate_or_raise",
 ]
@@ -50,6 +53,79 @@ class ResponseParseError(ParseError, ValueError):
     removed from the MRO, so ``except ValueError`` keeps working exactly as before, and
     ``except FetchError`` / ``except ParseError`` now work too.
     """
+
+
+class BlockedError(ResponseParseError):
+    """The server's bot protection refused the request and answered with a block page.
+
+    **Stop and back off. Do not retry** — every further request, and fast retries most of all,
+    deepens the block. On 2026-09-20 a sweep drew one from ``market.sec.or.th`` that answered every
+    request for about an hour.
+
+    Until 0.25.0 a block page surfaced as ``ResponseParseError``: the right family and the wrong
+    diagnosis, which invited exactly the retry that makes it worse. Worse still, the SEC download
+    path accepted it as a *file* — the page carries no ``Content-Type`` — so ``download_all`` saved
+    the block page under the filing's filename.
+
+    **Why a ResponseParseError subclass:** every handler that caught a block page before 0.25.0
+    (``except ResponseParseError``, ``except ParseError``, ``except FetchError``,
+    ``except ValueError``) still catches it, and ``except BlockedError`` can now tell it apart.
+    Because it is also a ``ValueError``, **catch ``BlockedError`` before ``ValueError``** if you
+    treat ``ValueError`` as "bad input".
+
+    Attributes:
+        url: The URL that was refused.
+        status_code: The HTTP status the block page arrived with (200 in every observation).
+        content_type: The ``Content-Type`` header, or ``None`` — the observed page had none.
+        headers: The response headers, minus ``Set-Cookie``.
+        body: The block page itself, with its per-incident support ID screened. Kept so the next
+            block observed in the wild yields a byte-exact fixture; it is never part of
+            ``str(exc)``.
+
+    Only the BIG-IP ASM page observed on SEC is recognised (see :func:`looks_like_block_page`).
+    No SET/Incapsula block page has been captured, so none is classified.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        url: str | None = None,
+        status_code: int | None = None,
+        content_type: str | None = None,
+        headers: dict[str, str] | None = None,
+        body: bytes = b"",
+    ) -> None:
+        super().__init__(message, url=url)
+        self.status_code = status_code
+        self.content_type = content_type
+        self.headers = dict(headers or {})
+        self.body = body
+
+
+#: A block page is small: the one observed was 242 bytes. The cap keeps the check off real
+#: documents entirely — a multi-megabyte PDF is never scanned.
+_MAX_BLOCK_PAGE_BYTES = 8192
+
+# The two stable markers of F5 BIG-IP ASM's default block page, as observed on market.sec.or.th on
+# 2026-09-20. Both are vendor boilerplate, not per-request content. Case-insensitive and
+# whitespace-tolerant on purpose: the only capture normalised newlines to spaces, so the page's
+# exact whitespace was never byte-verified. BOTH must match — either alone is ordinary prose.
+_BLOCK_TITLE = re.compile(rb"<title>\s*request\s+rejected\s*</title>", re.IGNORECASE)
+_BLOCK_SUPPORT_ID = re.compile(rb"your\s+support\s+id\s+is\s*:", re.IGNORECASE)
+_SUPPORT_ID_VALUE = re.compile(rb"(your\s+support\s+id\s+is\s*:\s*)[0-9A-Za-z-]+", re.IGNORECASE)
+
+
+def looks_like_block_page(content: bytes) -> bool:
+    """Is this body the BIG-IP ASM block page? Needs both markers, and a small body."""
+    if len(content) > _MAX_BLOCK_PAGE_BYTES:
+        return False
+    return bool(_BLOCK_TITLE.search(content)) and bool(_BLOCK_SUPPORT_ID.search(content))
+
+
+def _screen_support_id(content: bytes) -> bytes:
+    """Replace the per-incident support ID, which identifies one request from one client."""
+    return _SUPPORT_ID_VALUE.sub(rb"\1<SCREENED>", content)
 
 
 def _reject_nonfinite(token: str) -> float:

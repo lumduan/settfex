@@ -164,6 +164,180 @@ class TestNonSuccessStatus:
         _require_ok(status, "http://x", "FS")
 
 
+# --- U-7: a ViewMore page must never reduce the row set (0.25.0) ---------------------------------
+
+_FS_HEADER = (
+    "<tr><th>Name</th><th>Year</th><th>Status</th><th>Type</th><th>Period</th><th>As Of</th>"
+    "<th>Details</th></tr>"
+)
+
+
+def _fs_row(year: str, link: str | None) -> str:
+    cell = f'<a href="https://market.sec.or.th/public/idisc/Download?FILEID={link}"><img></a>'
+    return (
+        f"<tr><td>CP ALL PUBLIC COMPANY LIMITED</td><td>{year}</td><td>Audited</td><td>Company</td>"
+        f"<td>Year</td><td>31/12/{year}</td><td>{cell if link else ''}</td></tr>"
+    )
+
+
+def _section(heading: str, count: int, rows: str, header: str = _FS_HEADER) -> str:
+    return (
+        f'<div class="card card-table"><div class="card-heading">{heading} ( {count} record(s) '
+        f'found)</div><table id="gv"><tbody>{header}{rows}</tbody></table></div>'
+    )
+
+
+_VIEWMORE_LINK = (
+    '<tr><td colspan="7"><a href="/public/idisc/en/ViewMore/fs-norm?uniqueIDReference=0000003875'
+    '&amp;dateFrom=20200101&amp;dateTo=20260720">Click here to display all results</a></td></tr>'
+)
+
+#: Inline page: TWO Financial Statements rows (of 3 reported) plus the ViewMore link, and a Key
+#: Financial Ratio section, so a loss of the whole report code would also take KFR with it.
+_KFR_SECTION = _section(
+    "Key Financial Ratio",
+    1,
+    "<tr><td>CP ALL PUBLIC COMPANY LIMITED</td><td>Trading</td><td>Consolidated</td><td>Year</td>"
+    '<td>2025</td><td>31/12/2025</td><td><a href="https://market.sec.or.th/public/idisc/Download?'
+    'FILEID=dat/news/kfr.zip"><img></a></td></tr>',
+    header=(
+        "<tr><th>Name</th><th>Business Type</th><th>Type</th><th>Period</th><th>Year</th>"
+        "<th>As Of</th><th>Details</th></tr>"
+    ),
+)
+_INLINE_TWO_OF_THREE = (
+    '<div id="ctl00_CPH_pnlControl">'
+    + _section(
+        "Finanacial Statements",
+        3,
+        _fs_row("2026", "dat/news/inline_a.zip")
+        + _fs_row("2025", "dat/news/inline_b.zip")
+        + _VIEWMORE_LINK,
+    )
+    + _KFR_SECTION
+    + "</div>"
+)
+
+#: ViewMore pages that pass the transport and "is it a listing" checks, and still cannot replace.
+_UNUSABLE_VIEWMORE = {
+    # Maps fine, but to FEWER documents than the inline rows it is meant to complete.
+    "fewer-rows": _section("Finanacial Statements", 3, _fs_row("2026", "dat/news/vm_only.zip")),
+    # The site's own "this section is empty" row: zero documents.
+    "placeholder-only": _section(
+        "Finanacial Statements", 0, '<tr><td colspan="7">Data not found</td></tr>'
+    ),
+    # A heading nobody recognises: `_map_rows` raises ParseError.
+    "unclassifiable": _section(
+        "Something Nobody Recognises", 3, _fs_row("2026", "dat/news/x.zip") * 3
+    ),
+    # Every row lost its link: `_map_rows` raises IncompleteListingError (a ParseError).
+    "every-link-missing": _section(
+        "Finanacial Statements",
+        3,
+        _fs_row("2026", None) + _fs_row("2025", None) + _fs_row("2024", None),
+    ),
+}
+
+
+class TestViewMoreNeverReducesTheRowSet:
+    """U-7: before 0.25.0 a *successful* ViewMore page replaced the inline rows unconditionally.
+
+    Two silent losses followed. A page that mapped to fewer documents deleted inline rows with
+    ``has_losses`` still ``False``; a page that failed to map raised out of the loop, and the
+    per-code gather then recorded the WHOLE report code as failed, taking every sibling category
+    down with one section. Both are partial losses now: inline rows kept, a DegradedSection
+    recorded, and the site's reported count left for ``completeness()`` to compare against.
+    """
+
+    @staticmethod
+    def _router(viewmore_body: str):
+        async def router(url, headers=None, *, method="GET", json_body=None, data=None, **kw):
+            if "ViewMore" in url:
+                return _resp(viewmore_body)
+            return _resp(_INLINE_TWO_OF_THREE if method == "POST" else REPORT_PAGE_HTML)
+
+        return router
+
+    @pytest.mark.parametrize("variant", sorted(_UNUSABLE_VIEWMORE))
+    @pytest.mark.asyncio
+    async def test_an_unusable_page_keeps_the_inline_rows(self, variant: str) -> None:
+        records, sink = _captured()
+        try:
+            docs = await _list_with(
+                self._router(_UNUSABLE_VIEWMORE[variant]),
+                types="financial_statement",
+                follow_view_more=True,
+            )
+        finally:
+            logger.remove(sink)
+
+        assert sorted(d.file_url.rsplit("/", 1)[-1] for d in docs) == [
+            "inline_a.zip",
+            "inline_b.zip",
+        ], f"{variant}: the inline rows must survive"
+        [degraded] = docs.accounting.degraded_sections
+        assert degraded.category == "financial_statement"
+        assert "fs-norm" in degraded.url
+        assert docs.accounting.has_losses, "a knowingly short section is a loss"
+        assert docs.accounting.is_balanced, (
+            "the degrade path must not half-apply the ViewMore tally"
+        )
+        assert docs.completeness() == {"financial_statement": (2, 3)}, (
+            "the INLINE page's reported count must stand, so the shortfall stays visible"
+        )
+        assert any("display all results" in m for m in records), "and it is warned about"
+
+    @pytest.mark.asyncio
+    async def test_a_parse_error_no_longer_takes_the_sibling_sections_down(self) -> None:
+        """The unguarded `_map_rows` raise used to fail the whole FS code, KFR included."""
+        docs = await _list_with(
+            self._router(_UNUSABLE_VIEWMORE["unclassifiable"]),
+            types=["financial_statement", "key_financial_ratio"],
+            follow_view_more=True,
+        )
+        assert {d.category for d in docs} == {
+            DocumentCategory.FINANCIAL_STATEMENT,
+            DocumentCategory.KEY_FINANCIAL_RATIO,
+        }
+        assert docs.accounting.failed_codes == [], "one bad section must not fail the code"
+        assert [d.error_type for d in docs.accounting.degraded_sections] == ["ParseError"]
+
+    @pytest.mark.asyncio
+    async def test_an_equal_count_page_still_replaces(self) -> None:
+        """The rule is a COUNT, not identity: the replacement rows may be different files."""
+        page = _section(
+            "Finanacial Statements",
+            3,
+            _fs_row("2026", "dat/news/vm_1.zip") + _fs_row("2025", "dat/news/vm_2.zip"),
+        )
+        docs = await _list_with(
+            self._router(page), types="financial_statement", follow_view_more=True
+        )
+        assert sorted(d.file_url.rsplit("/", 1)[-1] for d in docs) == ["vm_1.zip", "vm_2.zip"]
+        assert docs.accounting.degraded_sections == []
+
+    @pytest.mark.asyncio
+    async def test_only_the_replaced_sections_reported_count_moves(self) -> None:
+        """A ViewMore page for one section must not rewrite another section's reported count."""
+        page = FS_VIEWMORE_HTML + _section(
+            "Key Financial Ratio",
+            9,
+            "<tr><td>X</td><td>Trading</td><td>Consolidated</td><td>Year</td><td>2020</td>"
+            '<td>31/12/2020</td><td><a href="https://market.sec.or.th/public/idisc/Download?'
+            'FILEID=dat/news/other.zip"><img></a></td></tr>',
+        )
+        docs = await _list_with(
+            self._router(page),
+            types=["financial_statement", "key_financial_ratio"],
+            follow_view_more=True,
+        )
+        completeness = docs.completeness()
+        assert completeness["financial_statement"] == (3, 3), "the section was completed"
+        assert completeness["key_financial_ratio"] == (1, 1), (
+            "KFR's count must still be the inline page's, not the fs-norm page's 9"
+        )
+
+
 class TestErrorPageServedWith200:
     """The half a status check cannot see."""
 

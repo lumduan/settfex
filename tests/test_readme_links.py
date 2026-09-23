@@ -14,11 +14,23 @@ Four assertions, in increasing order of subtlety:
    carrying a ``### Migration`` heading. The CHANGELOG is newest-first, so the moment 0.25.0 adds
    its own, GitHub hands the anchor to whichever comes first in the document — the *new* one — and
    the README starts pointing at the wrong release's notes with every link still "working".
-4. **The pinned ref is a version tag, not a branch.** A ``blob/main/`` link silently re-points at
-   whatever ``main`` says later, which is the same drift as (3) wearing a different hat. These two
-   links must keep pointing at *0.24.0's* advisory after 0.25.0 rewrites that section.
+4. **Release notes are pinned to a version tag, not a branch.** A ``blob/main/`` link into the
+   CHANGELOG silently re-points at whatever ``main`` says later, which is the same drift as (3)
+   wearing a different hat. The advisory links must keep pointing at *0.24.0's* notes after a
+   later release rewrites that section. **Only the CHANGELOG is held to this.** Links into
+   ``docs/`` and ``examples/`` deliberately follow ``main``: they describe the current library,
+   and a reader arriving from PyPI should land on today's docs, not on the docs of the release
+   that happened to add the link.
 
-All four are checked offline, against the files in this repo. Nothing here fetches a URL — the tag
+Two more, because the README is also the PyPI project page (added in 0.25.0, when 87 relative links
+were found broken there):
+
+5. **No relative links at all.** PyPI resolves nothing relative, so ``docs/x.md`` is a dead link
+   for every reader who never opens GitHub.
+6. **Every link into this repo points at something that exists.** An absolute URL cannot be
+   checked by simply existing on disk, so the path inside it is.
+
+All six are checked offline, against the files in this repo. Nothing here fetches a URL — the tag
 a link pins to does not exist until release.
 """
 
@@ -40,6 +52,15 @@ _GITHUB_BLOB = re.compile(
 _RELATIVE = re.compile(r"^(?P<path>[A-Za-z0-9_./-]*)#(?P<anchor>.+)$")
 _HEADING = re.compile(r"^#{1,6}\s+(?P<text>.+?)\s*$", re.MULTILINE)
 _VERSION_TAG = re.compile(r"^v\d+\.\d+\.\d+")
+
+#: Every link target, with or without a fragment: markdown links and HTML href/src attributes.
+_ANY_LINK = re.compile(r"\]\((?P<target>[^)\s]+)\)")
+_ANY_ATTR = re.compile(r"""(?:href|src)=["'](?P<target>[^"']+)["']""")
+_NOT_RELATIVE = re.compile(r"^(https?:|#|mailto:)")
+_REPO_URL = re.compile(
+    rf"^https://github\.com/{re.escape(REPO_SLUG)}/"
+    r"(?P<kind>blob|tree)/(?P<ref>[^/]+)/(?P<path>[^#?]*)"
+)
 
 
 def github_anchor(heading_text: str) -> str:
@@ -115,12 +136,16 @@ class TestReadmeAnchorLinks:
         )
 
     @pytest.mark.parametrize(("path", "anchor", "ref"), readme_links(), ids=lambda v: str(v))
-    def test_absolute_links_are_pinned_to_a_version_tag(
+    def test_release_note_links_are_pinned_to_a_version_tag(
         self, path: str, anchor: str, ref: str | None
     ) -> None:
-        """A branch ref re-points itself later; a tag does not."""
-        if ref is None:
-            return  # a relative link has no ref to pin
+        """A branch ref re-points itself later; a tag does not — for release notes.
+
+        Scoped to the CHANGELOG on purpose: docs and examples links follow ``main`` (see (4) in the
+        module docstring), so pinning them would freeze PyPI readers on stale documentation.
+        """
+        if ref is None or path != "CHANGELOG.md":
+            return  # a relative link has no ref; a docs link is meant to follow main
         assert _VERSION_TAG.match(ref), (
             f"README.md links to {path}#{anchor} at ref {ref!r}. Pin release notes to a version "
             f"tag (e.g. 'v0.24.0'): a branch ref silently re-points at whatever that branch says "
@@ -131,3 +156,41 @@ class TestReadmeAnchorLinks:
         """A typo'd owner or repo would otherwise 404 in the wild and pass every check here."""
         wrong = sorted({s for s in github_slugs() if s != REPO_SLUG})
         assert not wrong, f"README.md has GitHub links to {wrong}; expected {REPO_SLUG!r}"
+
+
+def all_link_targets() -> list[str]:
+    """Every link target in README.md: markdown links and HTML attributes, fragment or not."""
+    text = (REPO_ROOT / "README.md").read_text("utf-8")
+    return [m.group("target") for rx in (_ANY_LINK, _ANY_ATTR) for m in rx.finditer(text)]
+
+
+class TestReadmeLinksWorkOnPyPI:
+    """The README is the PyPI project page, and PyPI resolves nothing relative."""
+
+    def test_there_are_repo_links_to_check(self) -> None:
+        """Guard the guard: the repo-link regex must keep matching, or (6) proves nothing."""
+        repo_links = [t for t in all_link_targets() if _REPO_URL.match(t)]
+        assert len(repo_links) >= 80, (
+            f"only {len(repo_links)} links into {REPO_SLUG} found — the README used to carry 87 "
+            f"docs/examples links; either they were removed or _REPO_URL has stopped matching"
+        )
+
+    def test_no_relative_links(self) -> None:
+        relative = sorted({t for t in all_link_targets() if not _NOT_RELATIVE.match(t)})
+        assert not relative, (
+            f"README.md has {len(relative)} relative link(s), dead on PyPI: {relative[:10]}. "
+            f"Write them as https://github.com/{REPO_SLUG}/blob/main/<path> "
+            f"(tree/main/ for a directory)."
+        )
+
+    def test_every_repo_link_points_at_something_that_exists(self) -> None:
+        """A moved or renamed file would 404 for every PyPI reader and pass every other check."""
+        missing = []
+        for target in all_link_targets():
+            if not (m := _REPO_URL.match(target)):
+                continue
+            path = REPO_ROOT / m.group("path")
+            exists = path.is_dir() if m.group("kind") == "tree" else path.is_file()
+            if not exists:
+                missing.append(target)
+        assert not missing, f"README.md links to paths that do not exist in this repo: {missing}"

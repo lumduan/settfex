@@ -28,6 +28,7 @@ from settfex.services.sec.constants import (
 from settfex.services.sec.financial_report import SecDocument
 from settfex.services.sec.utils import _CAPITAL_HOST, build_sec_headers
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
+from settfex.utils.parsing import BlockedError
 
 
 class DownloadedFile(BaseModel):
@@ -425,13 +426,32 @@ class DocumentDownloadService:
         failures: list[FailedDownload] = []
         bar = _make_progress_bar(len(unique)) if progress else None
 
+        # The first block page stops the batch from sending anything more: every further request
+        # to a host that is blocking us deepens the block. Items still queued are recorded as
+        # failures WITHOUT being requested, so the result keeps its shape and says why.
+        blocked: BlockedError | None = None
+
         async with AsyncDataFetcher(config=self.config) as fetcher:
 
             async def one(target: SecDocument | str) -> DownloadedFile | FailedDownload:
+                nonlocal blocked
                 async with semaphore:
+                    if blocked is not None:
+                        url, document = self._resolve_url(target)
+                        return FailedDownload(
+                            target=url,
+                            document=document,
+                            error=(
+                                f"not requested: {blocked.url} answered with a bot-protection "
+                                f"block page earlier in this batch"
+                            ),
+                            error_type=type(blocked).__name__,
+                        )
                     try:
                         dl = await self.download(target, fetcher=fetcher)
                     except Exception as exc:  # noqa: BLE001 - tolerant batch download
+                        if isinstance(exc, BlockedError) and blocked is None:
+                            blocked = exc
                         if not continue_on_error:
                             raise
                         url, document = self._resolve_url(target)

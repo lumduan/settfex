@@ -18,8 +18,13 @@ Two directions, deliberately asymmetric:
   actually exist, or be a declared exception to the rule with its reason recorded below.
 
 The allowlist is itself verified, which is the part that keeps it from rotting: each entry states
-*why* the name is not in `settfex.exceptions.__all__`, and the test asserts that reason is still
-true. When `BlockedError` ships, this test goes red until its entry is removed.
+*why* the name is not exported, and the test asserts that reason is still true. A "planned" entry
+goes red the moment the name ships — which is how `BlockedError` left the list in 0.25.0.
+
+"Exported" means `settfex.exceptions.__all__` **plus** `settfex.utils.parsing.__all__`: the two
+parse-level exceptions (`ResponseParseError`, `BlockedError`) live beside the JSON decoder, because
+`parsing` imports from `exceptions` and the reverse would be a cycle. Both are public, both are
+documented, and both are held to the same completeness rule as the rest.
 """
 
 from __future__ import annotations
@@ -30,6 +35,7 @@ from pathlib import Path
 import pytest
 
 import settfex.exceptions as exceptions
+import settfex.utils.parsing as parsing
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 AGENTS_MD = REPO_ROOT / "AGENTS.md"
@@ -40,13 +46,18 @@ CLAUDE_MD = REPO_ROOT / "CLAUDE.md"
 _EXCEPTION_NAME = re.compile(r"\b([A-Z][A-Za-z0-9]*(?:Error|Exception))\b")
 
 
-#: `__all__` also exports a helper function; only the exception classes are documentable names.
+#: The modules whose exported exception classes the docs must name. `__all__` also exports helper
+#: functions; only the exception classes are documentable names.
+_EXCEPTION_MODULES = (exceptions, parsing)
+
+
 def _exported_exceptions() -> set[str]:
     return {
         name
-        for name in exceptions.__all__
-        if isinstance(getattr(exceptions, name, None), type)
-        and issubclass(getattr(exceptions, name), BaseException)
+        for module in _EXCEPTION_MODULES
+        for name in module.__all__
+        if isinstance(getattr(module, name, None), type)
+        and issubclass(getattr(module, name), BaseException)
     }
 
 
@@ -63,13 +74,6 @@ _ALLOWED_ELSEWHERE: dict[str, str] = {
     "BaseException": "builtin",
     "ValidationError": "pydantic",
     "JSONDecodeError": "stdlib json",
-    # Lives in `settfex.utils.parsing`, not in the exceptions module. Since 0.24.0 it is also a
-    # `ParseError`, so it IS in the FetchError family -- it is just exported from somewhere else,
-    # and the docs are right to name it.
-    "ResponseParseError": "settfex.utils.parsing",
-    # Planned, not shipped. Named in CLAUDE.md's live-probe rule because a WAF block page currently
-    # surfaces as ResponseParseError -- right family, wrong diagnosis. Tracked on #135 for 0.25.0.
-    "BlockedError": "planned",
 }
 
 
@@ -125,22 +129,20 @@ class TestTheAllowlistIsItselfChecked:
             f"entries are stale and must be removed."
         )
 
-    def test_the_settfex_entries_are_still_true(self) -> None:
-        """`ResponseParseError` must still live where the reason says it does."""
-        from settfex.utils import parsing
-
-        assert _ALLOWED_ELSEWHERE["ResponseParseError"] == "settfex.utils.parsing"
-        assert isinstance(parsing.ResponseParseError, type)
+    def test_the_parse_level_exceptions_are_held_to_the_rule(self) -> None:
+        """They used to be allowlisted; since 0.25.0 they are exported and must be documented."""
+        assert {"ResponseParseError", "BlockedError"} <= _exported_exceptions()
 
     def test_planned_names_are_not_yet_real(self) -> None:
-        """When BlockedError ships, this goes red -- which is the point of listing it.
+        """A planned name that ships turns this red -- which is the point of listing it.
 
         A "planned" entry is a promise with an expiry date. Without this the allowlist would
-        quietly keep excusing a name that had since become real and undocumented.
+        quietly keep excusing a name that had since become real and undocumented. (It worked:
+        `BlockedError` was planned here until it shipped in 0.25.0. No planned names remain.)
         """
         planned = [n for n, reason in _ALLOWED_ELSEWHERE.items() if reason == "planned"]
         for name in planned:
-            assert not hasattr(exceptions, name), (
+            assert not any(hasattr(module, name) for module in _EXCEPTION_MODULES), (
                 f"{name} now exists. Remove its 'planned' entry from _ALLOWED_ELSEWHERE and add it "
                 f"to AGENTS.md's exception list."
             )

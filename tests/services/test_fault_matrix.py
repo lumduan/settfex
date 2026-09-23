@@ -12,6 +12,11 @@ Learned the hard way: an earlier sweep mocked ``fetch_json`` and produced artifa
 been reported as findings. Patching only ``.fetch`` leaves every wrapper, validator, retry loop
 and envelope model real, so what the matrix reports is what a caller would actually see.
 
+One check sits *inside* ``fetch`` and is therefore out of this matrix's reach: since 0.25.0
+``fetch`` recognises a bot-protection block page and raises ``BlockedError``. Replacing ``fetch``
+bypasses that detector, so block pages are tested one layer lower, at ``_make_request``, in
+``tests/utils/test_blocked_error.py``.
+
 **The rule this matrix exists to keep closed**, distilled from the #135 audit::
 
     silent  ⟺  (no HTTP status check)  AND  (the response model validates the error body)
@@ -19,6 +24,11 @@ and envelope model real, so what the matrix reports is what a caller would actua
 Both halves are now checked: ``fetch_json`` raises on a non-2xx, and a response envelope whose
 only field is optional is the case where the second half bites. That is why ``200+[]`` and
 ``200+{}`` are separate faults — they are the payloads that slip past a permissive model.
+
+One fault is not a response at all: ``transport`` is the request never completing, raised exactly
+as the real ``fetch`` raises it once its retries are spent. Until 0.25.0 every fault here was a
+*response*, so no service anywhere was tested against a raised transport error at this layer —
+the gap the 2026-09-23 checklist audit on #135 found in all four service rows.
 
 Invariants asserted here:
 
@@ -64,8 +74,22 @@ def _resp(body: str, status: int = 200, ctype: str = "application/json") -> Fetc
     )
 
 
-#: The faults. Each is a response a real origin can and does produce.
+def _transport_failure() -> FetchResponse:
+    """Raise what ``AsyncDataFetcher.fetch`` raises when every attempt failed to complete.
+
+    Mirrors ``settfex/utils/data_fetcher.py`` after its retry loop: a ``FetchError`` naming the
+    attempts, chained from the transport cause. A connection reset is the cause chosen because it is
+    the first WAF signal the live-probe politeness rule names.
+    """
+    raise FetchError(
+        "Failed to fetch https://injected.invalid/ after 4 attempts"
+    ) from ConnectionResetError(104, "Connection reset by peer")
+
+
+#: The faults. Each is something a real origin can and does produce: a response, or no response.
 FAULTS: dict[str, Any] = {
+    # The request never completes. Raised from `fetch` itself, as the real one does after retries.
+    "transport": _transport_failure,
     # A plain upstream failure with an HTML error page — the shape SEC's real HTTP 505 had.
     "500+html": lambda: _resp(
         "<html><body>500 Internal Server Error</body></html>", 500, "text/html"

@@ -26,6 +26,10 @@ Exceptions come in two families, and the split is what you act on:
 - ``ValueError`` subclasses — ``InvalidSymbolError``, ``CompanyNotFoundError``,
   ``AmbiguousCompanyError``; the request succeeded and the input was wrong, so a retry never helps
 
+One catch cuts across them: ``NotFoundError`` covers both ``SymbolNotFoundError`` (a
+``FetchError``) and ``CompanyNotFoundError`` (a ``ValueError``). Catch it **before**
+``FetchError`` — a name that does not exist is never worth retrying.
+
 Looking an SEC issuer up by company **name** needs ``allow_name_match=True``. Without it a lone
 unflagged match raises ``AmbiguousCompanyError`` carrying the candidate, because the site did not
 resolve the query as an identifier and the row may be an unrelated company.
@@ -55,7 +59,7 @@ Usage:
     >>> asyncio.run(main())
 """
 
-__version__ = "0.24.2"
+__version__ = "0.25.0"
 __author__ = "batt"
 __license__ = "MIT"
 
@@ -67,6 +71,7 @@ from settfex.exceptions import (
     InvalidDateError,
     InvalidLanguageError,
     InvalidSymbolError,
+    NotFoundError,
     StaleDataError,
     SymbolNotFoundError,
 )
@@ -218,6 +223,7 @@ __all__ = [
     "setup_logger",
     # Exceptions
     "FetchError",
+    "NotFoundError",
     "SymbolNotFoundError",
     "StaleDataError",
     "InvalidSymbolError",

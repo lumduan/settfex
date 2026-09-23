@@ -58,7 +58,7 @@ from settfex.services.thaibma.utils import (
     tenor_label,
 )
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
-from settfex.utils.parsing import validate_or_raise
+from settfex.utils.parsing import BlockedError, validate_or_raise
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -668,12 +668,22 @@ class YieldCurveService:
             return []
 
         semaphore = asyncio.Semaphore(max(1, max_concurrency))
+        # The first block page stops the batch from sending anything more: every further request
+        # to a host that is blocking us deepens the block. Dates still queued are not requested.
+        blocked: BlockedError | None = None
+        not_requested = 0
 
         async def fetch_one(day: date | None) -> YieldCurve | None:
+            nonlocal blocked, not_requested
             async with semaphore:
+                if blocked is not None:
+                    not_requested += 1
+                    return None
                 try:
                     return await self.fetch_curve(day, on_rollback=on_rollback)
                 except Exception as exc:  # noqa: BLE001 - tolerant batch fetch
+                    if isinstance(exc, BlockedError) and blocked is None:
+                        blocked = exc
                     if not continue_on_error:
                         raise
                     logger.warning(f"Skipping ThaiBMA curve for {day}: {exc}")
@@ -683,6 +693,11 @@ class YieldCurveService:
             f"Fetching {len(unique)} ThaiBMA yield curve(s) (concurrency={max_concurrency})"
         )
         results = await asyncio.gather(*(fetch_one(day) for day in unique))
+        if blocked is not None and not_requested:
+            logger.warning(
+                f"{not_requested} ThaiBMA curve request(s) were not sent: {blocked.url} answered "
+                f"with a bot-protection block page, and every further request deepens the block."
+            )
         curves = [curve for curve in results if curve is not None]
         curves.sort(key=lambda c: c.as_of)
         logger.info(f"Fetched {len(curves)} of {len(unique)} requested ThaiBMA yield curve(s)")

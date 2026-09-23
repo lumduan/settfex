@@ -9,7 +9,12 @@ from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from settfex.exceptions import FetchError, HTTPStatusError
-from settfex.utils.parsing import decode_json
+from settfex.utils.parsing import (
+    BlockedError,
+    _screen_support_id,
+    decode_json,
+    looks_like_block_page,
+)
 
 # Static default request headers, built once at import and copied per request. Copying a
 # module constant is cheaper than re-materializing the literal on every fetch() call and
@@ -106,6 +111,34 @@ class FetchResponse(BaseModel):
         # This validator ensures the text field is always valid Unicode
         # If there are encoding issues, they should be caught during initialization
         return v
+
+
+def _raise_if_blocked(response: FetchResponse) -> None:
+    """Raise :class:`BlockedError` if a 2xx response is actually a bot-protection block page.
+
+    Only 2xx: a non-2xx already announces itself through its status, and every service reports it
+    as such (``HTTPStatusError`` via ``fetch_json``, or an explicit status check). Checking it here
+    would only relabel an error that is already visible.
+
+    Reads ``content`` rather than ``text``, so binary fetches (``decode_text=False``, the SEC
+    download path) are covered — that path is where the page used to be saved as a document.
+    """
+    if not 200 <= response.status_code < 300 or not looks_like_block_page(response.content):
+        return
+    content_type = response.headers.get("Content-Type") or response.headers.get("content-type")
+    logger.error(
+        f"{response.url} answered HTTP {response.status_code} with a bot-protection block page. "
+        f"Stop and back off: retrying deepens the block."
+    )
+    raise BlockedError(
+        f"{response.url} answered with a bot-protection block page (HTTP {response.status_code}). "
+        f"Stop and back off — every retry deepens the block.",
+        url=response.url,
+        status_code=response.status_code,
+        content_type=content_type,
+        headers={k: v for k, v in response.headers.items() if k.lower() != "set-cookie"},
+        body=_screen_support_id(response.content),
+    )
 
 
 class AsyncDataFetcher:
@@ -277,7 +310,8 @@ class AsyncDataFetcher:
         This is the main entry point for fetching data. It automatically:
         - Uses SessionManager for automatic cookie handling (if use_session=True)
         - Handles Unicode/Thai characters correctly
-        - Retries on failure with exponential backoff
+        - Retries requests that fail to complete, with exponential backoff — never a status code,
+          and never a block page
         - Logs all operations for debugging
 
         Args:
@@ -295,10 +329,14 @@ class AsyncDataFetcher:
                 available on ``FetchResponse.content``.
 
         Returns:
-            FetchResponse with status, content, and metadata
+            FetchResponse with status, content, and metadata. **A non-2xx status is returned,
+            not raised** — checking it is the caller's job (``fetch_json`` does it for you).
 
         Raises:
-            Exception: If request fails after all retries
+            BlockedError: A 2xx response turned out to be a bot-protection block page. Raised on
+                the first occurrence and never retried, because retrying deepens the block.
+            FetchError: Every attempt failed to complete (connection reset, timeout, ...),
+                chained from the last underlying error.
 
         Example:
             >>> async with AsyncDataFetcher() as fetcher:
@@ -367,13 +405,6 @@ class AsyncDataFetcher:
                     encoding=encoding,
                 )
 
-                logger.info(
-                    f"Fetch successful: url={url}, status={response.status_code}, "
-                    f"elapsed={elapsed:.2f}s, size={len(response.content)} bytes"
-                )
-
-                return fetch_response
-
             except Exception as e:
                 last_exception = e
                 logger.warning(
@@ -386,6 +417,17 @@ class AsyncDataFetcher:
                     delay = self.config.retry_delay * (2**attempt)
                     logger.debug(f"Retrying in {delay:.1f}s...")
                     await asyncio.sleep(delay)
+            else:
+                # In `else`, OUTSIDE the retry `try`, on purpose: a block page must be neither
+                # retried (every retry deepens the block) nor re-wrapped into the generic
+                # "failed after N attempts" FetchError below, which would hide what happened.
+                _raise_if_blocked(fetch_response)
+
+                logger.info(
+                    f"Fetch successful: url={url}, status={response.status_code}, "
+                    f"elapsed={elapsed:.2f}s, size={len(response.content)} bytes"
+                )
+                return fetch_response
 
         # All retries exhausted
         logger.error(f"All fetch attempts failed for {url}")

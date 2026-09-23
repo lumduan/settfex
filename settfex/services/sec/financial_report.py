@@ -855,6 +855,34 @@ def _require_listing_page(html: str, url: str, code: str) -> None:
     raise ParseError(message, url=url, rows_parsed=0)
 
 
+def _view_more_unusable(
+    category: DocumentCategory,
+    url: str,
+    code: str,
+    status_code: int,
+    why: str,
+    *,
+    error_type: str | None = None,
+) -> DegradedSection:
+    """A fetched, listing-shaped ViewMore page that still cannot replace its inline rows (U-7).
+
+    Same WARNING and the same record as :func:`_view_more_degradation`, for the two cases only
+    visible after mapping: the page failed to map, or it mapped to fewer documents than it was
+    supposed to complete.
+    """
+    logger.warning(
+        f"The 'display all results' page for report code {code!r} at {url}: {why}. Keeping the "
+        f"truncated inline rows for that section; `completeness()` will show the shortfall."
+    )
+    return DegradedSection(
+        category=category.value,
+        url=url,
+        reason=f"{why}; kept the truncated inline rows for this section",
+        status_code=status_code,
+        error_type=error_type,
+    )
+
+
 def _view_more_degradation(
     status_code: int, html: str, url: str, code: str, category: DocumentCategory
 ) -> DegradedSection | None:
@@ -1537,15 +1565,61 @@ class FinancialReportService:
                 if degraded is not None:
                     accounting.degraded_sections.append(degraded)
                     continue
-                vm = _map_rows(
-                    parse_report_tables(page.text),
-                    unique_id,
-                    company_name=company_name,
-                    source=url,
-                    wanted=wanted,
-                )
-                reported.update({k: v for k, v in vm.reported_counts.items() if k in wanted_values})
-                replacements[cat] = [d for d in vm.documents if d.category == cat]
+                # U-7 (0.25.0): a ViewMore page must never REDUCE the row set. Two ways it did:
+                #
+                # * It could fail to MAP. `_map_rows` raises a ParseError (unclassifiable rows,
+                #   zero rows, every row missing its link), and nothing here caught it -- so the
+                #   per-code gather recorded the WHOLE report code as failed, and every category
+                #   that code carried lost its inline rows, not just this one section.
+                # * It could map to FEWER documents than the truncated inline rows, and replace
+                #   them anyway: the replacement below never compared the two, so a short or
+                #   placeholder-only page deleted rows while `has_losses` stayed False.
+                #
+                # Both now degrade exactly like an unusable page: keep the inline rows, record a
+                # DegradedSection, and let `completeness()` show the shortfall. The rule is a
+                # COUNT, not identity -- a superset check by file id would misfire on `fsdl:` ids,
+                # which may be minted per request, and nothing captured pairs the two pages.
+                try:
+                    vm = _map_rows(
+                        parse_report_tables(page.text),
+                        unique_id,
+                        company_name=company_name,
+                        source=url,
+                        wanted=wanted,
+                    )
+                except ParseError as exc:
+                    accounting.degraded_sections.append(
+                        _view_more_unusable(
+                            cat,
+                            url,
+                            code,
+                            page.status_code,
+                            f"the 'display all results' page could not be mapped "
+                            f"({type(exc).__name__}: {exc})",
+                            error_type=type(exc).__name__,
+                        )
+                    )
+                    continue
+                vm_docs = [d for d in vm.documents if d.category == cat]
+                inline_count = sum(1 for d in inline if d.category == cat)
+                if len(vm_docs) < inline_count:
+                    accounting.degraded_sections.append(
+                        _view_more_unusable(
+                            cat,
+                            url,
+                            code,
+                            page.status_code,
+                            f"the 'display all results' page held {len(vm_docs)} document(s) for "
+                            f"this section, fewer than the {inline_count} inline row(s) it is "
+                            f"meant to complete",
+                        )
+                    )
+                    continue
+                # Only this section's reported count: the rows being replaced are this section's,
+                # so no other category's number should move because of this page.
+                if cat.value in vm.reported_counts:
+                    reported[cat.value] = vm.reported_counts[cat.value]
+                replacements[cat] = vm_docs
                 # The ViewMore page holds the COMPLETE list for this section, so it replaces
                 # the truncated inline rows -- in the accounting too, or they double-count.
                 accounting.supersede(cat.value, vm.accounting)

@@ -202,6 +202,44 @@ class TestSetupLoggerOnlyRemovesItsOwn:
         )
 
 
+class TestSetupLoggerFilter:
+    """0.25.0's ``filter`` option: opt in to settfex-only sinks; the default stays unfiltered."""
+
+    SCENARIO = """
+        from loguru import logger
+        logger.remove()
+        from settfex.utils.logging import setup_logger
+        setup_logger(level="DEBUG", log_file={log!r}, format_string="{{name}} | {{message}}"{extra})
+        logger.info("host line")
+        from settfex.services.sec.financial_report import FinancialReportService
+        FinancialReportService()                      # logs at INFO inside settfex
+        logger.remove()                               # flush the file sink
+    """
+
+    def test_filter_settfex_keeps_the_hosts_lines_out(self, tmp_path: Path) -> None:
+        log = tmp_path / "only_settfex.log"
+        result = run_in_fresh_interpreter(
+            self.SCENARIO.format(log=str(log), extra=', filter="settfex"'), tmp_path
+        )
+        assert result.returncode == 0, result.stderr
+        text = log.read_text(encoding="utf-8")
+        assert "settfex." in text, f"filter='settfex' dropped settfex's own records:\n{text}"
+        assert "host line" not in text, (
+            f"filter='settfex' still let the host's record into the sink:\n{text}"
+        )
+
+    def test_the_default_is_still_unfiltered(self, tmp_path: Path) -> None:
+        """Pinned because the docstring promises it: filtering by default would silence scripts
+        that use setup_logger() for their own lines too."""
+        log = tmp_path / "unfiltered.log"
+        result = run_in_fresh_interpreter(self.SCENARIO.format(log=str(log), extra=""), tmp_path)
+        assert result.returncode == 0, result.stderr
+        text = log.read_text(encoding="utf-8")
+        assert "host line" in text and "settfex." in text, (
+            f"setup_logger() without filter must receive every record, as before 0.25.0:\n{text}"
+        )
+
+
 @pytest.mark.parametrize(
     "entry_point",
     [

@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 from loguru import logger
 
 if TYPE_CHECKING:
-    from loguru import Logger
+    from loguru import FilterDict, FilterFunction, Logger
 
 #: Handler ids added by :func:`setup_logger`, so it can remove **its own** and nothing else.
 #: ``logger.add()`` returns an id and the old code discarded it, which is why the only way it
@@ -35,6 +35,7 @@ def setup_logger(
     retention: str = "1 week",
     format_string: str | None = None,
     colorize: bool = True,
+    filter: "str | FilterFunction | FilterDict | None" = None,  # loguru's own argument name
 ) -> None:
     """
     Configure loguru logger for the settfex library.
@@ -46,11 +47,17 @@ def setup_logger(
         retention: How long to keep old log files (e.g., "1 week", "30 days")
         format_string: Custom format string. If None, uses default format
         colorize: Whether to colorize console output
+        filter: Passed to both sinks as loguru's own ``filter`` argument (a module-name prefix,
+            a function taking the record, or a ``{name: level}`` dict). ``None``, the default,
+            leaves them unfiltered, exactly as before 0.25.0. ``filter="settfex"`` makes them
+            receive settfex's records only, which is what an application that also logs through
+            loguru usually wants.
 
     .. warning::
-       **The sinks this installs are unfiltered — they receive EVERY record in the process, not
-       only settfex's.** If your application already configures loguru, calling this will also
-       print *your* lines to stderr in settfex's format. Prefer::
+       **By default the sinks this installs are unfiltered — they receive EVERY record in the
+       process, not only settfex's.** If your application already configures loguru, calling this
+       without ``filter`` will also print *your* lines to stderr in settfex's format. Pass
+       ``filter="settfex"``, or skip this function entirely::
 
            import settfex                      # import FIRST
            from loguru import logger
@@ -60,16 +67,15 @@ def setup_logger(
        settfex at import and loguru lets the later call win, so an ``enable()`` issued before
        the import is silently undone — no error, the records simply never arrive.
 
-       ``setup_logger()`` is for callers who want settfex to configure logging for them — a
-       script or a notebook — not for applications that already have their own. A ``filter``
-       option is under consideration for 0.25.0; adding one here would be new public API, and
-       filtering by default would silence people who use this function for their own app logs.
+       The default stays unfiltered on purpose: some callers use this function to configure
+       logging for their own script or notebook too, and filtering by default would silence them.
 
     Calling this repeatedly is safe: it removes the handlers it previously added, and only those.
 
     Example:
         >>> from settfex.utils.logging import setup_logger
         >>> setup_logger(level="DEBUG", log_file="logs/settfex.log")
+        >>> setup_logger(level="INFO", filter="settfex")   # settfex's records only
     """
     # Enable settfex's own records. The package root disables them at import so that a
     # caller who never asks for logs never gets any; calling this function IS the ask.
@@ -100,6 +106,7 @@ def setup_logger(
             format=format_string,
             level=level,
             colorize=colorize,
+            filter=filter,
             backtrace=True,
             diagnose=True,
         )
@@ -118,6 +125,7 @@ def setup_logger(
                 rotation=rotation,
                 retention=retention,
                 compression="zip",
+                filter=filter,
                 backtrace=True,
                 diagnose=True,
             )
