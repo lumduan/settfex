@@ -343,6 +343,8 @@ from settfex.exceptions import (
     # --- the FETCH family: `except FetchError` catches all of these ---
     FetchError,              # HTTP/transport failure; carries .status_code and .symbol
     HTTPStatusError,         # a non-2xx, with .url and .report_code as data
+    UnexpectedPageError,     # a PAGE where a document was expected (0.26.0); carries the answer
+    SoftNotFoundError,       # its "file not found" page — can be FALSE; NOT a NotFoundError
     SymbolNotFoundError,     # SET 404, or an unlisted analyst-consensus symbol; .suggestion
     StaleDataError,          # ThaiBMA rolled back and you asked it to raise
     ParseError,              # a response arrived intact and could not be mapped
@@ -356,7 +358,7 @@ from settfex.exceptions import (
 )
 from settfex.utils.parsing import (
     ResponseParseError,      # also a ParseError since 0.24.0
-    BlockedError,            # a WAF block page (0.25.0): stop, never retry
+    BlockedError,            # a WAF block page (0.25.0): stop, never retry; an UnexpectedPageError
 )
 ```
 
@@ -389,6 +391,20 @@ handlers still catch it, which also makes it a `ValueError`: catch `BlockedError
 `ValueError` if you treat `ValueError` as bad input. Only SEC's block page is recognised; a SET
 block may still arrive as a plain `ResponseParseError` — if one keeps repeating from one host,
 treat it the same way.
+
+**A download that answers with a page, not a file, says which page it was (0.26.0).** All three are
+`UnexpectedPageError`s and carry the answer — `.status_code`, `.headers` (credentials removed),
+`.body` (the first 8 KB), `.elapsed_seconds` — so you can decide from evidence, not from message
+text:
+
+| You caught | It means | Do |
+|---|---|---|
+| `BlockedError` | the WAF refused you | stop; back off for a long time; never retry soon |
+| `SoftNotFoundError` | the host's "file not found" page | probably gone — but it has been **wrong** (sixty in a row, each slow, for files that existed). If it was slow (`.elapsed_seconds`) or many arrive together, retry later before recording it as gone. `.matched_marker` says which rule matched |
+| `UnexpectedPageError` (itself) | any other page, e.g. an upstream error page | the source is degraded; try again later |
+
+`download_all` keeps the kind on each failure: `FailedDownload.error_type` names the class and
+`.status_code` the status.
 
 ---
 

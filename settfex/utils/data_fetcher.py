@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from settfex.exceptions import FetchError, HTTPStatusError
 from settfex.utils.parsing import (
     BlockedError,
-    _screen_support_id,
+    _page_evidence,
     decode_json,
     looks_like_block_page,
 )
@@ -125,19 +125,16 @@ def _raise_if_blocked(response: FetchResponse) -> None:
     """
     if not 200 <= response.status_code < 300 or not looks_like_block_page(response.content):
         return
-    content_type = response.headers.get("Content-Type") or response.headers.get("content-type")
     logger.error(
         f"{response.url} answered HTTP {response.status_code} with a bot-protection block page. "
         f"Stop and back off: retrying deepens the block."
     )
+    # `url` keeps its 0.25.0 meaning (the URL that answered); the fetcher has no other to give.
     raise BlockedError(
         f"{response.url} answered with a bot-protection block page (HTTP {response.status_code}). "
         f"Stop and back off — every retry deepens the block.",
         url=response.url,
-        status_code=response.status_code,
-        content_type=content_type,
-        headers={k: v for k, v in response.headers.items() if k.lower() != "set-cookie"},
-        body=_screen_support_id(response.content),
+        **_page_evidence(response),
     )
 
 

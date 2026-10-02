@@ -252,6 +252,8 @@
         "ParseError",
         "IncompleteListingError",
         "HTTPStatusError",
+        "UnexpectedPageError",
+        "SoftNotFoundError",
         "CompanyNotFoundError",
         "AmbiguousCompanyError",
         "InvalidSymbolError",
@@ -551,6 +553,87 @@
             "builtins.object"
           ]
         },
+        "SoftNotFoundError": {
+          "bases": [
+            "settfex.exceptions.UnexpectedPageError"
+          ],
+          "kind": "exception",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "message",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "matched_marker",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "url",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "final_url",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "int | None",
+                  "default": "None",
+                  "name": "status_code",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "content_type",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "dict[str, str] | None",
+                  "default": "None",
+                  "name": "headers",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "bytes",
+                  "default": "<bytes>",
+                  "name": "body",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "bool",
+                  "default": "False",
+                  "name": "body_truncated",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "float | None",
+                  "default": "None",
+                  "name": "elapsed_seconds",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            }
+          },
+          "mro": [
+            "settfex.exceptions.SoftNotFoundError",
+            "settfex.exceptions.UnexpectedPageError",
+            "settfex.exceptions.FetchError",
+            "builtins.Exception",
+            "builtins.BaseException",
+            "builtins.object"
+          ]
+        },
         "StaleDataError": {
           "bases": [
             "settfex.exceptions.FetchError"
@@ -640,6 +723,80 @@
             "builtins.BaseException",
             "builtins.object"
           ]
+        },
+        "UnexpectedPageError": {
+          "bases": [
+            "settfex.exceptions.FetchError"
+          ],
+          "kind": "exception",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "message",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "url",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "final_url",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "int | None",
+                  "default": "None",
+                  "name": "status_code",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "content_type",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "dict[str, str] | None",
+                  "default": "None",
+                  "name": "headers",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "bytes",
+                  "default": "<bytes>",
+                  "name": "body",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "bool",
+                  "default": "False",
+                  "name": "body_truncated",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "float | None",
+                  "default": "None",
+                  "name": "elapsed_seconds",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            }
+          },
+          "mro": [
+            "settfex.exceptions.UnexpectedPageError",
+            "settfex.exceptions.FetchError",
+            "builtins.Exception",
+            "builtins.BaseException",
+            "builtins.object"
+          ]
         }
       },
       "constants": {},
@@ -656,8 +813,10 @@
         "NoReturn",
         "NotFoundError",
         "ParseError",
+        "SoftNotFoundError",
         "StaleDataError",
         "SymbolNotFoundError",
+        "UnexpectedPageError",
         "raise_for_status",
         "register_symbol_suggester"
       ],
@@ -1051,6 +1210,13 @@
         },
         "SEC_VIEWMORE_SLUGS": {
           "type": "dict"
+        },
+        "SOFT_404_MARKERS": {
+          "type": "dict"
+        },
+        "SOFT_404_WINDOW_BYTES": {
+          "type": "int",
+          "value": 400
         }
       },
       "exports": [
@@ -1087,7 +1253,9 @@
         "SEC_VIEWDOC_ENDPOINT",
         "SEC_VIEWMORE_DATE_FORMAT",
         "SEC_VIEWMORE_ENDPOINT",
-        "SEC_VIEWMORE_SLUGS"
+        "SEC_VIEWMORE_SLUGS",
+        "SOFT_404_MARKERS",
+        "SOFT_404_WINDOW_BYTES"
       ],
       "functions": {}
     },
@@ -1257,6 +1425,12 @@
               "default": "None",
               "required": false
             },
+            "elapsed_seconds": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
             "file_url": {
               "alias": null,
               "annotation": "str",
@@ -1328,6 +1502,12 @@
               "annotation": "str",
               "required": true
             },
+            "status_code": {
+              "alias": null,
+              "annotation": "int | None",
+              "default": "None",
+              "required": false
+            },
             "target": {
               "alias": null,
               "annotation": "str",
@@ -1368,6 +1548,13 @@
         "SEC_REFERER": {
           "type": "str",
           "value": "https://market.sec.or.th/public/idisc/en/FinancialReport/ALL"
+        },
+        "SOFT_404_MARKERS": {
+          "type": "dict"
+        },
+        "SOFT_404_WINDOW_BYTES": {
+          "type": "int",
+          "value": 400
         }
       },
       "exports": [
@@ -1380,16 +1567,22 @@
         "DownloadedFile",
         "FailedDownload",
         "FetchError",
+        "FetchResponse",
         "FetcherConfig",
         "ParseError",
         "SEC_BASE_URL",
         "SEC_DOWNLOAD_ENDPOINT",
         "SEC_FILE_NOT_FOUND_MARKER",
         "SEC_REFERER",
+        "SOFT_404_MARKERS",
+        "SOFT_404_WINDOW_BYTES",
         "SecDocument",
+        "SoftNotFoundError",
+        "UnexpectedPageError",
         "build_sec_headers",
         "download_sec_document",
         "download_sec_documents",
+        "looks_like_block_page",
         "overload"
       ],
       "functions": {
@@ -16851,7 +17044,8 @@
       "classes": {
         "BlockedError": {
           "bases": [
-            "settfex.utils.parsing.ResponseParseError"
+            "settfex.utils.parsing.ResponseParseError",
+            "settfex.exceptions.UnexpectedPageError"
           ],
           "kind": "exception",
           "methods": {
@@ -16892,6 +17086,24 @@
                   "default": "<bytes>",
                   "name": "body",
                   "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "final_url",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "bool",
+                  "default": "False",
+                  "name": "body_truncated",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "float | None",
+                  "default": "None",
+                  "name": "elapsed_seconds",
+                  "param_kind": "KEYWORD_ONLY"
                 }
               ],
               "returns": "None"
@@ -16901,6 +17113,7 @@
             "settfex.utils.parsing.BlockedError",
             "settfex.utils.parsing.ResponseParseError",
             "settfex.exceptions.ParseError",
+            "settfex.exceptions.UnexpectedPageError",
             "settfex.exceptions.FetchError",
             "builtins.ValueError",
             "builtins.Exception",
@@ -16962,8 +17175,10 @@
         "BlockedError",
         "ModelT",
         "ParseError",
+        "Protocol",
         "ResponseParseError",
         "TypeVar",
+        "UnexpectedPageError",
         "decode_json",
         "looks_like_block_page",
         "validate_list_or_raise",
