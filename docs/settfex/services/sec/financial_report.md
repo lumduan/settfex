@@ -29,9 +29,11 @@ Also available as a facade: `SecCompany("CPALL")`.
 >    broader result set — so fresh tokens are fetched before every search.
 > 2. **Dates are dd/mm/yyyy.** `from_date`/`to_date` accept `datetime.date`/`datetime` objects
 >    (converted automatically) or dd/mm/yyyy strings; ISO strings raise `InvalidDateError`.
-> 3. **Soft 404s.** A dead download link returns an HTML "file not found" page under **HTTP
->    200** (notably some recent `dat/annual/` 56-2 rows). Downloads validate the content-type
->    and raise `FetchError` instead of returning the error page as bytes.
+> 3. **Soft 404s, and other pages instead of files.** A dead download link returns an HTML
+>    "file not found" page under **HTTP 200** (notably some recent `dat/annual/` 56-2 rows).
+>    Downloads never return a page as bytes: they raise `SoftNotFoundError`, `BlockedError` or
+>    `UnexpectedPageError` (all `FetchError`s, since 0.26.0), each carrying the answer — see
+>    "What a failed download raises" below. A soft-404 **can be wrong** under load.
 > 4. **Large sections truncate** inline and expose a "display all results" ViewMore link; the
 >    listing follows it (default `follow_view_more=True`) so results are complete.
 
@@ -297,7 +299,8 @@ indexes and slices like the list it used to be, so anything that consumed it kee
 files = await sec.download_all(docs, dest_dir="./out")
 files.is_complete                          # False if anything failed
 [f.target for f in files.failed]           # what did not download
-files.failed[0].error_type, files.failed[0].error   # 'FetchError', '...soft 404...'
+files.failed[0].error_type, files.failed[0].error   # 'SoftNotFoundError', '...soft 404...'
+files.failed[0].status_code                # 200 (the soft-404 page is served under HTTP 200)
 files.requested                            # unique files attempted (duplicates already collapsed)
 ```
 
@@ -376,8 +379,9 @@ the symbol's listed company).
 
 `filename`, `content: bytes` (empty if dropped after saving — see memory note above), `content_type`,
 `size` (always the real byte count), `file_url`, `path: Path | None` (set when saved),
-`document: SecDocument | None`, plus `.save(dest)` — writes to `dest/<filename>` if `dest` is a
-directory (else to `dest`) and records `.path`.
+`document: SecDocument | None`, `elapsed_seconds: float | None` (0.26.0 — how long the answering
+request took; a slow success is worth seeing), plus `.save(dest)` — writes to `dest/<filename>` if
+`dest` is a directory (else to `dest`) and records `.path`.
 
 ## Service classes
 
@@ -401,7 +405,30 @@ download_all(targets, *, dest_dir=None, max_concurrency=3, continue_on_error=Tru
 file, set on the service), and with `continue_on_error=True` (default) records a failed item
 (e.g. a soft-404 dead link) on the result's `.failed` and carries on rather than failing the
 batch. `keep_bytes` controls whether returned objects retain `content` (default: drop when saving
-to `dest_dir`). `DownloadResult` **is** a `list[DownloadedFile]`, so the return type is additive.
+to `dest_dir`). `DownloadResult` is a Pydantic model (since 0.24.0) that iterates, indexes and
+slices like a `list[DownloadedFile]`; `isinstance(result, list)` is `False`.
+
+#### What a failed download raises (0.26.0)
+
+A download that gets a **page instead of a file** says which page it was, and carries the answer
+— because the answer decides what to do next. All three are `UnexpectedPageError`s, which are
+`FetchError`s; their messages are the ones 0.25.0 raised as plain `FetchError`:
+
+| Raised | When | What to do |
+|---|---|---|
+| `BlockedError` | the answer is the WAF's block page, under **any** status | stop; back off for a long time |
+| `SoftNotFoundError` | `text/html` with a "not found" marker in the first `SOFT_404_WINDOW_BYTES` (400) bytes — `.matched_marker` is `"sec-thai"` (the SEC's own page) or `"generic-not-found"` | probably gone, **but it has been wrong**: sixty in a row, each ~38 s instead of ~3 s, for files that existed. Deliberately **not** a `NotFoundError` |
+| `UnexpectedPageError` | any other `text/html` answer, or an HTML page under a non-200 status | the source is degraded; retry later |
+| `FetchError` | a non-200 that is not a page, or a transport failure | as before |
+
+Each page error carries `url`, `final_url`, `status_code`, `content_type`, `headers` (without
+`Set-Cookie`, `Cookie`, `Authorization`, `Proxy-Authorization`), `body` (the first 8,192 bytes,
+support ID screened) with `body_truncated`, and `elapsed_seconds`. The 8 KB cap equals the
+block-page detector's, so `looks_like_block_page(exc.body)` gives settfex's own verdict.
+
+**Known gap:** an HTTP 200 answer with **no** `Content-Type` is still returned as a document
+unless it is the block page — settfex does not sniff 200 bodies, because a filing can be
+anything. The block page itself (which has no `Content-Type`) is caught by the fetcher.
 
 ## Convenience functions
 

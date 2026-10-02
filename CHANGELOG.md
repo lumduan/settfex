@@ -37,6 +37,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Output:** `to_table()` renders the agreed Thai summary; `to_dataframe()` needs the
     `dataframe` extra.
   - Docs: `docs/settfex/services/sec/executive_trades.md`.
+- **A download that answers with a page instead of a file says which page it was, and carries
+  the answer** (#135). Three `FetchError` subclasses, with the messages 0.25.0 raised as plain
+  `FetchError`s, so every existing `except` keeps catching:
+  - `UnexpectedPageError` — any HTML where a document was expected, including an HTML error page
+    under a non-200 status. The common base of the other two.
+  - `SoftNotFoundError` — the host's "file not found" page, with `.matched_marker`
+    (`"sec-thai"` / `"generic-not-found"`). **Deliberately not a `NotFoundError`**: it has been
+    wrong (below).
+  - `BlockedError` gains `UnexpectedPageError` as a second base (after its 0.25.0 ones), and the
+    SEC download path now recognises the block page under **any** status, not only 2xx. JSON
+    endpoints still report a non-2xx as `HTTPStatusError`.
+  Each carries `url`, `final_url`, `status_code`, `content_type`, `headers` (without
+  `Set-Cookie`, `Cookie`, `Authorization`, `Proxy-Authorization`), `body` — the first 8,192 bytes,
+  support ID screened, the block detector's own cap — with `body_truncated`, and
+  `elapsed_seconds`.
+- `DownloadedFile.elapsed_seconds` and `FailedDownload.status_code`.
+- `SOFT_404_MARKERS` and `SOFT_404_WINDOW_BYTES` in `settfex.services.sec.constants`: the
+  soft-404 rule, documented so a caller can reason about it.
+
+  **Why:** a downstream consumer saw four non-document HTML answers in a row (HTTP 200,
+  `text/html`) and could not tell a WAF block page — back off for days — from an upstream error
+  page — retry the next night: the body was discarded before raising. The same consumer saw sixty
+  consecutive soft-404s, each ~38 s instead of ~3 s, for files that all downloaded the next
+  evening; the rule matches the SEC's Thai text **or any "not found"** in the first 400 bytes.
+
+### Changed
+
+- `FailedDownload.error_type` names the new subclass (`"SoftNotFoundError"`,
+  `"UnexpectedPageError"`, `"BlockedError"`) where it said `"FetchError"`. The message is
+  unchanged; a filter on the class-name **string** needs updating.
 
 ### Fixed
 
