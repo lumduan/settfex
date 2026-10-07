@@ -166,13 +166,25 @@ end, and a claim backed by a command nobody ran is unverified.
 
 ## Common Tasks
 
-### Adding a New Service (SET or TFEX)
-1. Create module in `settfex/services/{set,tfex}/`
-2. Add tests in `tests/services/{set,tfex}/`
-3. Update the appropriate `__init__.py` to export the service
-4. Document with docstrings + create verification script in `scripts/settfex/services/`
-5. Add Jupyter notebook example in `examples/`
-6. Update `CLAUDE.md` (Services Inventory count + table row, Project Structure tree, and Known Gotchas if any) and add the release entry to `CHANGELOG.md` — the canonical release history
+### Adding a New Service
+1. Create the module in `settfex/services/{set,tfex,sec,thaibma}/` — four packages, one per host
+   family (SET/TFEX share `www.set.or.th`; `sec` is `market.sec.or.th`; `thaibma` is
+   `www.thaibma.or.th`). A new host gets its own package, never a module inside another's.
+2. Add tests in the mirrored `tests/services/{set,tfex,sec,thaibma}/`. Fixtures captured live go
+   in with their provenance (see `tests/services/sec/fixtures_sec/README.md` for the convention:
+   raw bundles stay gitignored under `tmp/`, committed fixtures are derived verbatim and hashed).
+3. Update the package's `__init__.py` (and `settfex/__init__.py` for the `get_*()` entry point) to
+   export the service; regenerate and review the L1 golden (`tests.test_public_api_surface`).
+4. Join the hand-maintained lists: a model in `tests/test_model_contract.py` `REGISTRY` (plus its
+   input JSON), the `get_*()` in `tests/services/test_fault_matrix.py` `ENTRY_POINTS`, any new
+   exception in AGENTS.md, and a list-like container in `tests/test_typing_surface.py`.
+5. Document with docstrings + a page under `docs/settfex/services/<package>/` + an absolute-URL
+   link in README. A verification script in `scripts/settfex/services/<package>/` is fine but
+   **local only**: `scripts/` is gitignored, so it never reaches a PR.
+6. Add a Jupyter notebook example in `examples/<package>/`
+7. Update `CLAUDE.md` (Services Inventory count + table row, Project Structure tree, notebook
+   count, and Known Gotchas if any) and AGENTS.md, and add the entry to `CHANGELOG.md` — the
+   canonical release history
 
 ### Adding Utility Functions
 1. Add to appropriate module in `settfex/utils/` or create new one
