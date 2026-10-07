@@ -73,7 +73,7 @@ def _resp(body: str, status: int = 200, ctype: str = "text/html; charset=utf-8")
 
 
 class FakeSec:
-    """Answers ViewMore GETs with a listing page and detail POSTs with captured JSON."""
+    """Answers ViewMore GETs with a listing (a fixture name, or HTML) and detail POSTs with JSON."""
 
     def __init__(
         self,
@@ -102,7 +102,8 @@ class FakeSec:
             raise self.detail_error(f"Failed to fetch {url} after 1 attempts")
         assert "/ViewMore/r59-2?" in url, url
         assert self.listing is not None
-        return _resp(page(self.listing))
+        html = self.listing
+        return _resp(html if html.lstrip().startswith("<") else page(html))
 
     def patch(self) -> Any:
         sec = self
@@ -809,3 +810,116 @@ class TestContainer:
         monkeypatch.setitem(sys.modules, "pandas", None)
         with pytest.raises(ImportError, match=r"settfex\[dataframe\]"):
             _list([]).to_dataframe()
+
+
+class TestRemainingBranches:
+    """The less travelled paths: each one is a way the site could change under us."""
+
+    def test_a_nested_table_is_refused(self) -> None:
+        html = page("th_default_20261007.html").replace(
+            ">Link<", "><table><tr><td>x</td></tr></table><", 1
+        )
+        with pytest.raises(ParseError, match="nested table"):
+            et._parse_listing(html, "u", "th")
+
+    def test_a_company_cell_without_a_symbol(self) -> None:
+        _, rows = et._parse_listing(page("th_default_20261007.html"), "u", "th")
+        with pytest.raises(ParseError, match=r"no \(SYMBOL\)"):
+            et._trade_from_raw({**rows[0], "company": "บริษัท ไม่มีสัญลักษณ์"})
+
+    def test_split_last_group(self) -> None:
+        assert et._split_last_group("a (b (c) d)") == ("a", "b (c) d")
+        assert et._split_last_group("plain") == ("plain", None)
+        assert et._split_last_group("unbalanced)") == ("unbalanced)", None)
+
+    @pytest.mark.parametrize(
+        ("mutate", "match"),
+        [
+            (lambda r: r.pop("Position"), "header field"),
+            (lambda r: r["TransactionList"][0].pop("AvgPrice"), "transaction without"),
+            (lambda r: r.update(SubmitDate="2026-10-06"), "SubmitDate"),
+            (lambda r: r.update(SubmitDate="31/02/2569 10:00:00"), "valid date"),
+            (lambda r: r["TransactionList"][0].update(OutstandingBefore="n/a"), "whole number"),
+        ],
+    )
+    def test_malformed_detail_fields(self, mutate: Any, match: str) -> None:
+        payload = json.loads(details("592001352610")["592001352610"])
+        mutate(payload["Report"])
+        with pytest.raises(ParseError, match=match):
+            et._report_from_raw(et._check_report_payload(payload, "592001352610"), "th")
+
+    def test_a_dash_price_links_to_a_zero_detail_price(self) -> None:
+        """HENG: the listing shows '-' where the report files 0.00 for a transfer."""
+        items = parse("th_edge_rows.html")
+        payload = json.loads(details("592000392610")["592000392610"])
+        report = et._report_from_raw(et._check_report_payload(payload, "592000392610"), "th")
+        et._link_details(items, [report])
+        heng = by_tid(items)["165135_2_1"]
+        assert heng.price is None and heng.detail is not None
+        assert heng.detail.counterparty is not None and report.symbol == "HENG"
+
+    def test_a_report_by_another_reporter_is_not_linked(self) -> None:
+        items = parse("th_edge_rows.html")
+        payload = json.loads(details("592000392610")["592000392610"])
+        payload["Report"]["Reporter"] = "นาย คนอื่น"
+        report = et._report_from_raw(et._check_report_payload(payload, "592000392610"), "th")
+        et._link_details(items, [report])
+        assert by_tid(items)["165135_2_1"].detail is None
+
+    def test_other_side_holding_check_accepts_either_direction(self) -> None:
+        base = {
+            "holder_label": "ผู้รายงาน", "executor": "ผู้รายงาน", "security_type": "หุ้นสามัญ",
+            "transaction_date": None, "quantity": 5, "avg_price": Decimal("0"), "method": "แปลงจาก NVDR",
+            "side": "other", "market_source": "m", "counterparty": None, "record_status": "NORMAL",
+        }  # fmt: skip
+        assert ExecutiveTradeDetail(**base, holding_before=10, holding_after=5).holding_consistent
+        assert ExecutiveTradeDetail(**base, holding_before=10, holding_after=15).holding_consistent
+        assert not ExecutiveTradeDetail(
+            **base, holding_before=10, holding_after=11
+        ).holding_consistent
+
+    def test_to_table_falls_back_on_the_label_when_an_id_is_missing(self) -> None:
+        rows = [
+            _trade(symbol="A", is_self=None, relationship="ผู้จัดทำ"),
+            _trade(symbol="B", is_self=None, relationship="คู่สมรส"),
+        ]
+        table = _list(rows).to_table()
+        assert "| A | นาย ก |" in table and "| B | นาย ก** |" in table
+
+    def test_the_url_builder_rejects_an_unknown_date_type(self) -> None:
+        with pytest.raises(ValueError, match="date_type"):
+            et._viewmore_url("th", "recorded", date(2026, 1, 1), date(2026, 1, 1))  # type: ignore[arg-type]
+
+    @pytest.mark.asyncio
+    async def test_start_alone_runs_to_today_and_datetimes_are_dates(self) -> None:
+        sec = FakeSec("th_empty.html")
+        with sec.patch(), patch.object(et, "_today", return_value=date(2026, 10, 7)):
+            result = await get_executive_trades(start=datetime(2026, 10, 1, 9, 30))
+        assert "DateFrom=20261001&DateTo=20261007" in sec.urls[0]
+        assert len(result) == 0 and result.query.end == date(2026, 10, 7)
+
+    @pytest.mark.asyncio
+    async def test_unknown_labels_are_logged(self) -> None:
+        html = page("th_default_20261007.html").replace(">ซื้อ<", ">ซื้อพิเศษ<", 1)
+        with FakeSec(html).patch(), patch.object(et.logger, "warning") as warn:
+            result = await get_executive_trades(received_date="2026-10-07")
+        assert result.unknown_labels["method"] == {"ซื้อพิเศษ": 1}
+        assert "outside the known vocabulary" in warn.call_args.args[0]
+
+    def test_rule_two_defers_to_holdings_when_both_rows_have_them(self) -> None:
+        """Two rows rule 2 would pair, whose holdings differ: holdings win, no copy is marked."""
+        detail = {
+            "holder_label": "x", "executor": "x", "security_type": "หุ้นสามัญ",
+            "transaction_date": date(2026, 9, 30), "quantity": 1, "avg_price": Decimal("1.00"),
+            "method": "ซื้อ", "side": "buy", "market_source": "m", "counterparty": None,
+            "record_status": "NORMAL",
+        }  # fmt: skip
+        copy = _trade(
+            trans_id="a", reporter_id="CTRL_P_2", executor_id="CTRL_P_1", is_self=False,
+            detail=ExecutiveTradeDetail(**detail, holding_before=0, holding_after=1),
+        )  # fmt: skip
+        own = _trade(
+            trans_id="b", detail=ExecutiveTradeDetail(**detail, holding_before=5, holding_after=6)
+        )
+        et._mark_duplicates([copy, own])
+        assert copy.duplicate_of is None
