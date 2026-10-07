@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A Thai SEC date on a leap day was lost** (`settfex.services.sec.utils.parse_dmy_date`). The
+  Buddhist-era conversion ran *after* the date was built in the B.E. year, and 543 is 3 mod 4, so
+  a B.E. year is a Gregorian leap year exactly when its C.E. year is not. `29/02/2567`, the real
+  2024-02-29 (a Thursday), was rejected as "day out of range" and came back `None`: a Thai SEC
+  listing row received or dated that day had `receive_date` / `as_of` silently empty. The
+  impossible `29/02/2568` was accepted in 2568 and then escaped as a bare `ValueError`. The year is
+  now converted first. Malformed or impossible input still returns `None`, as documented: nothing
+  that parsed before parses differently, except the leap days that used to be lost. The Form 59
+  listing alone carries 92 such rows (55 on 29/02/2567, 37 on 29/02/2559).
+
 ## [0.25.0] - 2026-09-23
 
 The seven items the 0.25.0 backlog on #135 held, plus two defects the 2026-09-23 checklist audit on
