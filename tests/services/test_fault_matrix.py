@@ -188,6 +188,8 @@ ENTRY_POINTS: list[tuple[str, str, tuple[Any, ...]]] = [
     ("settfex.services.tfex.underlying_price", "get_underlying_price", ("S50Z26",)),
     # -- SEC ------------------------------------------------------------------------------------
     ("settfex.services.sec.financial_report", "get_sec_documents", ("CPALL",)),
+    ("settfex.services.sec.executive_trades", "get_executive_trades", ()),
+    ("settfex.services.sec.executive_trades", "get_executive_trade_report", ("592001352610",)),
     # -- ThaiBMA --------------------------------------------------------------------------------
     ("settfex.services.thaibma.yield_curve", "get_government_yield_curve", ()),
     ("settfex.services.thaibma.availability", "get_yield_curve_availability", ()),

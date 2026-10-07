@@ -41,6 +41,12 @@
         "SecDocumentList",
         "DocumentCategory",
         "DownloadedFile",
+        "get_executive_trades",
+        "get_executive_trade_report",
+        "ExecutiveTrade",
+        "ExecutiveTradeDetail",
+        "ExecutiveTradeList",
+        "ExecutiveTradeReport",
         "ThaiBMA",
         "get_government_yield_curve",
         "get_yield_curve_history",
@@ -92,6 +98,10 @@
         "DownloadedFile",
         "DrIndicativePrice",
         "DrProfile",
+        "ExecutiveTrade",
+        "ExecutiveTradeDetail",
+        "ExecutiveTradeList",
+        "ExecutiveTradeReport",
         "FetchError",
         "FetcherConfig",
         "HolidayCalendar",
@@ -128,6 +138,8 @@
         "get_consensus_overall",
         "get_dr_indicative_price",
         "get_dr_profile",
+        "get_executive_trade_report",
+        "get_executive_trades",
         "get_government_yield_curve",
         "get_highlight_data",
         "get_holidays",
@@ -707,6 +719,11 @@
         "DocumentDownloadService",
         "DownloadResult",
         "DownloadedFile",
+        "ExecutiveTrade",
+        "ExecutiveTradeDetail",
+        "ExecutiveTradeList",
+        "ExecutiveTradeQuery",
+        "ExecutiveTradeReport",
         "FailedDownload",
         "FinancialReportService",
         "ListingAccounting",
@@ -717,6 +734,12 @@
         "category_for_section",
         "download_sec_document",
         "download_sec_documents",
+        "fetch_executive_trade_report",
+        "fetch_executive_trade_report_raw",
+        "fetch_executive_trades",
+        "fetch_executive_trades_raw",
+        "get_executive_trade_report",
+        "get_executive_trades",
         "get_sec_documents",
         "resolve_company",
         "row_to_document",
@@ -736,6 +759,11 @@
         "DocumentDownloadService",
         "DownloadResult",
         "DownloadedFile",
+        "ExecutiveTrade",
+        "ExecutiveTradeDetail",
+        "ExecutiveTradeList",
+        "ExecutiveTradeQuery",
+        "ExecutiveTradeReport",
         "FailedDownload",
         "FinancialReportService",
         "ListingAccounting",
@@ -746,6 +774,12 @@
         "category_for_section",
         "download_sec_document",
         "download_sec_documents",
+        "fetch_executive_trade_report",
+        "fetch_executive_trade_report_raw",
+        "fetch_executive_trades",
+        "fetch_executive_trades_raw",
+        "get_executive_trade_report",
+        "get_executive_trades",
         "get_sec_documents",
         "resolve_company",
         "row_to_document",
@@ -944,6 +978,41 @@
           "type": "str",
           "value": "/public/idisc/Views/FinancialStatementDownload"
         },
+        "SEC_R59_DATE_TYPES": {
+          "type": "dict"
+        },
+        "SEC_R59_MAX_DETAIL_BATCHES": {
+          "type": "int",
+          "value": 100
+        },
+        "SEC_R59_MAX_WINDOW_DAYS": {
+          "type": "int",
+          "value": 366
+        },
+        "SEC_R59_PAGE_ENDPOINT": {
+          "type": "str",
+          "value": "/public/idisc/{lang}/r59"
+        },
+        "SEC_R59_REPORT_API_ENDPOINT": {
+          "type": "str",
+          "value": "/r59/publicapi/report"
+        },
+        "SEC_R59_REPORT_PAGE_ENDPOINT": {
+          "type": "str",
+          "value": "/r59/{lang}/report"
+        },
+        "SEC_R59_REVOKED_MARKER": {
+          "type": "str",
+          "value": "Revoked by Reporter"
+        },
+        "SEC_R59_TABLE_ID": {
+          "type": "str",
+          "value": "gPP09T01"
+        },
+        "SEC_R59_VIEWMORE_ENDPOINT": {
+          "type": "str",
+          "value": "/public/idisc/{lang}/ViewMore/r59-2"
+        },
         "SEC_REFERER": {
           "type": "str",
           "value": "https://market.sec.or.th/public/idisc/en/FinancialReport/ALL"
@@ -1000,6 +1069,15 @@
         "SEC_FORM_FIELD_REPORT_TYPE",
         "SEC_FORM_FIELD_SEARCH",
         "SEC_FS_DOWNLOAD_ENDPOINT",
+        "SEC_R59_DATE_TYPES",
+        "SEC_R59_MAX_DETAIL_BATCHES",
+        "SEC_R59_MAX_WINDOW_DAYS",
+        "SEC_R59_PAGE_ENDPOINT",
+        "SEC_R59_REPORT_API_ENDPOINT",
+        "SEC_R59_REPORT_PAGE_ENDPOINT",
+        "SEC_R59_REVOKED_MARKER",
+        "SEC_R59_TABLE_ID",
+        "SEC_R59_VIEWMORE_ENDPOINT",
         "SEC_REFERER",
         "SEC_REPORT_TYPE_FINANCIAL_STATEMENT",
         "SEC_REPORT_TYPE_FORM_56_1",
@@ -1396,6 +1474,811 @@
             }
           ],
           "returns": "DownloadResult"
+        }
+      }
+    },
+    "settfex.services.sec.executive_trades": {
+      "all": null,
+      "classes": {
+        "ExecutiveTrade": {
+          "bases": [
+            "pydantic.main.BaseModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "batch_no": {
+              "alias": null,
+              "annotation": "str | None",
+              "required": true
+            },
+            "company_name": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "detail": {
+              "alias": null,
+              "annotation": "settfex.services.sec.executive_trades.ExecutiveTradeDetail | None",
+              "default": "None",
+              "required": false
+            },
+            "duplicate_of": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "executor_id": {
+              "alias": null,
+              "annotation": "str | None",
+              "required": true
+            },
+            "executor_name": {
+              "alias": null,
+              "annotation": "str | None",
+              "required": true
+            },
+            "is_revoked": {
+              "alias": null,
+              "annotation": "bool",
+              "required": true
+            },
+            "is_self": {
+              "alias": null,
+              "annotation": "bool | None",
+              "required": true
+            },
+            "method": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "price": {
+              "alias": null,
+              "annotation": "decimal.Decimal | None",
+              "required": true
+            },
+            "quantity": {
+              "alias": null,
+              "annotation": "int",
+              "required": true
+            },
+            "received_date": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "default": "None",
+              "required": false
+            },
+            "relationship": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "remark": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "report_url": {
+              "alias": null,
+              "annotation": "str | None",
+              "required": true
+            },
+            "reporter_id": {
+              "alias": null,
+              "annotation": "str | None",
+              "required": true
+            },
+            "reporter_name": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "security_type": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "side": {
+              "alias": null,
+              "annotation": "Literal['buy', 'sell', 'transfer_in', 'transfer_out', 'other']",
+              "required": true
+            },
+            "symbol": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "trans_id": {
+              "alias": null,
+              "annotation": "str | None",
+              "required": true
+            },
+            "transaction_date": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "required": true
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {},
+          "mro": [
+            "settfex.services.sec.executive_trades.ExecutiveTrade",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "ExecutiveTradeDetail": {
+          "bases": [
+            "pydantic.main.BaseModel"
+          ],
+          "computed_fields": {
+            "holding_consistent": {
+              "annotation": "bool"
+            }
+          },
+          "fields": {
+            "avg_price": {
+              "alias": null,
+              "annotation": "decimal.Decimal",
+              "required": true
+            },
+            "counterparty": {
+              "alias": null,
+              "annotation": "str | None",
+              "required": true
+            },
+            "executor": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "holder_label": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "holding_after": {
+              "alias": null,
+              "annotation": "int",
+              "required": true
+            },
+            "holding_before": {
+              "alias": null,
+              "annotation": "int",
+              "required": true
+            },
+            "market_source": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "method": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "quantity": {
+              "alias": null,
+              "annotation": "int",
+              "required": true
+            },
+            "record_status": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "remark": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "security_type": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "side": {
+              "alias": null,
+              "annotation": "Literal['buy', 'sell', 'transfer_in', 'transfer_out', 'other']",
+              "required": true
+            },
+            "trans_id": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "transaction_date": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "required": true
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {},
+          "mro": [
+            "settfex.services.sec.executive_trades.ExecutiveTradeDetail",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "ExecutiveTradeList": {
+          "bases": [
+            "pydantic.main.BaseModel"
+          ],
+          "computed_fields": {
+            "detail_unmatched": {
+              "annotation": "int"
+            },
+            "duplicate_count": {
+              "annotation": "int"
+            },
+            "revoked_count": {
+              "annotation": "int"
+            },
+            "unknown_labels": {
+              "annotation": "dict[str, dict[str, int]]"
+            }
+          },
+          "fields": {
+            "detail_failures": {
+              "alias": null,
+              "annotation": "dict[str, str]",
+              "default_factory": "dict",
+              "required": false
+            },
+            "details_requested": {
+              "alias": null,
+              "annotation": "bool",
+              "default": "False",
+              "required": false
+            },
+            "fetched_at": {
+              "alias": null,
+              "annotation": "datetime.datetime",
+              "required": true
+            },
+            "items": {
+              "alias": null,
+              "annotation": "list[settfex.services.sec.executive_trades.ExecutiveTrade]",
+              "default_factory": "list",
+              "required": false
+            },
+            "lang": {
+              "alias": null,
+              "annotation": "Literal['en', 'th']",
+              "default": "'th'",
+              "required": false
+            },
+            "query": {
+              "alias": null,
+              "annotation": "settfex.services.sec.executive_trades.ExecutiveTradeQuery",
+              "required": true
+            },
+            "reported_count": {
+              "alias": null,
+              "annotation": "int",
+              "default": "0",
+              "required": false
+            },
+            "reports": {
+              "alias": null,
+              "annotation": "list[settfex.services.sec.executive_trades.ExecutiveTradeReport]",
+              "default_factory": "list",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {
+            "economic_trades": {
+              "kind": "function",
+              "params": [],
+              "returns": "ExecutiveTradeList"
+            },
+            "to_dataframe": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "list[str] | None",
+                  "default": "None",
+                  "name": "columns",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "pd.DataFrame"
+            },
+            "to_table": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "bool",
+                  "default": "False",
+                  "name": "include_revoked",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "bool",
+                  "default": "False",
+                  "name": "with_details",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "str"
+            }
+          },
+          "model_config": {},
+          "mro": [
+            "settfex.services.sec.executive_trades.ExecutiveTradeList",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "ExecutiveTradeQuery": {
+          "bases": [
+            "pydantic.main.BaseModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "date_type": {
+              "alias": null,
+              "annotation": "Literal['received', 'transaction']",
+              "required": true
+            },
+            "end": {
+              "alias": null,
+              "annotation": "datetime.date",
+              "required": true
+            },
+            "start": {
+              "alias": null,
+              "annotation": "datetime.date",
+              "required": true
+            },
+            "symbol": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "unique_id": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "windows": {
+              "alias": null,
+              "annotation": "int",
+              "required": true
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {},
+          "mro": [
+            "settfex.services.sec.executive_trades.ExecutiveTradeQuery",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "ExecutiveTradeReport": {
+          "bases": [
+            "pydantic.main.BaseModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "batch_no": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "business_type_code": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "company_name": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "lang": {
+              "alias": null,
+              "annotation": "Literal['en', 'th']",
+              "required": true
+            },
+            "position": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "reporter_name": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "submitted_at": {
+              "alias": null,
+              "annotation": "datetime.datetime",
+              "required": true
+            },
+            "symbol": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "transactions": {
+              "alias": null,
+              "annotation": "list[settfex.services.sec.executive_trades.ExecutiveTradeDetail]",
+              "default_factory": "list",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {},
+          "mro": [
+            "settfex.services.sec.executive_trades.ExecutiveTradeReport",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        }
+      },
+      "constants": {
+        "BANGKOK": {
+          "type": "ZoneInfo"
+        },
+        "ROUND_HALF_EVEN": {
+          "type": "str",
+          "value": "ROUND_HALF_EVEN"
+        },
+        "ROUND_HALF_UP": {
+          "type": "str",
+          "value": "ROUND_HALF_UP"
+        },
+        "SEC_BASE_URL": {
+          "type": "str",
+          "value": "https://market.sec.or.th"
+        },
+        "SEC_R59_DATE_TYPES": {
+          "type": "dict"
+        },
+        "SEC_R59_MAX_DETAIL_BATCHES": {
+          "type": "int",
+          "value": 100
+        },
+        "SEC_R59_MAX_WINDOW_DAYS": {
+          "type": "int",
+          "value": 366
+        },
+        "SEC_R59_PAGE_ENDPOINT": {
+          "type": "str",
+          "value": "/public/idisc/{lang}/r59"
+        },
+        "SEC_R59_REPORT_API_ENDPOINT": {
+          "type": "str",
+          "value": "/r59/publicapi/report"
+        },
+        "SEC_R59_REPORT_PAGE_ENDPOINT": {
+          "type": "str",
+          "value": "/r59/{lang}/report"
+        },
+        "SEC_R59_REVOKED_MARKER": {
+          "type": "str",
+          "value": "Revoked by Reporter"
+        },
+        "SEC_R59_TABLE_ID": {
+          "type": "str",
+          "value": "gPP09T01"
+        },
+        "SEC_R59_VIEWMORE_ENDPOINT": {
+          "type": "str",
+          "value": "/public/idisc/{lang}/ViewMore/r59-2"
+        },
+        "TYPE_CHECKING": {
+          "type": "bool",
+          "value": false
+        }
+      },
+      "exports": [
+        "Any",
+        "AsyncDataFetcher",
+        "BANGKOK",
+        "BlockedError",
+        "CompanyNotFoundError",
+        "DateType",
+        "ExecutiveTrade",
+        "ExecutiveTradeDetail",
+        "ExecutiveTradeList",
+        "ExecutiveTradeQuery",
+        "ExecutiveTradeReport",
+        "FetchError",
+        "FetcherConfig",
+        "HTTPStatusError",
+        "InvalidDateError",
+        "Language",
+        "Literal",
+        "ParseError",
+        "ROUND_HALF_EVEN",
+        "ROUND_HALF_UP",
+        "SEC_BASE_URL",
+        "SEC_R59_DATE_TYPES",
+        "SEC_R59_MAX_DETAIL_BATCHES",
+        "SEC_R59_MAX_WINDOW_DAYS",
+        "SEC_R59_PAGE_ENDPOINT",
+        "SEC_R59_REPORT_API_ENDPOINT",
+        "SEC_R59_REPORT_PAGE_ENDPOINT",
+        "SEC_R59_REVOKED_MARKER",
+        "SEC_R59_TABLE_ID",
+        "SEC_R59_VIEWMORE_ENDPOINT",
+        "Side",
+        "TYPE_CHECKING",
+        "build_sec_headers",
+        "fetch_executive_trade_report",
+        "fetch_executive_trade_report_raw",
+        "fetch_executive_trades",
+        "fetch_executive_trades_raw",
+        "get_executive_trade_report",
+        "get_executive_trades",
+        "normalize_language",
+        "normalize_symbol",
+        "overload",
+        "resolve_company",
+        "side_for",
+        "split_section_count"
+      ],
+      "functions": {
+        "fetch_executive_trade_report": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "str",
+              "name": "batch_no",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str",
+              "default": "'th'",
+              "name": "lang",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "ExecutiveTradeReport"
+        },
+        "fetch_executive_trade_report_raw": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "str",
+              "name": "batch_no",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str",
+              "default": "'th'",
+              "name": "lang",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "dict[str, Any]"
+        },
+        "fetch_executive_trades": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "date",
+              "name": "start",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "date",
+              "name": "end",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "unique_id",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "DateType",
+              "default": "'received'",
+              "name": "date_type",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str",
+              "default": "'th'",
+              "name": "lang",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "with_details",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "symbol",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "ExecutiveTradeList"
+        },
+        "fetch_executive_trades_raw": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "date",
+              "name": "start",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "date",
+              "name": "end",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "unique_id",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "DateType",
+              "default": "'received'",
+              "name": "date_type",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str",
+              "default": "'th'",
+              "name": "lang",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "list[dict[str, str]]"
+        },
+        "get_executive_trade_report": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "str",
+              "name": "batch_no",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str",
+              "default": "'th'",
+              "name": "lang",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "ExecutiveTradeReport"
+        },
+        "get_executive_trades": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "date | str | None",
+              "default": "None",
+              "name": "received_date",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "symbol",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "DateType",
+              "default": "'received'",
+              "name": "date_type",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "date | str | None",
+              "default": "None",
+              "name": "start",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "date | str | None",
+              "default": "None",
+              "name": "end",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str",
+              "default": "'th'",
+              "name": "lang",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "with_details",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "ExecutiveTradeList"
+        },
+        "side_for": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "str",
+              "name": "method",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "Side"
         }
       }
     },

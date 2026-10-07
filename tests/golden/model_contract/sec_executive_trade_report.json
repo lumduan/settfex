@@ -1,0 +1,62 @@
+{
+  "expected_dump": {
+    "batch_no": "592001352610",
+    "business_type_code": "0106300010",
+    "company_name": "บริษัท ดี.ที.ซี. เอ็นเตอร์ไพรส์ จำกัด (มหาชน)",
+    "lang": "th",
+    "position": "กรรมการ (ประธานกรรมการ)",
+    "reporter_name": "นาย อภิสิทธิ์ รุจิเกียรติกำจร",
+    "submitted_at": "2026-10-06T17:16:42+07:00",
+    "symbol": null,
+    "transactions": [
+      {
+        "avg_price": "0.92",
+        "counterparty": null,
+        "executor": "ผู้รายงาน",
+        "holder_label": "ผู้รายงาน",
+        "holding_after": 31774480,
+        "holding_before": 31744180,
+        "holding_consistent": true,
+        "market_source": "ทำรายการผ่านตลาดหลักทรัพย์ (Auto Matching) (บริษัท หลักทรัพย์เคจีไอ (ประเทศไทย) จำกัด (มหาชน))",
+        "method": "ซื้อ",
+        "quantity": 30300,
+        "record_status": "NORMAL",
+        "remark": null,
+        "security_type": "หุ้นสามัญ",
+        "side": "buy",
+        "trans_id": null,
+        "transaction_date": "2026-10-06"
+      }
+    ]
+  },
+  "input": {
+    "batch_no": "592001352610",
+    "business_type_code": "0106300010",
+    "company_name": "บริษัท ดี.ที.ซี. เอ็นเตอร์ไพรส์ จำกัด (มหาชน)",
+    "lang": "th",
+    "position": "กรรมการ (ประธานกรรมการ)",
+    "reporter_name": "นาย อภิสิทธิ์ รุจิเกียรติกำจร",
+    "submitted_at": "2026-10-06T17:16:42+07:00",
+    "symbol": null,
+    "transactions": [
+      {
+        "avg_price": "0.92",
+        "counterparty": null,
+        "executor": "ผู้รายงาน",
+        "holder_label": "ผู้รายงาน",
+        "holding_after": 31774480,
+        "holding_before": 31744180,
+        "market_source": "ทำรายการผ่านตลาดหลักทรัพย์ (Auto Matching) (บริษัท หลักทรัพย์เคจีไอ (ประเทศไทย) จำกัด (มหาชน))",
+        "method": "ซื้อ",
+        "quantity": 30300,
+        "record_status": "NORMAL",
+        "remark": null,
+        "security_type": "หุ้นสามัญ",
+        "side": "buy",
+        "trans_id": null,
+        "transaction_date": "2026-10-06"
+      }
+    ]
+  },
+  "model": "settfex.services.sec.executive_trades.ExecutiveTradeReport"
+}
