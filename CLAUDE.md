@@ -185,7 +185,13 @@ Every service follows this consistent pattern:
 - **Convenience function**: `get_*()` top-level function for one-line access
 - **Dual language**: `en`/`th` support via `normalize_language()` (accepts: en/eng/english, th/tha/thai)
 - **Symbol normalization**: Auto-uppercase via `normalize_symbol()`
-- **SessionManager**: All cookie/bot-detection handled automatically (no manual cookie params)
+- **SessionManager**: All cookie/bot-detection handled automatically (no manual cookie params).
+  **Exception — the SEC IDISC host (`market.sec.or.th`): every SEC service runs
+  `use_session=False`** (copy the caller's config with `model_copy(update={"use_session": False})`).
+  The host is stateless, `get_session_for_url()` would warm it as SET, and a POST through a
+  persistent session is refused outright (`AsyncDataFetcher._make_request` supports GET only) — and
+  the SEC document listing and the company search are POSTs. ThaiBMA, the TradingView scanner
+  and the earnings-call API are stateless the same way (see their gotchas).
 - **Async-first**: All I/O uses async/await via `AsyncDataFetcher`
 - **Bot bypass**: Symbol-specific referer header + SessionManager cookies (Incapsula bypass)
 
