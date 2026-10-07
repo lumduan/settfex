@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **SEC Form 59 (แบบ 59): directors' and executives' trades** (`settfex.services.sec`, top-level
+  `get_executive_trades` / `get_executive_trade_report`). Three tiers for the listing
+  (`get_executive_trades`, `fetch_executive_trades`, `fetch_executive_trades_raw`) and three for the
+  report behind each row (`get_executive_trade_report`, `fetch_executive_trade_report`, `…_raw`).
+  - **Who traded vs who filed:** `reporter_name` vs `executor_name`/`executor_id`, with `is_self`.
+  - **Spouse duplicates are marked, not dropped** (`duplicate_of`). With details they are decided
+    by holdings; otherwise by a narrow spouse rule, checked against holdings on all 28 September 2026
+    pairs (26 agree).
+  - **Revoked filings are kept and marked** (`is_revoked`), never counted. `economic_trades()`
+    drops both kinds.
+  - **No silent truncation:** the search page shows at most 100 rows, so the service reads the
+    site's "display all results" page, and every response's stated count must equal the rows parsed,
+    or `ParseError`. The URL builder refuses to build that page without dates: undated, it is the
+    whole database (70 MB).
+  - **Fail-loud cells:** an unknown layout, a bracketed amount or an unparseable number or date
+    raises. Real absences (`-` price, an empty date, the 19% of history without a link) come back as
+    `None`.
+  - **`with_details=True`** adds holdings before and after, the unrounded average price, the trading
+    channel and broker, the counterparty and `holding_consistent`. That is one request per distinct
+    report, at most 100 per call. A failed report is recorded on `detail_failures`; a block page
+    stops everything.
+  - **Output:** `to_table()` renders the agreed Thai summary; `to_dataframe()` needs the
+    `dataframe` extra.
+  - Docs: `docs/settfex/services/sec/executive_trades.md`.
+
 ### Fixed
 
 - **A Thai SEC date on a leap day was lost** (`settfex.services.sec.utils.parse_dmy_date`). The

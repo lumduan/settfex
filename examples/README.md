@@ -33,6 +33,14 @@ Complete tutorial series covering the SET services:
 
 **Total**: 20 notebooks + comprehensive guide
 
+### SEC (Thai SEC IDISC, market.sec.or.th) Examples
+
+**Location**: `examples/sec/`
+
+1. **01_financial_report.ipynb** - list and download an issuer's disclosure documents
+2. **02_executive_trades.ipynb** - Form 59 (แบบ 59) directors' and executives' trades, and the
+   report behind each row (holdings before/after)
+
 ### ThaiBMA (Thai Bond Market Association) Examples
 
 **Location**: `examples/thaibma/`

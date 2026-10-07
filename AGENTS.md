@@ -110,6 +110,8 @@ Indices: `get_index_list(lang)`, `get_index_info(symbol, lang)`,
 | resolve a company to its SEC id | `resolve_company(query, lang, allow_name_match=False)` |
 | list filings (financial statements, 56-1, 56-2, ratios, MD&A) | `get_sec_documents(query, types=..., from_date=..., to_date=...)` |
 | download the actual file(s) | `download_sec_document(target)` / `download_sec_documents(targets)` |
+| directors'/executives' trades (Form 59, แบบ 59) | `get_executive_trades(received_date=None, symbol=..., date_type=..., start=..., end=..., with_details=False)` |
+| one Form 59 report with holdings before/after | `get_executive_trade_report(batch_no)` |
 
 Dates here are **dd/mm/yyyy**. Pass a wide window to see full year history.
 
@@ -184,6 +186,23 @@ reporting a batch as done; dead links on the SEC host arrive as HTML under HTTP 
 Also a Pydantic model since 0.24.0 (`{files, failed, requested}` + computed `is_complete`), so the
 failure report survives `model_dump()` and slicing. ⚠️ `isinstance(files, list)` is `False`; use
 `files.files`.
+
+**Form 59 (executive trades) — four traps before you count anything:**
+
+- **`reporter_name` is who FILED, not who traded.** The trader is `executor_name` / `executor_id`
+  (a spouse, a minor child, a family company). `is_self` says whether they are the same.
+- **One trade can be listed twice** when both spouses are executives: the copy has `duplicate_of`.
+  Rows are never dropped.
+- **Revoked filings stay listed** (`is_revoked=True`, about 5% of rows, mostly re-filings).
+- So **count on `result.economic_trades()`**, which drops both. `to_table()` already skips revoked
+  rows.
+
+With no arguments `get_executive_trades()` returns what SEC **received today**, which is not the
+site's default page (that one shows what was *recorded* today), and today's set can still grow.
+The listing `price` is rounded to 2 dp; `with_details=True` (at most 100 reports per call) adds
+`detail.avg_price` at full precision and the holdings. A page whose stated count differs from its
+rows raises `ParseError`, so a result you receive is complete. A method label the library does not
+know shows `side="other"` and is counted on `result.unknown_labels`.
 
 ### ThaiBMA bonds — `from settfex.services.thaibma import ...`
 
