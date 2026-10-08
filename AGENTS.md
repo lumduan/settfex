@@ -210,6 +210,46 @@ The listing `price` is rounded to 2 dp; `with_details=True` (at most 100 reports
 rows raises `ParseError`, so a result you receive is complete. A method label the library does not
 know shows `side="other"` and is counted on `result.unknown_labels`.
 
+**Form 59 recipes — question → call → what to read:**
+
+| Question | Call | Read |
+|---|---|---|
+| Which executives reported trades today? | `get_executive_trades()` | `.economic_trades()`; `.to_table()` for a ready Thai summary |
+| Did insiders of X buy or sell recently? | `get_executive_trades(symbol="X", date_type="transaction", start="YYYY-MM-DD", end="YYYY-MM-DD")` | `side` and `quantity` of each row in `.economic_trades()` |
+| What did the executive hold after the trade? | add `with_details=True`, or `get_executive_trade_report(row.batch_no)` | `row.detail.holding_before` / `holding_after` |
+| The exact average price | `with_details=True` | `row.detail.avg_price` (the listing's `price` is rounded to 2 dp) |
+| On-exchange or off? Who received a transfer? | `with_details=True` | `row.detail.market_source`, `row.detail.counterparty` |
+
+Dates here are **ISO `YYYY-MM-DD`** strings or `date` objects. This is unlike `get_sec_documents`,
+which takes dd/mm/yyyy. Keep windows to what the question needs: anything over 366 days is fetched
+in several requests, and `with_details=True` sends one request per report, at most 100.
+
+```python
+from settfex.services.sec import get_executive_trades
+
+result = await get_executive_trades(symbol="PANEL", date_type="transaction",
+                                    start="2026-09-01", end="2026-09-30")
+trades = result.economic_trades()             # copies and revoked/cancelled filings removed
+bought = sum(t.quantity for t in trades if t.side == "buy" and t.security_type == "หุ้นสามัญ")
+sold = sum(t.quantity for t in trades if t.side == "sell" and t.security_type == "หุ้นสามัญ")
+```
+
+Before you state a number from Form 59:
+- **Count only `economic_trades()`.**
+- **Never add quantities across security types**: shares, warrants and NVDRs are different
+  instruments. Filter on `security_type`.
+- **`transfer_in` / `transfer_out` are not market trades** (gifts to children, depositary moves).
+  Report them separately.
+- **Name the window and the date type** (received vs transaction), and say the count may include
+  the known same-reporter re-filing overcount.
+- **Read `holding_conflict is None` as "unknown"**, not as "no conflict".
+- **With `with_details=True`, check `result.detail_failures` is empty** before relying on
+  holdings. Rows of a failed report keep `detail=None`.
+
+As JSON (`result.model_dump(mode="json")`), the completeness fields travel with the rows:
+`reported_count`, `revoked_count`, `duplicate_count`, `unknown_labels`, `detail_unmatched` and
+`detail_failures`.
+
 ### ThaiBMA bonds — `from settfex.services.thaibma import ...`
 
 | I want… | Call |

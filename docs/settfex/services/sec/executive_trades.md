@@ -18,6 +18,39 @@ detailed = await get_executive_trades(date(2026, 10, 2), with_details=True)
 report = await get_executive_trade_report("592001352610")           # one report, all its trades
 ```
 
+## For AI agents: the short version
+
+1. **Call `get_executive_trades(...)`.** It is one call; there are no cookies or sessions to manage.
+   - Dates are ISO `"YYYY-MM-DD"` strings or `date` objects.
+   - `symbol` is resolved for you.
+   - Without arguments it returns today's receipts.
+2. **Count trades only on `result.economic_trades()`.** It drops copies (`duplicate_of`) and void
+   filings (revoked, or `CANCELED` in their report).
+3. **The named executive is the reporter.** Who traded is `executor_name`; `is_self` tells them
+   apart.
+4. **Keep instruments and kinds apart.**
+   - Filter `security_type` before summing: shares, warrants and NVDRs do not add up.
+   - `transfer_in` / `transfer_out` are not market trades.
+5. **Need holdings, the exact price, the channel or the counterparty?** Pass `with_details=True`
+   (one request per report, at most 100), or call `get_executive_trade_report(row.batch_no)` for a
+   single row. Then read `row.detail`, and check `result.detail_failures` is empty.
+6. **State your caveats.**
+   - `price` is rounded to 2 dp; `detail.avg_price` is exact.
+   - `holding_conflict is None` means unknown.
+   - A trade one reporter filed twice is counted twice (see the overcount note below).
+
+| Question | Call | Read |
+|---|---|---|
+| Who reported trades today? | `get_executive_trades()` | `.economic_trades().to_table()` |
+| Did insiders of X buy recently? | `get_executive_trades(symbol="X", date_type="transaction", start=..., end=...)` | `side`, `quantity`, `security_type` |
+| Holdings after the trade | `with_details=True` | `detail.holding_before`, `detail.holding_after` |
+| Exact price, channel, counterparty | `with_details=True` | `detail.avg_price`, `detail.market_source`, `detail.counterparty` |
+| One filing in full | `get_executive_trade_report(batch_no)` | `.transactions` (every trade in the filing) |
+
+`result.model_dump(mode="json")` is safe to hand back as a tool result. The completeness fields
+(`reported_count`, `revoked_count`, `duplicate_count`, `unknown_labels`, `detail_unmatched`,
+`detail_failures`) are part of it.
+
 ## Three things the listing does not say on its face
 
 **1. The named executive is the reporter, not necessarily who traded.** The `ชื่อผู้บริหาร`
