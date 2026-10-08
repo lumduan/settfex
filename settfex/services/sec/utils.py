@@ -8,7 +8,7 @@ parsing HTML tables. Parsing uses the standard library ``html.parser`` (no new d
 from __future__ import annotations
 
 import re
-from datetime import date, datetime
+from datetime import date
 from html import unescape
 from html.parser import HTMLParser
 from typing import Any
@@ -235,24 +235,40 @@ def split_section_count(heading: str) -> tuple[str, int | None]:
     return text, None
 
 
+_DMY = re.compile(r"(\d{1,2})/(\d{1,2})/(\d{4})")
+
+
+def _dmy_to_date(text: str) -> date:
+    """Strict core of :func:`parse_dmy_date`: ``dd/mm/yyyy`` (B.E. or C.E.) to a date, or raise.
+
+    The era is converted BEFORE the date is built. Building it first in the B.E. year and shifting
+    afterwards is wrong on leap days: 543 is 3 mod 4, so a B.E. year is a Gregorian leap year
+    exactly when its C.E. year is not. ``29/02/2567`` (2024-02-29, a real weekday) was rejected as
+    "day out of range" in year 2567 and came back None; ``29/02/2568`` was accepted in 2568 and
+    then raised a bare ``ValueError`` when shifted to 2025. Raises ``ValueError`` on any
+    malformed or impossible date; callers decide whether that is None or an error.
+    """
+    match = _DMY.fullmatch(normalize_thai_digits(text.strip()))
+    if not match:
+        raise ValueError(f"not a dd/mm/yyyy date: {text!r}")
+    day, month, year = (int(part) for part in match.groups())
+    return date(to_christian_year(year), month, day)
+
+
 def parse_dmy_date(value: str | None) -> date | None:
     """Parse a dd/MM/yyyy result-cell date; return None for blank/unparseable input.
 
     Handles Thai numerals and Buddhist-era years: ``"๓๐/๐๖/๒๕๖๙"`` and ``"30/06/2569"`` both give
     ``date(2026, 6, 30)``. Without the era conversion a B.E. date does not fail -- ``strptime``
-    accepts year 2569 -- it silently yields a date 543 years in the future.
+    accepts year 2569 -- it silently yields a date 543 years in the future. Buddhist-era leap days
+    convert correctly: ``"29/02/2567"`` gives ``date(2024, 2, 29)`` (see :func:`_dmy_to_date`).
     """
-    if not value:
-        return None
-    text = normalize_thai_digits(value.strip())
-    if not text:
+    if not value or not value.strip():
         return None
     try:
-        parsed = datetime.strptime(text, "%d/%m/%Y").date()
+        return _dmy_to_date(value)
     except ValueError:
         return None
-    year = to_christian_year(parsed.year)
-    return parsed if year == parsed.year else parsed.replace(year=year)
 
 
 def parse_year(value: str | None) -> int | None:

@@ -34,6 +34,11 @@ Looking an SEC issuer up by company **name** needs ``allow_name_match=True``. Wi
 unflagged match raises ``AmbiguousCompanyError`` carrying the candidate, because the site did not
 resolve the query as an identifier and the row may be an unrelated company.
 
+Insider trades: ``get_executive_trades()`` reads the SEC's Form 59 (แบบ 59) reports of directors'
+and executives' trades. The named executive is the REPORTER, not necessarily who traded; a spouse
+who is also an executive files the same trade again (``duplicate_of``), and revoked filings stay
+listed (``is_revoked``) — use ``.economic_trades()`` to count trades.
+
 If you persisted results from a version before 0.24.0, see the data completeness advisory in
 ``CHANGELOG.md`` — earlier versions could return incomplete or wrong data with no error.
 
@@ -80,11 +85,17 @@ from settfex.exceptions import (
 from settfex.services.sec import (
     DocumentCategory,
     DownloadedFile,
+    ExecutiveTrade,
+    ExecutiveTradeDetail,
+    ExecutiveTradeList,
+    ExecutiveTradeReport,
     SecCompany,
     SecDocument,
     SecDocumentList,
     download_sec_document,
     download_sec_documents,
+    get_executive_trade_report,
+    get_executive_trades,
     get_sec_documents,
     resolve_company,
 )
@@ -190,6 +201,13 @@ __all__ = [
     "SecDocumentList",
     "DocumentCategory",
     "DownloadedFile",
+    # SEC Form 59: directors' and executives' trades
+    "get_executive_trades",
+    "get_executive_trade_report",
+    "ExecutiveTrade",
+    "ExecutiveTradeDetail",
+    "ExecutiveTradeList",
+    "ExecutiveTradeReport",
     # ThaiBMA government bond yield curve (www.thaibma.or.th)
     "ThaiBMA",
     "get_government_yield_curve",

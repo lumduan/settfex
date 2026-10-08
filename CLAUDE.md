@@ -33,7 +33,8 @@ settfex/
 │   │   │                     #   financial/, stock.py, utils.py
 │   │   ├── tfex/             # TFEX services: list.py, trading_statistics.py, underlying_price.py
 │   │   ├── sec/              # SEC IDISC (market.sec.or.th) document services: constants.py,
-│   │   │                     #   company.py, financial_report.py, download.py, sec.py, utils.py
+│   │   │                     #   company.py, financial_report.py, download.py, sec.py, utils.py,
+│   │   │                     #   executive_trades.py (Form 59: executives' trades + reports)
 │   │   └── thaibma/          # ThaiBMA (www.thaibma.or.th) government bond yield curve:
 │   │                         #   constants.py, utils.py, yield_curve.py, history.py,
 │   │                         #   availability.py, thaibma.py
@@ -41,7 +42,7 @@ settfex/
 │                             #   session_cache.py, logging.py
 ├── tests/                     # Mirror of settfex/ with test_ prefix
 ├── docs/                      # Service docs, guides, solutions
-├── examples/                  # 25 Jupyter notebooks (20 SET + 3 TFEX + 1 SEC + 1 ThaiBMA)
+├── examples/                  # 26 Jupyter notebooks (20 SET + 3 TFEX + 2 SEC + 1 ThaiBMA)
 ├── scripts/                   # Verification scripts per service
 ├── .github/                   # CI and agent instructions
 ├── pyproject.toml             # uv-based config
@@ -165,13 +166,25 @@ end, and a claim backed by a command nobody ran is unverified.
 
 ## Common Tasks
 
-### Adding a New Service (SET or TFEX)
-1. Create module in `settfex/services/{set,tfex}/`
-2. Add tests in `tests/services/{set,tfex}/`
-3. Update the appropriate `__init__.py` to export the service
-4. Document with docstrings + create verification script in `scripts/settfex/services/`
-5. Add Jupyter notebook example in `examples/`
-6. Update `CLAUDE.md` (Services Inventory count + table row, Project Structure tree, and Known Gotchas if any) and add the release entry to `CHANGELOG.md` — the canonical release history
+### Adding a New Service
+1. Create the module in `settfex/services/{set,tfex,sec,thaibma}/` — four packages, one per host
+   family (SET/TFEX share `www.set.or.th`; `sec` is `market.sec.or.th`; `thaibma` is
+   `www.thaibma.or.th`). A new host gets its own package, never a module inside another's.
+2. Add tests in the mirrored `tests/services/{set,tfex,sec,thaibma}/`. Fixtures captured live go
+   in with their provenance (see `tests/services/sec/fixtures_sec/README.md` for the convention:
+   raw bundles stay gitignored under `tmp/`, committed fixtures are derived verbatim and hashed).
+3. Update the package's `__init__.py` (and `settfex/__init__.py` for the `get_*()` entry point) to
+   export the service; regenerate and review the L1 golden (`tests.test_public_api_surface`).
+4. Join the hand-maintained lists: a model in `tests/test_model_contract.py` `REGISTRY` (plus its
+   input JSON), the `get_*()` in `tests/services/test_fault_matrix.py` `ENTRY_POINTS`, any new
+   exception in AGENTS.md, and a list-like container in `tests/test_typing_surface.py`.
+5. Document with docstrings + a page under `docs/settfex/services/<package>/` + an absolute-URL
+   link in README. A verification script in `scripts/settfex/services/<package>/` is fine but
+   **local only**: `scripts/` is gitignored, so it never reaches a PR.
+6. Add a Jupyter notebook example in `examples/<package>/`
+7. Update `CLAUDE.md` (Services Inventory count + table row, Project Structure tree, notebook
+   count, and Known Gotchas if any) and AGENTS.md, and add the entry to `CHANGELOG.md` — the
+   canonical release history
 
 ### Adding Utility Functions
 1. Add to appropriate module in `settfex/utils/` or create new one
@@ -185,7 +198,13 @@ Every service follows this consistent pattern:
 - **Convenience function**: `get_*()` top-level function for one-line access
 - **Dual language**: `en`/`th` support via `normalize_language()` (accepts: en/eng/english, th/tha/thai)
 - **Symbol normalization**: Auto-uppercase via `normalize_symbol()`
-- **SessionManager**: All cookie/bot-detection handled automatically (no manual cookie params)
+- **SessionManager**: All cookie/bot-detection handled automatically (no manual cookie params).
+  **Exception — the SEC IDISC host (`market.sec.or.th`): every SEC service runs
+  `use_session=False`** (copy the caller's config with `model_copy(update={"use_session": False})`).
+  The host is stateless, `get_session_for_url()` would warm it as SET, and a POST through a
+  persistent session is refused outright (`AsyncDataFetcher._make_request` supports GET only) — and
+  the SEC document listing and the company search are POSTs. ThaiBMA, the TradingView scanner
+  and the earnings-call API are stateless the same way (see their gotchas).
 - **Async-first**: All I/O uses async/await via `AsyncDataFetcher`
 - **Bot bypass**: Symbol-specific referer header + SessionManager cookies (Incapsula bypass)
 
@@ -201,7 +220,7 @@ data = await get_highlight_data("CPALL")   # or convenience function
 all_stocks = await get_stock_list()        # no cookie params needed
 ```
 
-## Services Inventory (26 total)
+## Services Inventory (27 total)
 
 ### SET Services (21)
 
@@ -242,13 +261,14 @@ all_stocks = await get_stock_list()        # no cookie params needed
 | 2 | Trading Statistics | `trading_statistics.py` | `/api/set/tfex/series/{sym}/trading-statistics` | Settlement, margin (IM/MM), theoretical price, days to maturity |
 | 3 | Underlying Price | `underlying_price.py` | `/api/set/tfex/series/{sym}/underlying-price` | Underlying instrument price (SET50 index spot for index futures/options): last/prior/high/low, change, total volume/value, P/E, P/BV |
 
-### SEC Services (1)
+### SEC Services (2)
 
 Host is **`market.sec.or.th`** (the Thai SEC IDISC system), NOT set.or.th — a separate top-level package `services/sec/`.
 
 | # | Service | Module | Endpoint Pattern | Key Data |
 |---|---|---|---|---|
 | 1 | SEC Documents | `sec/{company,financial_report,download,sec}.py` | `POST /public/idisc/api/company/valuebyuniqueId`; `GET`/`POST /public/idisc/{lang}/FinancialReport/{FS\|R561\|R562\|KFR}`; `GET /public/idisc/{lang}/ViewMore/{slug}`; `GET /public/idisc/Download?FILEID=`; `GET /ipos/Common/IPOSGetFile.aspx?id=`; `GET /public/idisc/Views/FinancialStatementDownload?query=`; `GET /public/idisc/views/viewdoc?TransId=` | List + download **raw disclosure documents** for any issuer across 5 categories (`DocumentCategory`: financial_statement/form_56_1/form_56_2/key_financial_ratio/mda). Company resolver (`resolve_company` → 10-digit uniqueIDReference); listing replays the ASP.NET WebForms search (GET `__VIEWSTATE` → form POST → stdlib HTML-table parse), follows ViewMore for complete large sections; downloads return raw bytes (`DownloadedFile.save()`), concurrent `download_all`, soft-404 detection (dead links = HTML "file not found" under HTTP 200 → `FetchError`). Listing returns a **`SecDocumentList`** (since 0.24.0 a **Pydantic model** `{documents, accounting, reported_counts}` that still iterates/indexes/slices like the list it was — but `isinstance(x, list)` is now `False`) with `years_by_category()`/`available_years()`/`filter(category=,year=)`/`categories()`/`summary()` helpers — pass a **wide** date window to see full year history. `SecCompany("CPALL")` facade; `get_sec_documents()`/`download_sec_document(s)()`. dd/mm/yyyy dates. Stateless host (no SessionManager). **Bilingual** — `lang="th"` returns the Thai-language filing documents (different files from the English ones), with Buddhist-era years/dates normalized to C.E. in the model; free-text cells stay in the page's language. `SecDocumentList.reported_counts`/`completeness()` carry what the site said each section holds, and an unclassifiable page raises `ParseError` instead of returning `[]`. **Row/column accounting** (`docs.accounting`: `no_link`/`placeholders`/`navigation`/`unmapped_headers`/`unverifiable_sections`/`by_category`, computed totals) makes every drop visible in the return value; a **total** loss raises `IncompleteListingError`, a partial one warns; a section whose ViewMore page failed lands on `accounting.degraded_sections` and sets `has_losses`. `download_all` returns a `DownloadResult` (a Pydantic model `{files, failed, requested}` + computed `is_complete`) carrying `.failed`. **Transport guards** on every listing leg (non-2xx → `HTTPStatusError`, non-listing body → `ParseError`); **per-code isolation** so one failing `ddlReportType` keeps its siblings' documents and records a `CodeFailure` on `accounting.failed_codes`. |
+| 2 | Executive Trades (Form 59, แบบ 59) | `sec/executive_trades.py` | `GET /public/idisc/{lang}/ViewMore/r59-2?[UniqueIdReference=]&DateType=1\|2&DateFrom=yyyyMMdd&DateTo=yyyyMMdd`; `POST /r59/publicapi/report` `{BatchNo, Lang}` | Directors'/executives' reported trades: `get_executive_trades()` (default = **received by SEC today**, Asia/Bangkok; `symbol` resolved strictly; `date_type` `received`/`transaction`; ranges split into ≤ 366-day windows) → `ExecutiveTradeList` of `ExecutiveTrade` (reporter vs executor, verbatim `method` + normalised `side`, `price` **rounded to 2 dp**, `is_revoked`, `duplicate_of`, link ids). Count verified per response (a short page raises `ParseError`); undated ViewMore refused (it is the whole 70 MB database). `economic_trades()` drops revoked + duplicate rows; `to_table()` = the agreed Thai rendering; `to_dataframe()`. **Detail**: `get_executive_trade_report(batch_no)` → `ExecutiveTradeReport` (position, `submitted_at`, every transaction with holdings before/after, full-precision `avg_price`, channel/broker, counterparty, `record_status`, `holding_consistent`); `with_details=True` enriches the listing (one POST per distinct batch, cap 100, failures on `detail_failures`, duplicates then decided by holdings). Stateless host. |
 
 ### ThaiBMA Services (1)
 
@@ -545,6 +565,12 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full, versioned release history — t
 - **`IncompleteListingError` fires only on a TOTAL loss:** rows classified fine and *every* usable one was dropped for want of a download link. A **partial** loss warns and lands on `accounting.no_link` instead — raising there would turn one bad row in a 200-row listing into no listing at all, and unlike a total loss a partial one is visible in the return value. Same severity ladder as the 0.21.0 `ParseError` for unrecognised headings, and it is a `ParseError` subclass so `except ParseError`/`except FetchError` keep working. The escalation is scoped to the **requested** categories (a single `FS` search returns three sections) — the same principle PR #125 applied to `completeness()`.
 - **An unmapped COLUMN is reported, never raised — and the ignore-list is 5 entries, not 13:** the issue that reported this measured "100% of sections carry an unmapped header", but that count includes the revision-tracking sections, **whose rows are skipped before a single cell is read**. Restricted to sections actually read, the whole corpus serves exactly six unmapped headers, five of which have no model field (`Details`, `รายละเอียด`, `Link`, `Time`, `เวลา` → `_IGNORED_HEADERS`) and the sixth was the real loss (`วันที่ได้รับข้อมูล`, now mapped). So the corpus is 100% clean and the first header this check ever names will be a genuine site change. It **warns**, because an unmodelled column is "the site has more than we model", not lost data — raising would turn a cosmetic change into an outage. Do **not** add the revision-section headers (`Order Date`, `Company Name`, `ชื่อบริษัท`, …) to the ignore-list: they never reach the check, and listing them would make it look broader than it is.
 - **`download_all` returns a `DownloadResult`, not a bare list — a partial batch used to be shaped like a complete one:** with `continue_on_error=True` (still the default) a failure became `None` and was filtered out, so the difference between "I downloaded the filings" and "I downloaded some of the filings" existed only in a log line. `DownloadResult` **is** a `list[DownloadedFile]` (same trick as `SecDocumentList`), so `len()`/iteration/indexing/pass-through are unchanged; it additionally carries `.failed` (target, source document, error, error type), `.requested` and `.is_complete`. `continue_on_error=False` still propagates the first failure.
+- **Form 59: the named executive is the REPORTER, not necessarily who traded.** The `ชื่อผู้บริหาร` column is who filed; a row can be a trade by a spouse, a minor child or a family company, named in parentheses in the relationship cell and identified by the link's `executor` id (`CTRL_P_`/`TEMP_P_` person, `CTRL_C_`/`TEMP_C_` company). Blank ids exist (`reporter=CTRL_P_ ` ×137, `executor= __ ` ×29 in the full history) and become `None`. Keep `reporter_*` and `executor_*` apart; `is_self` is `None` when an id is missing.
+- **Form 59 duplicates — the final rule (decided 2026-10-08), and a counterexample that looks identical.** A row is a copy when (1) **holdings** match (both rows' reports: symbol, security type, date, qty, holding before and after), or (2) the same non-blank **executor** id, a **different** non-blank reporter, and the same symbol/security type/date/qty/price/method. `duplicate_basis` is `"holdings"`, `"executor_own_row"` (rule 2 where the executor filed their own row: the spouse case, SPALI; renamed from `rule_5c` before release so an external agent can read it) or `"executor"` (rule 2 otherwise: STX, one company reported by two executives). **Rows from the same reporter are never merged by rule 2**, and rule 2 pairs one-to-one. `holding_conflict` is **`bool | None`**: True when rule 2 merged rows whose holdings differ (STX: a constant 70,000 apart; the merge stands), False when both reports are known and agree (always for basis `holdings`), **None when a report is missing and on originals — never False for "unknown"**. The counterexample: KCG 2026-09-14, the reporter's own row and his `TEMP_P_` spouse's, both 5,000 @ 9.95, are **two trades** (holdings 2,515,000 → 2,520,000 vs 910,000 → 915,000; different executors, so no rule merges them). All 28 September 2026 pairs are pinned with and without reports in `test_executive_trades.py`. CREDIT's own-plus-spouse pair (two `CTRL_P_` ids, identical holdings from 0) is a copy **only** with reports; its same-reporter double filing (165104_2_1 / 165237_3_1, holdings 220,000 vs 270,000) is never merged — so that trade counts twice, by design of the same-reporter rule; `economic_trades()`'s docstring and the service doc say so. Never drop rows.
+- **Form 59 revoked filings stay in the listing — 4.8% of all rows.** Markup: `<span style="text-decoration: line-through">82,000</span><br/>Revoked by Reporter` (English on BOTH pages). They are re-filing chains (MRDIYT filed the same trades in four batches; three revoked), so a parser that reads only the number counts one trade up to four times. `is_revoked` keeps them visible; a struck quantity without that exact note raises (format change). The detail API's `RecordStatus` (NORMAL/EFFECTED/EDITED/CANCELED) does **not** mirror the listing's flag one-to-one: CANCELED was revoked in the listing 2/2, but 3 revoked rows showed NORMAL/EFFECTED. Observed 2026-10-08: every non-NORMAL status (7) sat on a trade the same reporter had already filed in an earlier batch — amendment states (EDITED changed, CANCELED withdrawn, EFFECTED carried along; EFFECTED rows are live 2 of 4, so **not** void). `_is_void` = revoked **or** a linked CANCELED transaction; `economic_trades()` and `to_table()` skip both.
+- **Form 59: the search postback shows at most 100 rows; use the ViewMore GET — and never undated.** The postback states the true total (`จำนวนรายการที่พบ 112 รายการ`) but renders 100, with a "คลิกดูผลการค้นหาทั้งหมด" (show all results) link to `/public/idisc/{lang}/ViewMore/r59-2` — a plain GET (no 152 KB VIEWSTATE) that returned every row for every window probed (up to 7,651 dated, 91,245 undated). Its dates are **CE yyyyMMdd in both languages** (the Thai form itself takes B.E.). An **undated** ViewMore URL returns the whole database (70 MB, 42 s): `_viewmore_url` raises without both dates, by design — do not "relax" it. The 3-year limit the page mentions is not enforced (2011 rows come back).
+- **Form 59: "today" is not the site's default page.** The default GET lists what SEC *recorded into the system* today, only trades ≤ 1 month old; no form option or URL reproduces it for another day. `get_executive_trades()` defaults to the **received** date instead (2026-10-07: 27 default rows vs 21 received, 18 in common). Weekends are not empty (a Sunday had 1 receipt). Today's received set can grow intraday.
+- **Form 59 detail: the listing's transId does NOT index the report's TransactionList.** The JSON API orders transactions by date; transId seq follows entry order (PEACE batch 592000452610: 6 of 53 matched by position). `_link_details` matches on (date, qty, method, security type, price within the listing's 2-dp rounding) + reporter name, unique keys only; ~1.3% of linked rows share a key inside their batch and stay `detail=None` (`detail_unmatched`). The listing `price` is rounded (8.73 for a filed 8.7333) — the detail's `avg_price` is not. BatchNo looks like `592` + seq + yymm and matched SubmitDate on 42/42 reports, but one listing batchNo has "mm" = 33, so the pattern is **not** encoded anywhere.
 - **The SEC listing summary log is derived from the accounting, and its LEVEL is load-bearing:** `Listed 0 SEC document(s)` used to be the same sentence at the same level as a complete success, with the contradicting number already in scope three lines above. Now: a lossy parse → WARNING; a shortfall **with** `follow_view_more=True` → WARNING (the ViewMore page should have returned the section in full, so nothing is left to explain the gap); a shortfall with `follow_view_more=False` → INFO (that truncation is what the caller asked for — warning about it trains people to ignore warnings). This WARNING is not theoretical: it is what surfaced the unmapped `fs-r561`/`fs-r562` slugs (closed in 0.22.2, see above) — a downstream consumer read the shortfall out of `completeness()` and reported it.
 - **`Stock.get_latest_price()` is DR-aware by default:** for DRs it returns a `DrIndicativeQuotation` (TradingView indicative price; `volume`/`change` are `None` — it's a fair value, not a SET trade) and falls back to SET chart data on ANY TradingView failure. The switch only applies when `as_of is None` (TV can't answer historical instants); opt out per-call with `prefer_dr_indicative=False`. DR-ness is detected by one cached DR-profile probe per `Stock` instance (a 404 marks non-DR permanently for that instance; transient errors are never cached). Indicative vs SET-close divergence is EXPECTED (probe: 5.94 indicative vs 5.75 SET close after a US-session move) — not a bug.
 

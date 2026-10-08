@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **SEC Form 59 (แบบ 59): directors' and executives' trades** (`settfex.services.sec`, top-level
+  `get_executive_trades` / `get_executive_trade_report`). Three tiers for the listing
+  (`get_executive_trades`, `fetch_executive_trades`, `fetch_executive_trades_raw`) and three for the
+  report behind each row (`get_executive_trade_report`, `fetch_executive_trade_report`, `…_raw`).
+  - **Who traded vs who filed:** `reporter_name` vs `executor_name`/`executor_id`, with `is_self`.
+  - **Duplicates are marked, not dropped** (`duplicate_of`, `duplicate_basis`). A row is a copy
+    when its report's holdings match another's, or when the same trader appears under a different
+    reporter with the same trade (`executor_own_row`: the trader filed the trade themselves, the
+    spouse case; `executor`: e.g. one company reported by two executives). Rows from the same
+    reporter are never merged that way, so a same-reporter re-filing is counted twice (documented).
+    `holding_conflict` (`bool | None`) flags a trader-rule merge whose holdings disagree; it is
+    `None` when a report was not fetched. All 28 September 2026 pairs are pinned.
+  - **Revoked filings are kept and marked** (`is_revoked`), never counted; a transaction the report
+    marks `CANCELED` is void too. `economic_trades()` drops copies and void rows.
+  - **No silent truncation:** the search page shows at most 100 rows, so the service reads the
+    site's "display all results" page, and every response's stated count must equal the rows parsed,
+    or `ParseError`. The URL builder refuses to build that page without dates: undated, it is the
+    whole database (70 MB).
+  - **Fail-loud cells:** an unknown layout, a bracketed amount or an unparseable number or date
+    raises. Real absences (`-` price, an empty date, the 19% of history without a link) come back as
+    `None`.
+  - **`with_details=True`** adds holdings before and after, the unrounded average price, the trading
+    channel and broker, the counterparty and `holding_consistent`. That is one request per distinct
+    report, at most 100 per call. A failed report is recorded on `detail_failures`; a block page
+    stops everything.
+  - **Output:** `to_table()` renders the agreed Thai summary; `to_dataframe()` needs the
+    `dataframe` extra.
+  - Docs: `docs/settfex/services/sec/executive_trades.md`.
+
+### Fixed
+
+- **A Thai SEC date on a leap day was lost** (`settfex.services.sec.utils.parse_dmy_date`). The
+  Buddhist-era conversion ran *after* the date was built in the B.E. year, and 543 is 3 mod 4, so
+  a B.E. year is a Gregorian leap year exactly when its C.E. year is not. `29/02/2567`, the real
+  2024-02-29 (a Thursday), was rejected as "day out of range" and came back `None`: a Thai SEC
+  listing row received or dated that day had `receive_date` / `as_of` silently empty. The
+  impossible `29/02/2568` was accepted in 2568 and then escaped as a bare `ValueError`. The year is
+  now converted first. Malformed or impossible input still returns `None`, as documented: nothing
+  that parsed before parses differently, except the leap days that used to be lost. The Form 59
+  listing alone carries 92 such rows (55 on 29/02/2567, 37 on 29/02/2559).
+
 ## [0.25.0] - 2026-09-23
 
 The seven items the 0.25.0 backlog on #135 held, plus two defects the 2026-09-23 checklist audit on

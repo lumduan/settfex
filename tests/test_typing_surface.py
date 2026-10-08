@@ -125,6 +125,7 @@ class TestTheOverloadsExistAtRuntimeToo:
         [
             "settfex/services/sec/financial_report.py",
             "settfex/services/sec/download.py",
+            "settfex/services/sec/executive_trades.py",
         ],
     )
     def test_getitem_is_overloaded(self, module_path: str) -> None:

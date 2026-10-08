@@ -207,6 +207,7 @@ Want to dig deeper? Check out our detailed guides:
 ### SEC Services (market.sec.or.th)
 
 - **[SEC Document Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/sec/financial_report.md)** - List and download the raw disclosure documents filed with the Thai SEC (the original financial-statement Excel package, Form 56-1, Form 56-2, Key Financial Ratio, MD&A)
+- **[SEC Form 59: Executive Trades](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/sec/executive_trades.md)** - Directors' and executives' reported trades (แบบ 59), with the report behind each row: holdings before and after, unrounded price, channel and counterparty. Marks spouse duplicates and revoked filings instead of counting them
 
 ### ThaiBMA Services (www.thaibma.or.th)
 

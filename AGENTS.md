@@ -110,6 +110,8 @@ Indices: `get_index_list(lang)`, `get_index_info(symbol, lang)`,
 | resolve a company to its SEC id | `resolve_company(query, lang, allow_name_match=False)` |
 | list filings (financial statements, 56-1, 56-2, ratios, MD&A) | `get_sec_documents(query, types=..., from_date=..., to_date=...)` |
 | download the actual file(s) | `download_sec_document(target)` / `download_sec_documents(targets)` |
+| directors'/executives' trades (Form 59, แบบ 59) | `get_executive_trades(received_date=None, symbol=..., date_type=..., start=..., end=..., with_details=False)` |
+| one Form 59 report with holdings before/after | `get_executive_trade_report(batch_no)` |
 
 Dates here are **dd/mm/yyyy**. Pass a wide window to see full year history.
 
@@ -184,6 +186,69 @@ reporting a batch as done; dead links on the SEC host arrive as HTML under HTTP 
 Also a Pydantic model since 0.24.0 (`{files, failed, requested}` + computed `is_complete`), so the
 failure report survives `model_dump()` and slicing. ⚠️ `isinstance(files, list)` is `False`; use
 `files.files`.
+
+**Form 59 (executive trades) — four traps before you count anything:**
+
+- **`reporter_name` is who FILED, not who traded.** The trader is `executor_name` / `executor_id`
+  (a spouse, a minor child, a family company). `is_self` says whether they are the same.
+- **One trade can be listed twice**: by both spouses when both are executives, or by two executives
+  for one company they control. The copy has `duplicate_of`; `duplicate_basis` says why
+  (`holdings` / `executor_own_row` / `executor`). `holding_conflict` is True when the two filings
+  disagree on the holdings, False when both are known and agree, and **None when unknown** (a
+  report was not fetched) — never read None as "no conflict". Rows are never dropped.
+- **Revoked filings stay listed** (`is_revoked=True`, about 5% of rows, mostly re-filings); with
+  `with_details=True` a transaction its report marks `CANCELED` is void too.
+- So **count on `result.economic_trades()`**, which drops copies and void rows. `to_table()`
+  already skips void rows. **Known overcount:** a trade the same reporter filed twice in different
+  batches, with the first left live, is counted twice (duplicates are never merged within one
+  reporter). Example: CREDIT 2026-09-28, 10,000 shares, rows 165104_2_1 and 165237_3_1.
+
+With no arguments `get_executive_trades()` returns what SEC **received today**, which is not the
+site's default page (that one shows what was *recorded* today), and today's set can still grow.
+The listing `price` is rounded to 2 dp; `with_details=True` (at most 100 reports per call) adds
+`detail.avg_price` at full precision and the holdings. A page whose stated count differs from its
+rows raises `ParseError`, so a result you receive is complete. A method label the library does not
+know shows `side="other"` and is counted on `result.unknown_labels`.
+
+**Form 59 recipes — question → call → what to read:**
+
+| Question | Call | Read |
+|---|---|---|
+| Which executives reported trades today? | `get_executive_trades()` | `.economic_trades()`; `.to_table()` for a ready Thai summary |
+| Did insiders of X buy or sell recently? | `get_executive_trades(symbol="X", date_type="transaction", start="YYYY-MM-DD", end="YYYY-MM-DD")` | `side` and `quantity` of each row in `.economic_trades()` |
+| What did the executive hold after the trade? | add `with_details=True`, or `get_executive_trade_report(row.batch_no)` | `row.detail.holding_before` / `holding_after` |
+| The exact average price | `with_details=True` | `row.detail.avg_price` (the listing's `price` is rounded to 2 dp) |
+| On-exchange or off? Who received a transfer? | `with_details=True` | `row.detail.market_source`, `row.detail.counterparty` |
+
+Dates here are **ISO `YYYY-MM-DD`** strings or `date` objects. This is unlike `get_sec_documents`,
+which takes dd/mm/yyyy. Keep windows to what the question needs: anything over 366 days is fetched
+in several requests, and `with_details=True` sends one request per report, at most 100.
+
+```python
+from settfex.services.sec import get_executive_trades
+
+result = await get_executive_trades(symbol="PANEL", date_type="transaction",
+                                    start="2026-09-01", end="2026-09-30")
+trades = result.economic_trades()             # copies and revoked/cancelled filings removed
+bought = sum(t.quantity for t in trades if t.side == "buy" and t.security_type == "หุ้นสามัญ")
+sold = sum(t.quantity for t in trades if t.side == "sell" and t.security_type == "หุ้นสามัญ")
+```
+
+Before you state a number from Form 59:
+- **Count only `economic_trades()`.**
+- **Never add quantities across security types**: shares, warrants and NVDRs are different
+  instruments. Filter on `security_type`.
+- **`transfer_in` / `transfer_out` are not market trades** (gifts to children, depositary moves).
+  Report them separately.
+- **Name the window and the date type** (received vs transaction), and say the count may include
+  the known same-reporter re-filing overcount.
+- **Read `holding_conflict is None` as "unknown"**, not as "no conflict".
+- **With `with_details=True`, check `result.detail_failures` is empty** before relying on
+  holdings. Rows of a failed report keep `detail=None`.
+
+As JSON (`result.model_dump(mode="json")`), the completeness fields travel with the rows:
+`reported_count`, `revoked_count`, `duplicate_count`, `unknown_labels`, `detail_unmatched` and
+`detail_failures`.
 
 ### ThaiBMA bonds — `from settfex.services.thaibma import ...`
 

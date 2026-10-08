@@ -50,6 +50,10 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from settfex.services.sec import get_sec_documents
+from settfex.services.sec.executive_trades import (
+    get_executive_trade_report,
+    get_executive_trades,
+)
 from settfex.services.set import (
     get_highlight_data,
     get_holidays,
@@ -207,6 +211,40 @@ async def test_live_sec_listing_parses_cleanly(lang: str):
         documents=len(docs),
         completeness=docs.completeness(),
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lang", ["th", "en"])
+async def test_live_sec_executive_trades(lang: str):
+    """Form 59: one past received day (complete, so stable) plus today's (may be empty).
+
+    The parser refuses a page whose stated count differs from its rows, an unknown column
+    layout and any cell it cannot read, so "it returned" already means "nothing was lost". The
+    vocabulary check is the one thing that cannot raise: a new method or security-type label
+    maps to side 'other' and is only counted, so this is where it surfaces. 2 requests per run.
+    """
+    t0 = time.perf_counter()
+    day = await get_executive_trades("2026-10-02", lang=lang, config=ONE_ATTEMPT)
+    today = await get_executive_trades(lang=lang, config=ONE_ATTEMPT)
+    elapsed = time.perf_counter() - t0
+
+    assert len(day) == day.reported_count >= 100, "2026-10-02 held 112 rows when probed"
+    assert len(today) == today.reported_count
+    assert day.unknown_labels == {"method": {}, "security_type": {}}, day.unknown_labels
+    _record(f"sec_executive_trades_{lang}", day, elapsed, lang=lang, today=len(today))
+
+
+@pytest.mark.asyncio
+async def test_live_sec_executive_trade_report():
+    """The human-verified DTCENT report (BatchNo 592001352610). 1 request."""
+    t0 = time.perf_counter()
+    report = await get_executive_trade_report("592001352610", config=ONE_ATTEMPT)
+    elapsed = time.perf_counter() - t0
+    [tx] = report.transactions
+    assert (tx.holding_before, tx.quantity, tx.holding_after) == (31_744_180, 30_300, 31_774_480)
+    assert str(tx.avg_price) == "0.92" and tx.method == "ซื้อ"
+    assert tx.holding_consistent
+    _record("sec_executive_trade_report", report, elapsed)
 
 
 @pytest.mark.asyncio

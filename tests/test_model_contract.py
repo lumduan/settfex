@@ -41,6 +41,8 @@ REGISTRY: dict[str, str] = {
     "index_list_response": "settfex.services.set.index.list.IndexListResponse",
     "news_search_response": "settfex.services.set.news.NewsSearchResponse",
     "sec_company_match": "settfex.services.sec.company.CompanyMatch",
+    "sec_executive_trade": "settfex.services.sec.executive_trades.ExecutiveTrade",
+    "sec_executive_trade_report": "settfex.services.sec.executive_trades.ExecutiveTradeReport",
     "stock_info": "settfex.services.set.stock.info.StockInfo",
     "stock_list_response": "settfex.services.set.list.StockListResponse",
     "tfex_series_list_response": "settfex.services.tfex.list.TFEXSeriesListResponse",

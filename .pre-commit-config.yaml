@@ -21,11 +21,12 @@ repos:
       # The SEC listing fixtures are response bodies captured VERBATIM -- byte ranges of what the
       # server sent, with their sha256 recorded in fixtures_sec/README.md. These two hooks rewrite
       # a file's trailing bytes, which would break both the byte-exactness and those hashes. The
-      # live pages genuinely end without a newline; that is data, not untidiness.
+      # live pages genuinely end without a newline; that is data, not untidiness. The Form 59
+      # detail fixtures (r59/*.json) are verbatim API bodies on the same terms.
       - id: trailing-whitespace
-        exclude: ^tests/services/sec/fixtures_sec/.*\.html$
+        exclude: ^tests/services/sec/fixtures_sec/.*\.(html|json)$
       - id: end-of-file-fixer
-        exclude: ^tests/services/sec/fixtures_sec/.*\.html$
+        exclude: ^tests/services/sec/fixtures_sec/.*\.(html|json)$
       - id: check-yaml
       - id: check-toml
       - id: check-added-large-files

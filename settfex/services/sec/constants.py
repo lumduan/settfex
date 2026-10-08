@@ -78,3 +78,23 @@ SEC_VIEWMORE_DATE_FORMAT = "%Y%m%d"
 # Result-panel container id and the Thai "file not found" soft-404 marker (HTTP 200 + text/html).
 SEC_RESULT_PANEL_ID = "ctl00_CPH_pnlControl"
 SEC_FILE_NOT_FOUND_MARKER = "ไม่พบไฟล์ที่ระบุ"
+
+# --- Form 59 (แบบ 59): directors' and executives' changes in holdings ---------------------------
+# Live-probed 2026-10-07 (settfex Form 59 GATE A). The search page answers a postback with at most
+# 100 rows; the "display all results" link (ViewMore/r59-2) is a plain GET that returned every row
+# for every window probed (up to 91,245). Its dates are CE yyyyMMdd in BOTH languages.
+SEC_R59_PAGE_ENDPOINT = "/public/idisc/{lang}/r59"
+SEC_R59_VIEWMORE_ENDPOINT = "/public/idisc/{lang}/ViewMore/r59-2"
+# The detail ("Link") page is a JavaScript shell; its data is this JSON POST, keyed by BatchNo.
+SEC_R59_REPORT_API_ENDPOINT = "/r59/publicapi/report"
+SEC_R59_REPORT_PAGE_ENDPOINT = "/r59/{lang}/report"
+# DateType query values: 1 = transaction date (วันที่ได้มา/จำหน่าย), 2 = SEC received date
+# (วันที่ สนง.รับเอกสาร).
+SEC_R59_DATE_TYPES: dict[str, str] = {"transaction": "1", "received": "2"}
+SEC_R59_TABLE_ID = "gPP09T01"
+# Longest window one ViewMore GET is asked for (a 12-month all-company page: 7,651 rows, 6.2 MB).
+SEC_R59_MAX_WINDOW_DAYS = 366
+# Hard cap on detail POSTs one get_executive_trades(with_details=True) call sends (one per batch).
+SEC_R59_MAX_DETAIL_BATCHES = 100
+# The text a revoked row carries under its struck-through quantity -- in English on BOTH pages.
+SEC_R59_REVOKED_MARKER = "Revoked by Reporter"
