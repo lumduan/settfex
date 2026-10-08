@@ -746,16 +746,16 @@ class TestUnknownSymbolsAreNotUncoveredOnes:
         assert not isinstance(excinfo.value, SymbolNotFoundError)
         assert asked == [], "the whole-market call must not even ask"
 
-    async def test_an_empty_summary_for_an_unlisted_symbol_warns(
+    async def test_an_empty_summary_for_an_unlisted_symbol_raises(
         self, mock_fetcher, listing
     ) -> None:
-        """Success -> raise is a return-semantics change, so 0.25.0 warns and 0.26.0 raises."""
+        """0.25.0 warned (consensus-overall-unknown-symbol); 0.26.0 makes the promised change."""
         listing(False)
         mock_fetcher.fetch.return_value = _response(SAMPLE_OVERALL_EMPTY)
-        with pytest.warns(DeprecationWarning, match="consensus-overall-unknown-symbol") as record:
-            response = await get_consensus_overall("NOSUCH")
-        assert response.count == 0, "the answer itself is unchanged until 0.26.0"
-        assert record[0].filename == __file__, "attributed to the caller, not to settfex"
+        with pytest.raises(SymbolNotFoundError) as excinfo:
+            await get_consensus_overall("nosuch")
+        assert excinfo.value.symbol == "NOSUCH" and excinfo.value.status_code == 200
+        assert isinstance(excinfo.value, NotFoundError) and isinstance(excinfo.value, FetchError)
 
     async def test_an_empty_summary_for_a_listed_symbol_is_silent(
         self, mock_fetcher, listing

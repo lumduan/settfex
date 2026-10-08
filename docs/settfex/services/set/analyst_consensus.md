@@ -285,7 +285,7 @@ df["last_update_date"] = pd.to_datetime(df["last_update_date"], utc=True)
 | Symbol is **not listed on SET** (a typo) | **`SymbolNotFoundError`** (0.25.0) with `status_code=500` and a `.suggestion` | Catch **`NotFoundError`** first and fix the input — never retry it. Told apart from "no coverage" by the SET stock list, loaded once per event loop |
 | Listed symbol with no consensus record | **`FetchError`** with `status_code=500` | Catch `FetchError`; 500 is Settrade's "no record", *not* a 404 — and it fires for valid SET stocks, DRs and warrants alike |
 | Listed stock nobody covers | HTTP 200, `count == 0`, aggregates all `0.0` | Check **`has_coverage`** before using the aggregates — those zeros are placeholders |
-| Unknown symbol on the summary endpoint | HTTP 200 with an empty list — plus a **`DeprecationWarning`** since 0.25.0 when the symbol is not listed; **0.26.0 raises `SymbolNotFoundError`** | Check `count`, or use `.get(symbol)` which returns `None`; wrap the call in `except NotFoundError` to be ready for 0.26.0 |
+| Unknown symbol on the summary endpoint | Since 0.26.0, **`SymbolNotFoundError`** when the SET stock list says the symbol is not listed (0.25.0 warned and returned an empty list). Settrade itself answers HTTP 200 with an empty list either way | Catch `NotFoundError` and do not retry; `count == 0` means a listed symbol without coverage |
 | Blocked (HTTP 403) | `FetchError` mentioning bot protection | Usually transient; `SessionManager` re-warms and retries once |
 | `ImportError` from a DataFrame method | pandas is not installed | `pip install "settfex[dataframe]"` |
 | Empty symbol | `InvalidSymbolError` | Raised before any request is made |

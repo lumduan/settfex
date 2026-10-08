@@ -293,7 +293,7 @@ being wrong, so none of them will announce itself.
 |---|---|
 | **Analyst consensus answers an uncovered symbol with HTTP 500, not 404** — and "uncovered" includes perfectly valid SET stocks (`ABICO`), DRs (`GOOG80`) and warrants (`JAS-W4`) | catch **`NotFoundError` first**: since 0.25.0 a symbol that is not listed on SET raises `SymbolNotFoundError` (with `.suggestion`). What still arrives as a plain `FetchError(500)` is a listed symbol with no coverage — report "no analyst coverage", and **do not** retry it as a typo |
 | **The DR-profile endpoint 404s for every non-DR symbol**, including `CPALL` | a 404 here means "not a DR", not "unknown symbol" |
-| **The consensus summary endpoint fails silently**: an unknown symbol is HTTP 200 with `overall: []` — since 0.25.0 with a `DeprecationWarning`; **0.26.0 raises `SymbolNotFoundError`** | check `.count`, or use `.get(symbol)` which returns `None`; wrap it in `except NotFoundError` now |
+| **The consensus summary cannot tell "unknown" from "uncovered" by itself**: both are HTTP 200 with `overall: []`. Since 0.26.0 an unlisted symbol raises `SymbolNotFoundError` | catch `NotFoundError` (do not retry); `count == 0` now means a listed symbol with no analyst coverage |
 | **The holiday endpoint returns HTTP 401 for any year but the current one** — and transiently on valid requests too | do not treat 401 as auth failure; there is no auth |
 
 ### Values that are placeholders, not data
