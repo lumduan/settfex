@@ -55,7 +55,7 @@ jobs:
       - uses: actions/checkout@v7
 
       # setup-uv stopped publishing floating major tags at v8 — pin the exact version.
-      - uses: astral-sh/setup-uv@v10.1.0
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
           # Pinned by hand like every other setup-uv step; the monthly drift report checks them all.
           version: "0.12.17"
