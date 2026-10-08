@@ -33,34 +33,45 @@ relationship cell and identified by the row link's `executor` id.
 | `is_self` | `reporter_id == executor_id`; `None` when an id is missing |
 
 **2. One trade can appear twice.** When both spouses are executives of the same company, both
-report the trade, so the listing shows it once per reporter (the site's own footnote says so).
-Such a row gets `duplicate_of` = the `trans_id` of the original; rows are never dropped.
+report the trade, so the listing shows it once per reporter (the site's own footnote says so). The
+same happens when two executives report one company they both control. The copy gets
+`duplicate_of` = the `trans_id` of the original, and `duplicate_basis` says which rule marked it.
+Rows are never dropped.
 
-- With `with_details=True`, holdings decide: the same symbol, security type, date, quantity,
-  holding before and holding after is one trade.
-- Without details, a narrow rule decides. A row is a copy when its executor is a `CTRL_P_` person
-  other than its reporter, and that person's **own** row shows the same trade.
+A row is a copy when either rule holds:
+
+| `duplicate_basis` | Rule |
+|---|---|
+| `"holdings"` | both rows have their report (`with_details=True`) and show the same symbol, security type, date, quantity, holding before and holding after |
+| `"rule_5c"` | the same trader (`executor_id`), a **different** reporter, the same symbol, security type, date, quantity, price and method, **and** the trader filed the trade as their own row (the spouse case) |
+| `"executor"` | the same as `rule_5c`, but the trader filed no row of their own, e.g. a company two executives control |
+
+- Rows from the **same reporter** are never merged by the trader rules.
+- Rows pair one-to-one, so two identical trades reported by two people stay two trades.
+- When the trader rules merge two rows whose reports show **different** holdings, the merge stands
+  and `holding_conflict=True` flags the inconsistent filing.
 
 A related-person row is **not** always a copy. On 2026-09-14 a KCG executive and his spouse each
 bought 5,000 at 9.95, and the reports show two different holdings: 2,515,000 → 2,520,000 for him,
-910,000 → 915,000 for her.
+910,000 → 915,000 for her. Different traders, so no rule merges them.
 
-Checked against holdings for every September 2026 pair (28 pairs), the listing rule agreed on 26.
+Every September 2026 pair (28), with and without reports, is pinned in a test:
 
-| Case | Holdings | Listing rule | Result |
-|---|---|---|---|
-| SPALI, both spouses executives (11 pairs) | identical | copy | copy |
-| KCG, spouse without an executive id (7) | different | separate | separate |
-| CREDIT, reporter and spouse both `CTRL_P_` (2) | identical, from 0 | separate | **copy with details, separate without** |
-| CREDIT, one reporter's two filings (1) | different | separate | separate |
-| STX, two reporters, one company executor (7) | 70,000 apart | separate | separate (probably one trade, filed inconsistently) |
+| Case | With reports | Without reports |
+|---|---|---|
+| SPALI, both spouses executives (11) | copy, `holdings` | copy, `rule_5c` |
+| KCG, spouse without an executive id (7) | separate | separate |
+| CREDIT, one executive's own row and his spouse's, identical holdings from 0 (2) | copy, `holdings` | separate |
+| CREDIT, one reporter's two filings of one trade (1) | separate (same reporter) | separate |
+| STX, one company, two reporters, holdings 70,000 apart (7) | copy, `executor`, `holding_conflict` | copy, `executor` |
 
 **3. Revoked filings stay listed.** A filing the reporter withdrew shows its quantity struck through,
 with `Revoked by Reporter`. On 2026-10-07 that was 4,366 of 91,245 rows, mostly re-filings: the same
 trades submitted again in a later batch, so one trade can appear up to four times, three of them
-revoked. Such rows carry `is_revoked=True` and keep the struck quantity.
+revoked. Such rows carry `is_revoked=True` and keep the struck quantity. A row whose report marks
+its transaction `CANCELED` is void as well (`with_details=True`).
 
-`economic_trades()` drops both revoked rows and copies. Count trades on it, never on the raw list.
+`economic_trades()` drops void rows and copies. Count trades on it, never on the raw list.
 
 ## Dates: received vs transaction, and why "today" is not the site's default page
 
@@ -133,7 +144,7 @@ transaction in that filing (PEACE: 53).
 | `method`, `side` | finer than the listing, e.g. `โอน (โอนให้บุตร)` (transfer to a child) |
 | `market_source` | channel and broker, e.g. `ทำรายการผ่านตลาดหลักทรัพย์ (Auto Matching) (…)` (on-exchange) or `ทำรายการนอกตลาดหลักทรัพย์ (…)` (off-exchange) |
 | `counterparty` | the purchaser or transferee as filed |
-| `record_status` | `NORMAL`, `EFFECTED`, `EDITED`, `CANCELED`; it does not mirror the listing's revoked flag one-to-one |
+| `record_status` | `NORMAL`, `EFFECTED`, `EDITED`, `CANCELED`. Observed 2026-10-08 (7 non-NORMAL transactions): every non-NORMAL status sat on a trade the same reporter had already filed in an earlier batch, so they read as amendment states: EDITED re-filed with a change, CANCELED withdrawn, EFFECTED carried along. **CANCELED makes the row void**; EFFECTED does not (2 of 4 are live in the listing). CANCELED was always revoked in the listing too (2 of 2), but 3 revoked rows showed NORMAL/EFFECTED, so the two signals are not one-to-one |
 | `holding_consistent` | before ± quantity == after; a mismatch is flagged, never raised |
 | `trans_id` | the listing row it was linked to |
 
@@ -145,8 +156,10 @@ How the enrichment behaves:
   batch fails, the call raises. A block page stops everything at once.
 - **Linking is by unique match only.** The API carries no transaction id and orders by date, so a
   row is matched on date, quantity, method, security type and price (within the listing's
-  rounding), plus the reporter's name. A key that repeats inside a batch is left unmatched rather
-  than guessed. That was 1.3% of linked rows on 2026-10-07; the count is on `detail_unmatched`.
+  rounding), plus the reporter's name. A key that repeats inside a batch links only when its detail
+  transactions are identical in every field, so any pairing attaches the same data. Otherwise the
+  row is left unmatched rather than guessed (about 1.3% of linked rows on 2026-10-07); the count is
+  on `detail_unmatched`.
 
 ## Output
 

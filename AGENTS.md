@@ -191,11 +191,14 @@ failure report survives `model_dump()` and slicing. ⚠️ `isinstance(files, li
 
 - **`reporter_name` is who FILED, not who traded.** The trader is `executor_name` / `executor_id`
   (a spouse, a minor child, a family company). `is_self` says whether they are the same.
-- **One trade can be listed twice** when both spouses are executives: the copy has `duplicate_of`.
-  Rows are never dropped.
-- **Revoked filings stay listed** (`is_revoked=True`, about 5% of rows, mostly re-filings).
-- So **count on `result.economic_trades()`**, which drops both. `to_table()` already skips revoked
-  rows.
+- **One trade can be listed twice**: by both spouses when both are executives, or by two executives
+  for one company they control. The copy has `duplicate_of`; `duplicate_basis` says why
+  (`holdings` / `rule_5c` / `executor`), and `holding_conflict=True` means the two filings disagree
+  on the holdings. Rows are never dropped.
+- **Revoked filings stay listed** (`is_revoked=True`, about 5% of rows, mostly re-filings); with
+  `with_details=True` a transaction its report marks `CANCELED` is void too.
+- So **count on `result.economic_trades()`**, which drops copies and void rows. `to_table()`
+  already skips void rows.
 
 With no arguments `get_executive_trades()` returns what SEC **received today**, which is not the
 site's default page (that one shows what was *recorded* today), and today's set can still grow.

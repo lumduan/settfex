@@ -14,11 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`get_executive_trades`, `fetch_executive_trades`, `fetch_executive_trades_raw`) and three for the
   report behind each row (`get_executive_trade_report`, `fetch_executive_trade_report`, `…_raw`).
   - **Who traded vs who filed:** `reporter_name` vs `executor_name`/`executor_id`, with `is_self`.
-  - **Spouse duplicates are marked, not dropped** (`duplicate_of`). With details they are decided
-    by holdings; otherwise by a narrow spouse rule, checked against holdings on all 28 September 2026
-    pairs (26 agree).
-  - **Revoked filings are kept and marked** (`is_revoked`), never counted. `economic_trades()`
-    drops both kinds.
+  - **Duplicates are marked, not dropped** (`duplicate_of`, `duplicate_basis`). A row is a copy
+    when its report's holdings match another's, or when the same trader appears under a different
+    reporter with the same trade (`rule_5c`: the spouse case; `executor`: e.g. one company reported
+    by two executives). Rows from the same reporter are never merged that way. A trader-rule merge
+    whose holdings disagree is flagged `holding_conflict`. All 28 September 2026 pairs are pinned.
+  - **Revoked filings are kept and marked** (`is_revoked`), never counted; a transaction the report
+    marks `CANCELED` is void too. `economic_trades()` drops copies and void rows.
   - **No silent truncation:** the search page shows at most 100 rows, so the service reads the
     site's "display all results" page, and every response's stated count must equal the rows parsed,
     or `ParseError`. The URL builder refuses to build that page without dates: undated, it is the
