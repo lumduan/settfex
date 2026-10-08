@@ -64,5 +64,13 @@ jobs:
       # Non-blocking: surfaces dependency CVEs for triage without blocking PRs.
       # Some advisories are transitive or not-yet-fixed upstream (e.g. no fix
       # released), so review results and bump deps in a dedicated PR.
-      - run: uv run pip-audit --desc
+      #
+      # PYSEC-2026-2447 (CVE-2025-69872, diskcache pickle) is ignored BY ID, deliberately: no fixed
+      # release exists (upstream is dormant; 5.6.3 is its last release), settfex mitigates it by
+      # creating the cache dir 0700 and tightening it in place (_secure_cache_dir, CLAUDE.md), and
+      # the monthly drift report already carries it as a standing note. Without this ignore the
+      # step exited 1 on every run, so a NEW advisory was indistinguishable from the known one.
+      # If diskcache ever ships a fix, Dependabot / the drift report surface the new version: drop
+      # this flag then.
+      - run: uv run pip-audit --desc --ignore-vuln PYSEC-2026-2447
         continue-on-error: true
