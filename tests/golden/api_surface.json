@@ -1504,7 +1504,7 @@
             },
             "duplicate_basis": {
               "alias": null,
-              "annotation": "Optional[Literal['holdings', 'executor', 'rule_5c']]",
+              "annotation": "Optional[Literal['holdings', 'executor', 'executor_own_row']]",
               "default": "None",
               "required": false
             },
@@ -1526,8 +1526,8 @@
             },
             "holding_conflict": {
               "alias": null,
-              "annotation": "bool",
-              "default": "False",
+              "annotation": "bool | None",
+              "default": "None",
               "required": false
             },
             "is_revoked": {

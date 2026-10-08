@@ -99,7 +99,7 @@ BANGKOK = ZoneInfo("Asia/Bangkok")
 
 DateType = Literal["received", "transaction"]
 Side = Literal["buy", "sell", "transfer_in", "transfer_out", "other"]
-DuplicateBasis = Literal["holdings", "executor", "rule_5c"]
+DuplicateBasis = Literal["holdings", "executor", "executor_own_row"]
 
 # --- Vocabulary (harvested from the full listing, 91,245 Thai rows, 2026-10-07) -------------------
 # The method vocabulary is OPEN: ten Thai labels over the full history, four in the last year, and
@@ -394,15 +394,18 @@ class ExecutiveTrade(BaseModel):
     duplicate_basis: DuplicateBasis | None = Field(
         default=None,
         description="Which rule marked the copy. 'holdings': both rows' reports show the same "
-        "holding before and after. 'rule_5c': the trader is an executive who filed the same "
-        "trade as their own row (the spouse case). 'executor': another executive filed the same "
-        "trade for the same trader, e.g. a company two executives control. None for an original.",
+        "holding before and after. 'executor_own_row': the same trader under a different "
+        "reporter, and the trader (an executive) filed the trade as their own row, which is the "
+        "original (the spouse case). 'executor': the same trader under a different reporter, the "
+        "trader filed no row of their own, e.g. a company two executives control. None for an "
+        "original.",
     )
-    holding_conflict: bool = Field(
-        default=False,
-        description="True when the executor or 5c rule merged two rows whose reports show "
-        "DIFFERENT holdings for the same trader (one of the filings is inconsistent). False when "
-        "they agree or when holdings are not known (no detail).",
+    holding_conflict: bool | None = Field(
+        default=None,
+        description="Only on a copy. True: the two rows' reports show DIFFERENT holdings for the "
+        "same trader (one filing is inconsistent; the merge stands). False: both reports are known "
+        "and agree (always False for basis 'holdings'). None: an original, or a copy whose "
+        "holdings are unknown because a report was not fetched. Never False for 'unknown'.",
     )
     detail: ExecutiveTradeDetail | None = Field(
         default=None,
@@ -508,7 +511,14 @@ class ExecutiveTradeList(BaseModel):
         return sum(1 for t in self.items if t.batch_no and t.detail is None)
 
     def economic_trades(self) -> ExecutiveTradeList:
-        """The rows that are trades: not void (revoked, or CANCELED in its report), not a copy."""
+        """The rows that are trades: not void (revoked, or CANCELED in its report), not a copy.
+
+        Known overcount: a trade one reporter filed twice in different batches, the original left
+        live, is counted twice. The duplicate rules never merge rows from the same reporter, so
+        the re-filing survives. Example: CREDIT 2026-09-28, 10,000 shares, filed as 165104_2_1
+        (holdings 220,000 -> 230,000) and again as 165237_3_1 (270,000 -> 280,000, EFFECTED in its
+        report).
+        """
         return self._with_items(
             [t for t in self.items if not _is_void(t) and t.duplicate_of is None]
         )
@@ -936,10 +946,12 @@ def _mark_duplicates(items: list[ExecutiveTrade]) -> None:
     2. **Executor**: the same non-blank executor id, a DIFFERENT non-blank reporter, and the same
        symbol, security type, date, quantity, price and method. Rows from the same reporter are
        never merged by this rule. The copy points at the executor's own row when the executor filed
-       one (basis ``"rule_5c"``, the spouse case the site's footnote describes), otherwise at the
-       rows of the reporter with the lowest trans_id (basis ``"executor"``). Rows pair one-to-one,
-       so two genuine identical trades reported by two people stay two trades. When both rows have
-       reports and their holdings differ, the merge stands and ``holding_conflict`` is set.
+       one (basis ``"executor_own_row"``, the spouse case the site's footnote describes),
+       otherwise at the rows of the reporter with the lowest trans_id (basis ``"executor"``).
+       Rows pair one-to-one, so two genuine identical trades reported by two people stay two
+       trades. When both rows have reports and their holdings differ, the merge stands and
+       ``holding_conflict`` is True; it is None when either report is unknown, and False only
+       when both are known and agree.
 
     Decided 2026-10-08 from all 28 September 2026 pairs checked against holdings:
 
@@ -971,6 +983,7 @@ def _mark_duplicates(items: list[ExecutiveTrade]) -> None:
         for m in members:
             if m is not canon:
                 m.duplicate_of, m.duplicate_basis = canon.trans_id, "holdings"
+                m.holding_conflict = False  # the rule itself says the holdings agree
 
     by_trade: dict[tuple[Any, ...], list[ExecutiveTrade]] = defaultdict(list)
     for t in sorted(live, key=tid):
@@ -986,7 +999,7 @@ def _mark_duplicates(items: list[ExecutiveTrade]) -> None:
         executor = members[0].executor_id or ""
         basis: DuplicateBasis
         if executor in by_reporter:
-            canon_reporter, basis = executor, "rule_5c"
+            canon_reporter, basis = executor, "executor_own_row"
         else:
             canon_reporter = min(by_reporter, key=lambda r: tid(by_reporter[r][0]))
             basis = "executor"
@@ -997,12 +1010,13 @@ def _mark_duplicates(items: list[ExecutiveTrade]) -> None:
             for row, twin in zip(rows, canon_rows, strict=False):
                 row.duplicate_of = twin.trans_id
                 row.duplicate_basis = basis
-                row.holding_conflict = (
-                    row.detail is not None
-                    and twin.detail is not None
-                    and (row.detail.holding_before, row.detail.holding_after)
-                    != (twin.detail.holding_before, twin.detail.holding_after)
-                )
+                if row.detail is None or twin.detail is None:
+                    row.holding_conflict = None  # unknown, never False
+                else:
+                    row.holding_conflict = (
+                        row.detail.holding_before,
+                        row.detail.holding_after,
+                    ) != (twin.detail.holding_before, twin.detail.holding_after)
 
 
 # ==================================================================================================

@@ -135,7 +135,9 @@ PAIR_BATCHES = [
 ]  # fmt: skip
 
 # The pinned outcome of every September 2026 pair: copy -> (original, basis, holding_conflict).
-# Rows not listed are originals. Decided 2026-10-08 (see _mark_duplicates).
+# Rows not listed are originals: (None, None, None). holding_conflict is None whenever a report is
+# missing, never False for "unknown". Decided 2026-10-08 (see _mark_duplicates).
+ORIGINAL = (None, None, None)
 SPALI_COPIES = {
     "164748_2_1": "164747_2_1", "164748_2_2": "164747_2_2", "164843_2_1": "164845_2_1",
     "164938_2_1": "164939_2_1", "164938_2_2": "164939_2_2", "164974_2_1": "164975_2_1",
@@ -159,8 +161,8 @@ WITH_DETAILS = {
     **{c: (o, "executor", True) for c, o in STX_COPIES.items()},
 }
 WITHOUT_DETAILS = {
-    **{c: (o, "rule_5c", False) for c, o in SPALI_COPIES.items()},
-    **{c: (o, "executor", False) for c, o in STX_COPIES.items()},
+    **{c: (o, "executor_own_row", None) for c, o in SPALI_COPIES.items()},
+    **{c: (o, "executor", None) for c, o in STX_COPIES.items()},
 }
 
 
@@ -679,7 +681,7 @@ class TestWithDetails:
         assert all(t.detail.trans_id == t.trans_id for t in linked if t.detail)
         assert result.duplicate_count == 12
         bases = {t.duplicate_basis for t in result if t.duplicate_of}
-        assert bases == {"holdings", "rule_5c"}  # holdings where both reports came, 5c where not
+        assert bases == {"holdings", "executor_own_row"}  # holdings where both reports came
         copy = next(t for t in result if t.trans_id == "165100_2_1")
         assert (copy.duplicate_of, copy.duplicate_basis) == ("165102_2_1", "holdings")
         assert copy.detail is not None and copy.detail.holding_before == 701_197_455
@@ -698,21 +700,21 @@ class TestWithDetails:
             t.trans_id: (t.duplicate_of, t.duplicate_basis, t.holding_conflict) for t in result
         }
         for trans_id, got in outcome.items():
-            assert got == WITH_DETAILS.get(trans_id, (None, None, False)), trans_id
-        assert outcome["165104_2_1"] == outcome["165237_3_1"] == (None, None, False)
-        assert all(outcome[t] == (None, None, False) for t in KCG_ROWS)
+            assert got == WITH_DETAILS.get(trans_id, ORIGINAL), trans_id
+        assert outcome["165104_2_1"] == outcome["165237_3_1"] == ORIGINAL
+        assert all(outcome[t] == ORIGINAL for t in KCG_ROWS)
         stx = next(t for t in result if t.trans_id == "164899_2_1")
         assert stx.detail is not None and stx.detail.holding_before == 37_900_050
         assert result.duplicate_count == 20
 
     def test_all_28_september_pairs_without_details(self) -> None:
-        """Without reports: SPALI by the 5c shape, STX by executor, CREDIT and KCG separate."""
+        """Without reports: SPALI by executor_own_row, STX by executor, conflict unknown (None)."""
         items = parse("th_sep_pairs.html")
         outcome = {
             t.trans_id: (t.duplicate_of, t.duplicate_basis, t.holding_conflict) for t in items
         }
         for trans_id, got in outcome.items():
-            assert got == WITHOUT_DETAILS.get(trans_id, (None, None, False)), trans_id
+            assert got == WITHOUT_DETAILS.get(trans_id, ORIGINAL), trans_id
         assert sum(t.duplicate_of is not None for t in items) == 18
 
     @pytest.mark.asyncio
@@ -973,7 +975,7 @@ class TestRemainingBranches:
         assert result.unknown_labels["method"] == {"ซื้อพิเศษ": 1}
         assert "outside the known vocabulary" in warn.call_args.args[0]
 
-    def test_the_5c_shape_with_conflicting_holdings_is_merged_and_flagged(self) -> None:
+    def test_the_own_row_shape_with_conflicting_holdings_is_merged_and_flagged(self) -> None:
         """The executor's own row and another reporter's, holdings different: merged, flagged."""
         detail = {
             "holder_label": "x", "executor": "x", "security_type": "หุ้นสามัญ",
@@ -991,7 +993,7 @@ class TestRemainingBranches:
         et._mark_duplicates([copy, own])
         assert (copy.duplicate_of, copy.duplicate_basis, copy.holding_conflict) == (
             "b",
-            "rule_5c",
+            "executor_own_row",
             True,
         )
 
@@ -1021,3 +1023,38 @@ class TestRemainingBranches:
         ]
         et._mark_duplicates(blank)
         assert [t.duplicate_of for t in blank] == [None, None]
+
+
+class TestHoldingConflictIsNeverFalseForUnknown:
+    """holding_conflict: True / False only when both reports are known; None otherwise."""
+
+    def _detail(self, before: int, after: int) -> ExecutiveTradeDetail:
+        return ExecutiveTradeDetail(
+            holder_label="x", executor="x", security_type="หุ้นสามัญ",
+            transaction_date=date(2026, 9, 30), holding_before=before, quantity=1,
+            avg_price=Decimal("1.00"), holding_after=after, method="ซื้อ", side="buy",
+            market_source="m", counterparty=None, record_status="NORMAL",
+        )  # fmt: skip
+
+    def _pair(self, copy_detail: Any, own_detail: Any) -> tuple[ExecutiveTrade, ExecutiveTrade]:
+        copy = _trade(trans_id="a", reporter_id="CTRL_P_2", executor_id="TEMP_C_1", is_self=False,
+                      detail=copy_detail)  # fmt: skip
+        other = _trade(trans_id="b", reporter_id="CTRL_P_3", executor_id="TEMP_C_1", is_self=False,
+                       detail=own_detail)  # fmt: skip
+        et._mark_duplicates([copy, other])
+        return copy, other
+
+    def test_one_report_missing_is_unknown(self) -> None:
+        copy, other = self._pair(None, self._detail(5, 6))
+        merged = copy if copy.duplicate_of else other
+        assert merged.duplicate_basis == "executor" and merged.holding_conflict is None
+
+    def test_both_reports_agreeing_is_false_but_they_merge_by_holdings(self) -> None:
+        copy, other = self._pair(self._detail(5, 6), self._detail(5, 6))
+        merged = copy if copy.duplicate_of else other
+        assert merged.duplicate_basis == "holdings" and merged.holding_conflict is False
+
+    def test_an_original_is_none(self) -> None:
+        copy, other = self._pair(self._detail(0, 1), self._detail(5, 6))
+        original = other if copy.duplicate_of else copy
+        assert original.duplicate_of is None and original.holding_conflict is None
