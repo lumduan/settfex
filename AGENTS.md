@@ -193,12 +193,15 @@ failure report survives `model_dump()` and slicing. ⚠️ `isinstance(files, li
   (a spouse, a minor child, a family company). `is_self` says whether they are the same.
 - **One trade can be listed twice**: by both spouses when both are executives, or by two executives
   for one company they control. The copy has `duplicate_of`; `duplicate_basis` says why
-  (`holdings` / `rule_5c` / `executor`), and `holding_conflict=True` means the two filings disagree
-  on the holdings. Rows are never dropped.
+  (`holdings` / `executor_own_row` / `executor`). `holding_conflict` is True when the two filings
+  disagree on the holdings, False when both are known and agree, and **None when unknown** (a
+  report was not fetched) — never read None as "no conflict". Rows are never dropped.
 - **Revoked filings stay listed** (`is_revoked=True`, about 5% of rows, mostly re-filings); with
   `with_details=True` a transaction its report marks `CANCELED` is void too.
 - So **count on `result.economic_trades()`**, which drops copies and void rows. `to_table()`
-  already skips void rows.
+  already skips void rows. **Known overcount:** a trade the same reporter filed twice in different
+  batches, with the first left live, is counted twice (duplicates are never merged within one
+  reporter). Example: CREDIT 2026-09-28, 10,000 shares, rows 165104_2_1 and 165237_3_1.
 
 With no arguments `get_executive_trades()` returns what SEC **received today**, which is not the
 site's default page (that one shows what was *recorded* today), and today's set can still grow.

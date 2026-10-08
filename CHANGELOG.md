@@ -16,9 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Who traded vs who filed:** `reporter_name` vs `executor_name`/`executor_id`, with `is_self`.
   - **Duplicates are marked, not dropped** (`duplicate_of`, `duplicate_basis`). A row is a copy
     when its report's holdings match another's, or when the same trader appears under a different
-    reporter with the same trade (`rule_5c`: the spouse case; `executor`: e.g. one company reported
-    by two executives). Rows from the same reporter are never merged that way. A trader-rule merge
-    whose holdings disagree is flagged `holding_conflict`. All 28 September 2026 pairs are pinned.
+    reporter with the same trade (`executor_own_row`: the trader filed the trade themselves, the
+    spouse case; `executor`: e.g. one company reported by two executives). Rows from the same
+    reporter are never merged that way, so a same-reporter re-filing is counted twice (documented).
+    `holding_conflict` (`bool | None`) flags a trader-rule merge whose holdings disagree; it is
+    `None` when a report was not fetched. All 28 September 2026 pairs are pinned.
   - **Revoked filings are kept and marked** (`is_revoked`), never counted; a transaction the report
     marks `CANCELED` is void too. `economic_trades()` drops copies and void rows.
   - **No silent truncation:** the search page shows at most 100 rows, so the service reads the

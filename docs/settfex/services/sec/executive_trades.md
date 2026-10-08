@@ -43,13 +43,17 @@ A row is a copy when either rule holds:
 | `duplicate_basis` | Rule |
 |---|---|
 | `"holdings"` | both rows have their report (`with_details=True`) and show the same symbol, security type, date, quantity, holding before and holding after |
-| `"rule_5c"` | the same trader (`executor_id`), a **different** reporter, the same symbol, security type, date, quantity, price and method, **and** the trader filed the trade as their own row (the spouse case) |
-| `"executor"` | the same as `rule_5c`, but the trader filed no row of their own, e.g. a company two executives control |
+| `"executor_own_row"` | the same trader (`executor_id`), a **different** reporter, the same symbol, security type, date, quantity, price and method, **and** the trader filed the trade as their own row, which is the original (the spouse case) |
+| `"executor"` | the same as `executor_own_row`, but the trader filed no row of their own, e.g. a company two executives control |
 
 - Rows from the **same reporter** are never merged by the trader rules.
 - Rows pair one-to-one, so two identical trades reported by two people stay two trades.
-- When the trader rules merge two rows whose reports show **different** holdings, the merge stands
-  and `holding_conflict=True` flags the inconsistent filing.
+- `holding_conflict` is set only on a copy:
+  - `True`: the trader rules merged two rows whose reports show **different** holdings. The merge
+    stands; one filing is inconsistent.
+  - `False`: both reports are known and agree. This is always the case for basis `holdings`.
+  - `None`: a report was not fetched. It is **never `False` for "unknown"**.
+  - Originals carry `None`.
 
 A related-person row is **not** always a copy. On 2026-09-14 a KCG executive and his spouse each
 bought 5,000 at 9.95, and the reports show two different holdings: 2,515,000 → 2,520,000 for him,
@@ -59,11 +63,11 @@ Every September 2026 pair (28), with and without reports, is pinned in a test:
 
 | Case | With reports | Without reports |
 |---|---|---|
-| SPALI, both spouses executives (11) | copy, `holdings` | copy, `rule_5c` |
+| SPALI, both spouses executives (11) | copy, `holdings`, conflict `False` | copy, `executor_own_row`, conflict `None` |
 | KCG, spouse without an executive id (7) | separate | separate |
-| CREDIT, one executive's own row and his spouse's, identical holdings from 0 (2) | copy, `holdings` | separate |
+| CREDIT, one executive's own row and his spouse's, identical holdings from 0 (2) | copy, `holdings`, conflict `False` | separate |
 | CREDIT, one reporter's two filings of one trade (1) | separate (same reporter) | separate |
-| STX, one company, two reporters, holdings 70,000 apart (7) | copy, `executor`, `holding_conflict` | copy, `executor` |
+| STX, one company, two reporters, holdings 70,000 apart (7) | copy, `executor`, conflict `True` | copy, `executor`, conflict `None` |
 
 **3. Revoked filings stay listed.** A filing the reporter withdrew shows its quantity struck through,
 with `Revoked by Reporter`. On 2026-10-07 that was 4,366 of 91,245 rows, mostly re-filings: the same
@@ -72,6 +76,12 @@ revoked. Such rows carry `is_revoked=True` and keep the struck quantity. A row w
 its transaction `CANCELED` is void as well (`with_details=True`).
 
 `economic_trades()` drops void rows and copies. Count trades on it, never on the raw list.
+
+**Known overcount:** a trade the **same reporter** filed twice in different batches, with the
+original left live, is counted twice. The duplicate rules never merge rows from one reporter, so
+the re-filing survives. Example: CREDIT 2026-09-28, 10,000 shares, filed as `165104_2_1`
+(holdings 220,000 → 230,000) and again as `165237_3_1` (270,000 → 280,000, `EFFECTED` in its
+report). Both stay in `economic_trades()`.
 
 ## Dates: received vs transaction, and why "today" is not the site's default page
 
