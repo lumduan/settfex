@@ -24,21 +24,6 @@ pip install settfex[examples]
 
 This includes pandas, matplotlib, and jupyter notebook support.
 
-<!-- REMOVE AFTER 0.26.0 — upgrade notice, kept for two minor releases.
-     The permanent copy is the advisory in CHANGELOG.md; do not duplicate the table here.
-     When you remove this section, also unpin issue #142 (decided 2026-09-23). -->
-## Upgrading to 0.24
-
-**If you stored results from settfex before 0.24.0, check them.** Earlier versions could return
-incomplete data, or — for company lookup by name — another company's data, without any error.
-Re-fetch anything persisted with an affected version, and for name lookups verify the company
-identity too. The [data completeness advisory](https://github.com/lumduan/settfex/blob/v0.24.0/CHANGELOG.md#data-completeness-advisory) lists the
-affected versions per function.
-
-0.24.0 is a breaking release: result containers are Pydantic models (`isinstance(x, list)` is now
-`False`, **silently** — it takes the other branch rather than raising), and several error types
-changed. See [Migration](https://github.com/lumduan/settfex/blob/v0.24.0/CHANGELOG.md#migration).
-
 ## Logging
 
 settfex is **silent by default** — it installs no loguru handlers and emits no records until you
@@ -115,6 +100,9 @@ logger.enable("settfex")          # AFTER `import settfex` — see the note abov
 - **1.0 guarantees:** every public entry point passes the fault-injection contract (no silent data
   loss), and breaking changes require a major bump.
 - **From 0.24 on:** a `DeprecationWarning` one minor release before any removal or behaviour change.
+- **Stored results from before 0.24.0?** Earlier versions could return incomplete data, or for a
+  name lookup another company's data, without an error. Check them against the
+  [data completeness advisory](https://github.com/lumduan/settfex/blob/v0.24.0/CHANGELOG.md#data-completeness-advisory).
 
 ## 📓 Interactive Examples
 
@@ -821,6 +809,32 @@ df["10Y"].plot(title="Thai 10Y government yield")
 ```
 
 **👉 [Learn more about the ThaiBMA Yield Curve](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/thaibma/yield_curve.md)**
+
+---
+
+### SEC (Thai Securities and Exchange Commission)
+
+#### 🧾 Directors' and executives' trades (Form 59)
+
+Every reported insider trade, with the report behind it: holdings before and after, the exact
+average price, the trading channel, the counterparty.
+
+```python
+from settfex.services.sec import get_executive_trades
+
+trades = await get_executive_trades(symbol="SPALI", date_type="transaction",
+                                    start="2026-09-01", end="2026-09-30", with_details=True)
+for t in trades.economic_trades():       # copies and revoked filings removed
+    print(t.transaction_date, t.reporter_name, "->", t.executor_name or "(self)",
+          t.side, f"{t.quantity:,}", t.detail.avg_price if t.detail else t.price)
+print(trades.economic_trades().to_table())   # the Thai summary table
+```
+
+The named executive is the person who **filed**, who may not be the one who traded (a spouse, a
+child, a family company). When both spouses are executives, one trade is listed twice. Count
+trades on `economic_trades()`, never on the raw list.
+
+**👉 [Learn more about SEC Form 59](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/sec/executive_trades.md)**
 
 ---
 
