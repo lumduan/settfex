@@ -17,12 +17,13 @@ Hardening guarantees:
 
 import json
 import re
-from typing import Any, TypeVar
+from collections.abc import Mapping
+from typing import Any, Protocol, TypeVar
 
 from loguru import logger
 from pydantic import BaseModel, ValidationError
 
-from settfex.exceptions import ParseError
+from settfex.exceptions import ParseError, UnexpectedPageError
 
 __all__ = [
     "BlockedError",
@@ -55,7 +56,7 @@ class ResponseParseError(ParseError, ValueError):
     """
 
 
-class BlockedError(ResponseParseError):
+class BlockedError(ResponseParseError, UnexpectedPageError):
     """The server's bot protection refused the request and answered with a block page.
 
     **Stop and back off. Do not retry** — every further request, and fast retries most of all,
@@ -73,14 +74,26 @@ class BlockedError(ResponseParseError):
     Because it is also a ``ValueError``, **catch ``BlockedError`` before ``ValueError``** if you
     treat ``ValueError`` as "bad input".
 
+    **Also an** :class:`~settfex.exceptions.UnexpectedPageError` **(0.26.0)**, the base of every
+    "page, not a document" answer — added as a SECOND base, after the 0.25.0 ones, so nothing that
+    caught it before stops catching it. It therefore carries the same evidence as its siblings.
+
+    Where it is raised: by the fetcher, for any **2xx** answer carrying the page (never retried);
+    and by the SEC download path for the page under **any** status. JSON endpoints keep reporting
+    a non-2xx as ``HTTPStatusError``, which this class is not.
+
     Attributes:
         url: The URL that was refused.
+        final_url: The URL that answered, after redirects.
         status_code: The HTTP status the block page arrived with (200 in every observation).
         content_type: The ``Content-Type`` header, or ``None`` — the observed page had none.
-        headers: The response headers, minus ``Set-Cookie``.
-        body: The block page itself, with its per-incident support ID screened. Kept so the next
-            block observed in the wild yields a byte-exact fixture; it is never part of
-            ``str(exc)``.
+        headers: The response headers, without credential-bearing ones (``Set-Cookie``,
+            ``Cookie``, ``Authorization``, ``Proxy-Authorization``).
+        body: The block page itself (at most 8,192 bytes — the detector's cap), with its
+            per-incident support ID screened. Kept so the next block observed in the wild yields a
+            byte-exact fixture; it is never part of ``str(exc)``.
+        body_truncated: Always ``False`` here: a page over the cap is never classified as a block.
+        elapsed_seconds: How long the answering request took (the final attempt only).
 
     Only the BIG-IP ASM page observed on SEC is recognised (see :func:`looks_like_block_page`).
     No SET/Incapsula block page has been captured, so none is classified.
@@ -95,12 +108,20 @@ class BlockedError(ResponseParseError):
         content_type: str | None = None,
         headers: dict[str, str] | None = None,
         body: bytes = b"",
+        final_url: str | None = None,
+        body_truncated: bool = False,
+        elapsed_seconds: float | None = None,
     ) -> None:
+        # ParseError takes `url`; its cooperative super().__init__(message) then reaches
+        # UnexpectedPageError, which sets empty evidence. The real evidence is set here, after.
         super().__init__(message, url=url)
         self.status_code = status_code
         self.content_type = content_type
         self.headers = dict(headers or {})
         self.body = body
+        self.final_url = final_url
+        self.body_truncated = body_truncated
+        self.elapsed_seconds = elapsed_seconds
 
 
 #: A block page is small: the one observed was 242 bytes. The cap keeps the check off real
@@ -126,6 +147,39 @@ def looks_like_block_page(content: bytes) -> bool:
 def _screen_support_id(content: bytes) -> bytes:
     """Replace the per-incident support ID, which identifies one request from one client."""
     return _SUPPORT_ID_VALUE.sub(rb"\1<SCREENED>", content)
+
+
+#: Response headers that can carry a credential or a session, and so never ride on an exception.
+_CREDENTIAL_HEADERS = frozenset({"set-cookie", "cookie", "authorization", "proxy-authorization"})
+
+
+class _AnsweredResponse(Protocol):
+    """The parts of a fetched response the evidence is built from (``FetchResponse`` has them)."""
+
+    status_code: int
+    content: bytes
+    headers: dict[str, str]
+    url: str
+    elapsed: float
+
+
+def _page_evidence(response: _AnsweredResponse) -> dict[str, Any]:
+    """The evidence every :class:`~settfex.exceptions.UnexpectedPageError` carries, built once.
+
+    Bounded on purpose: the body is cut at the block-page detector's cap, so an exception never
+    holds more than 8 KB of page, and the cut is the same one the detector applies.
+    """
+    content = response.content
+    headers: Mapping[str, str] = response.headers
+    return {
+        "final_url": response.url,
+        "status_code": response.status_code,
+        "content_type": headers.get("Content-Type") or headers.get("content-type"),
+        "headers": {k: v for k, v in headers.items() if k.lower() not in _CREDENTIAL_HEADERS},
+        "body": _screen_support_id(content[:_MAX_BLOCK_PAGE_BYTES]),
+        "body_truncated": len(content) > _MAX_BLOCK_PAGE_BYTES,
+        "elapsed_seconds": response.elapsed,
+    }
 
 
 def _reject_nonfinite(token: str) -> float:

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-08
+
+**SEC Form 59 arrives: directors' and executives' trades, with the report behind each one.**
+- **Downloads:** a download that answers with a page instead of a file now says which page it
+  was and carries the answer.
+- **Analyst consensus:** the deprecation announced in 0.25.0 makes its change. An unlisted symbol
+  on the consensus summary raises.
+- **Fixed:** a Thai SEC date on a leap day is no longer lost.
+
+Nothing is removed from the public API. One behaviour change completes its warning period (see
+**Changed**).
+
 ### Added
 
 - **SEC Form 59 (แบบ 59): directors' and executives' trades** (`settfex.services.sec`, top-level
@@ -37,6 +49,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Output:** `to_table()` renders the agreed Thai summary; `to_dataframe()` needs the
     `dataframe` extra.
   - Docs: `docs/settfex/services/sec/executive_trades.md`.
+- **A download that answers with a page instead of a file says which page it was, and carries
+  the answer** (#135). Three `FetchError` subclasses, with the messages 0.25.0 raised as plain
+  `FetchError`s, so every existing `except` keeps catching:
+  - `UnexpectedPageError` — any HTML where a document was expected, including an HTML error page
+    under a non-200 status. The common base of the other two.
+  - `SoftNotFoundError` — the host's "file not found" page, with `.matched_marker`
+    (`"sec-thai"` / `"generic-not-found"`). **Deliberately not a `NotFoundError`**: it has been
+    wrong (below).
+  - `BlockedError` gains `UnexpectedPageError` as a second base (after its 0.25.0 ones), and the
+    SEC download path now recognises the block page under **any** status, not only 2xx. JSON
+    endpoints still report a non-2xx as `HTTPStatusError`.
+  Each carries `url`, `final_url`, `status_code`, `content_type`, `headers` (without
+  `Set-Cookie`, `Cookie`, `Authorization`, `Proxy-Authorization`), `body` — the first 8,192 bytes,
+  support ID screened, the block detector's own cap — with `body_truncated`, and
+  `elapsed_seconds`.
+- `DownloadedFile.elapsed_seconds` and `FailedDownload.status_code`.
+- `SOFT_404_MARKERS` and `SOFT_404_WINDOW_BYTES` in `settfex.services.sec.constants`: the
+  soft-404 rule, documented so a caller can reason about it.
+
+  **Why:** a downstream consumer saw four non-document HTML answers in a row (HTTP 200,
+  `text/html`) and could not tell a WAF block page — back off for days — from an upstream error
+  page — retry the next night: the body was discarded before raising. The same consumer saw sixty
+  consecutive soft-404s, each ~38 s instead of ~3 s, for files that all downloaded the next
+  evening; the rule matches the SEC's Thai text **or any "not found"** in the first 400 bytes.
+
+### Changed
+
+- **`get_consensus_overall()` / `fetch_overall()` raise `SymbolNotFoundError` for a symbol that is
+  not listed on SET.** Settrade answers that symbol, and a listed symbol with no analyst coverage,
+  with the same empty summary under HTTP 200; the SET stock list tells them apart.
+  - 0.25.0 warned (`DeprecationWarning`, registry id `consensus-overall-unknown-symbol`) and
+    returned the empty summary.
+  - The error carries `status_code=200`, the normalized `symbol` and a `suggestion`. It is a
+    `NotFoundError`, so catch `NotFoundError` and do not retry.
+  - `count == 0` now means a listed symbol without coverage.
+  - The whole-market call (`symbol=None`) is unchanged.
+- `FailedDownload.error_type` names the new subclass (`"SoftNotFoundError"`,
+  `"UnexpectedPageError"`, `"BlockedError"`) where it said `"FetchError"`. The message is
+  unchanged; a filter on the class-name **string** needs updating.
+
+### Removed
+
+- The deprecation registry entry `consensus-overall-unknown-symbol`, its change made (above). The
+  registry (`settfex.deprecations.DEPRECATIONS`) is empty.
+- The README's "Upgrading to 0.24" notice, kept for two minor releases as planned. The permanent
+  copy is the 0.24.0 **Data completeness advisory** below, still linked from the README.
 
 ### Fixed
 
@@ -49,6 +107,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now converted first. Malformed or impossible input still returns `None`, as documented: nothing
   that parsed before parses differently, except the leap days that used to be lost. The Form 59
   listing alone carries 92 such rows (55 on 29/02/2567, 37 on 29/02/2559).
+
+### Known issues
+
+- **The SEC's Thai listing page prints a 29 February filing as 28 February** (upstream). A Thai
+  B.E. year is never a Gregorian leap year, and the page appears to clamp the day. 103 Thai MD&A
+  rows from 2024-02-29 carry 2024-02-28, and the FILEID shows the true date. settfex parses the
+  page faithfully. A cross-check is proposed in #153.
+- **Form 59: a trade one reporter filed twice is counted twice** by `economic_trades()`. Proposal:
+  #154.
 
 ## [0.25.0] - 2026-09-23
 

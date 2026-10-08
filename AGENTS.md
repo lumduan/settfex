@@ -293,7 +293,7 @@ being wrong, so none of them will announce itself.
 |---|---|
 | **Analyst consensus answers an uncovered symbol with HTTP 500, not 404** — and "uncovered" includes perfectly valid SET stocks (`ABICO`), DRs (`GOOG80`) and warrants (`JAS-W4`) | catch **`NotFoundError` first**: since 0.25.0 a symbol that is not listed on SET raises `SymbolNotFoundError` (with `.suggestion`). What still arrives as a plain `FetchError(500)` is a listed symbol with no coverage — report "no analyst coverage", and **do not** retry it as a typo |
 | **The DR-profile endpoint 404s for every non-DR symbol**, including `CPALL` | a 404 here means "not a DR", not "unknown symbol" |
-| **The consensus summary endpoint fails silently**: an unknown symbol is HTTP 200 with `overall: []` — since 0.25.0 with a `DeprecationWarning`; **0.26.0 raises `SymbolNotFoundError`** | check `.count`, or use `.get(symbol)` which returns `None`; wrap it in `except NotFoundError` now |
+| **The consensus summary cannot tell "unknown" from "uncovered" by itself**: both are HTTP 200 with `overall: []`. Since 0.26.0 an unlisted symbol raises `SymbolNotFoundError` | catch `NotFoundError` (do not retry); `count == 0` now means a listed symbol with no analyst coverage |
 | **The holiday endpoint returns HTTP 401 for any year but the current one** — and transiently on valid requests too | do not treat 401 as auth failure; there is no auth |
 
 ### Values that are placeholders, not data
@@ -343,6 +343,8 @@ from settfex.exceptions import (
     # --- the FETCH family: `except FetchError` catches all of these ---
     FetchError,              # HTTP/transport failure; carries .status_code and .symbol
     HTTPStatusError,         # a non-2xx, with .url and .report_code as data
+    UnexpectedPageError,     # a PAGE where a document was expected (0.26.0); carries the answer
+    SoftNotFoundError,       # its "file not found" page — can be FALSE; NOT a NotFoundError
     SymbolNotFoundError,     # SET 404, or an unlisted analyst-consensus symbol; .suggestion
     StaleDataError,          # ThaiBMA rolled back and you asked it to raise
     ParseError,              # a response arrived intact and could not be mapped
@@ -356,7 +358,7 @@ from settfex.exceptions import (
 )
 from settfex.utils.parsing import (
     ResponseParseError,      # also a ParseError since 0.24.0
-    BlockedError,            # a WAF block page (0.25.0): stop, never retry
+    BlockedError,            # a WAF block page (0.25.0): stop, never retry; an UnexpectedPageError
 )
 ```
 
@@ -389,6 +391,20 @@ handlers still catch it, which also makes it a `ValueError`: catch `BlockedError
 `ValueError` if you treat `ValueError` as bad input. Only SEC's block page is recognised; a SET
 block may still arrive as a plain `ResponseParseError` — if one keeps repeating from one host,
 treat it the same way.
+
+**A download that answers with a page, not a file, says which page it was (0.26.0).** All three are
+`UnexpectedPageError`s and carry the answer — `.status_code`, `.headers` (credentials removed),
+`.body` (the first 8 KB), `.elapsed_seconds` — so you can decide from evidence, not from message
+text:
+
+| You caught | It means | Do |
+|---|---|---|
+| `BlockedError` | the WAF refused you | stop; back off for a long time; never retry soon |
+| `SoftNotFoundError` | the host's "file not found" page | probably gone — but it has been **wrong** (sixty in a row, each slow, for files that existed). If it was slow (`.elapsed_seconds`) or many arrive together, retry later before recording it as gone. `.matched_marker` says which rule matched |
+| `UnexpectedPageError` (itself) | any other page, e.g. an upstream error page | the source is degraded; try again later |
+
+`download_all` keeps the kind on each failure: `FailedDownload.error_type` names the class and
+`.status_code` the status.
 
 ---
 

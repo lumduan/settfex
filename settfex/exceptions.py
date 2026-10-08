@@ -28,6 +28,8 @@ __all__ = [
     "ParseError",
     "IncompleteListingError",
     "HTTPStatusError",
+    "UnexpectedPageError",
+    "SoftNotFoundError",
     "CompanyNotFoundError",
     "AmbiguousCompanyError",
     "InvalidSymbolError",
@@ -252,6 +254,108 @@ class HTTPStatusError(FetchError):
         super().__init__(message, status_code=status_code, symbol=symbol)
         self.url = url
         self.report_code = report_code
+
+
+class UnexpectedPageError(FetchError):
+    """The server answered with a page where a document (or data) was expected.
+
+    The common base of every "page, not a document" answer (0.26.0): an upstream error page, the
+    SEC's "file not found" page (:class:`SoftNotFoundError`), and a bot-protection block page
+    (:class:`~settfex.utils.parsing.BlockedError`). One ``except UnexpectedPageError`` sees all of
+    them; the subclasses tell them apart.
+
+    **It carries the answer, because the answer decides what to do next.** A block page means
+    stop and back off for days; an upstream error page means try again later; a genuine
+    "file not found" means stop asking. Until 0.26.0 the body was discarded before raising and only
+    a message survived, so a caller could not tell which one it had — the class of defect tracked
+    on #135.
+
+    A :class:`FetchError` subclass with the messages it always had, so every existing
+    ``except FetchError`` keeps catching it.
+
+    Attributes:
+        url: The URL that was requested.
+        final_url: The URL that answered, after redirects.
+        status_code: The HTTP status of the answer.
+        content_type: The ``Content-Type`` header, or ``None`` when the answer had none.
+        headers: The response headers, without credential-bearing ones (``Set-Cookie``,
+            ``Cookie``, ``Authorization``, ``Proxy-Authorization``).
+        body: The first 8,192 bytes of the answer, with a WAF support ID screened. The cap equals
+            the block-page detector's, so ``looks_like_block_page(exc.body)`` reproduces
+            settfex's own verdict. Never part of ``str(exc)``.
+        body_truncated: Whether the answer was longer than ``body``.
+        elapsed_seconds: How long the answering request took, as the fetcher measured it (the
+            final attempt only — not earlier failed attempts or a session warm-up).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        url: str | None = None,
+        final_url: str | None = None,
+        status_code: int | None = None,
+        content_type: str | None = None,
+        headers: dict[str, str] | None = None,
+        body: bytes = b"",
+        body_truncated: bool = False,
+        elapsed_seconds: float | None = None,
+    ) -> None:
+        # Every argument but the message is optional on purpose: inside BlockedError this
+        # __init__ is reached through ParseError's cooperative super().__init__(message), and
+        # BlockedError sets its evidence afterwards.
+        super().__init__(message, status_code=status_code)
+        self.url = url
+        self.final_url = final_url
+        self.content_type = content_type
+        self.headers = dict(headers or {})
+        self.body = body
+        self.body_truncated = body_truncated
+        self.elapsed_seconds = elapsed_seconds
+
+
+class SoftNotFoundError(UnexpectedPageError):
+    """The server answered with its "file not found" page (a soft 404, under HTTP 200).
+
+    ⚠️ **Deliberately NOT a** :class:`NotFoundError`. ``NotFoundError`` means "the name does not
+    exist, never retry", and this answer has been wrong: a downstream consumer saw sixty
+    consecutive soft-404s — each taking about 38 s instead of about 3 s — for files that all
+    downloaded normally the next evening. Treat it as "probably gone"; if the answer was slow, or
+    many arrive in a row, retry later before concluding anything.
+
+    ``matched_marker`` says which rule matched (see
+    :data:`settfex.services.sec.constants.SOFT_404_MARKERS`): ``"sec-thai"`` is the SEC's own Thai
+    "file not found" text; ``"generic-not-found"`` is any page with "not found" in its first
+    :data:`~settfex.services.sec.constants.SOFT_404_WINDOW_BYTES` bytes, which an unrelated error
+    page can also contain. ``body`` lets you look for yourself.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        matched_marker: str | None = None,
+        url: str | None = None,
+        final_url: str | None = None,
+        status_code: int | None = None,
+        content_type: str | None = None,
+        headers: dict[str, str] | None = None,
+        body: bytes = b"",
+        body_truncated: bool = False,
+        elapsed_seconds: float | None = None,
+    ) -> None:
+        super().__init__(
+            message,
+            url=url,
+            final_url=final_url,
+            status_code=status_code,
+            content_type=content_type,
+            headers=headers,
+            body=body,
+            body_truncated=body_truncated,
+            elapsed_seconds=elapsed_seconds,
+        )
+        self.matched_marker = matched_marker
 
 
 class CompanyNotFoundError(ValueError, NotFoundError):

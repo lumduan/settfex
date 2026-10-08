@@ -70,7 +70,10 @@ class TestFailuresReachTheCaller:
         """A caller has to be able to tell a dead link from a timeout without re-running it."""
         result = await DocumentDownloadService().download_all([DEAD])
         failure = result.failed[0]
-        assert failure.error_type == "FetchError"
+        # Was "FetchError" until 0.26.0: error_type names the concrete class, and the soft-404 is
+        # now a typed FetchError subclass. The message, which callers also matched on, is unchanged.
+        assert failure.error_type == "SoftNotFoundError"
+        assert failure.status_code == 200
         assert "soft 404" in failure.error
 
     @pytest.mark.asyncio

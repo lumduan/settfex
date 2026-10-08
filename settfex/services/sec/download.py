@@ -18,17 +18,19 @@ from urllib.parse import unquote, urljoin, urlparse
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
-from settfex.exceptions import FetchError, ParseError
+from settfex.exceptions import FetchError, ParseError, SoftNotFoundError, UnexpectedPageError
 from settfex.services.sec.constants import (
     SEC_BASE_URL,
     SEC_DOWNLOAD_ENDPOINT,
     SEC_FILE_NOT_FOUND_MARKER,
     SEC_REFERER,
+    SOFT_404_MARKERS,
+    SOFT_404_WINDOW_BYTES,
 )
 from settfex.services.sec.financial_report import SecDocument
 from settfex.services.sec.utils import _CAPITAL_HOST, build_sec_headers
-from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
-from settfex.utils.parsing import BlockedError
+from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig, FetchResponse
+from settfex.utils.parsing import BlockedError, _page_evidence, looks_like_block_page
 
 
 class DownloadedFile(BaseModel):
@@ -47,6 +49,14 @@ class DownloadedFile(BaseModel):
     path: Path | None = Field(default=None, description="On-disk path, if the file was saved")
     document: SecDocument | None = Field(
         default=None, description="The source SecDocument, when downloaded from a listing"
+    )
+    elapsed_seconds: float | None = Field(
+        default=None,
+        description=(
+            "How long the answering request took, as the fetcher measured it (the final request "
+            "only). A slow success is worth seeing: the same host has served false 'not found' "
+            "pages at ~38 s against a usual ~3 s."
+        ),
     )
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -80,7 +90,15 @@ class FailedDownload(BaseModel):
         default=None, description="The source SecDocument, when the target was one"
     )
     error: str = Field(description="The exception message")
-    error_type: str = Field(description="The exception class name, e.g. 'FetchError'")
+    error_type: str = Field(
+        description=(
+            "The exception class name, e.g. 'FetchError'. Since 0.26.0 it names the kind of "
+            "answer too: 'BlockedError', 'SoftNotFoundError' or 'UnexpectedPageError'."
+        )
+    )
+    status_code: int | None = Field(
+        default=None, description="The HTTP status of the answer, when there was one"
+    )
 
 
 class DownloadResult(BaseModel):
@@ -322,8 +340,17 @@ class DocumentDownloadService:
             referer: Referer header for the request.
 
         Raises:
-            FetchError: On HTTP failure, or when the SEC host returns its HTML "file not found"
-                page (a soft 404 served under HTTP 200).
+            BlockedError: The answer was a bot-protection block page, under any status. Stop and
+                back off; never retry.
+            SoftNotFoundError: The answer was the host's "file not found" page (a soft 404 under
+                HTTP 200). **Not proof the file is gone** — see the class.
+            UnexpectedPageError: Any other HTML page where a document was expected, including an
+                HTML error page under a non-200 status.
+            FetchError: Any other non-200 answer, or a transport failure.
+
+            The three page errors are ``FetchError`` subclasses carrying the answer (status,
+            headers, the first 8 KB of the body, the elapsed time); their messages are the ones
+            0.25.0 raised as plain ``FetchError``.
         """
         url, document = self._resolve_url(target)
         headers = build_sec_headers(referer=referer)
@@ -343,18 +370,9 @@ class DocumentDownloadService:
             if owns_fetcher:
                 await fetcher.__aexit__(None, None, None)
 
-        if resp.status_code != 200:
-            raise FetchError(
-                f"Failed to download {url}: HTTP {resp.status_code}", status_code=resp.status_code
-            )
+        _raise_for_non_document(resp, url)
 
         content_type = resp.headers.get("Content-Type") or resp.headers.get("content-type") or ""
-        # A real document is a binary type; an HTML body means a soft error (e.g. dead FILEID).
-        if "text/html" in content_type.lower():
-            snippet = resp.content[:400].decode("utf-8", "replace")
-            if SEC_FILE_NOT_FOUND_MARKER in snippet or "not found" in snippet.lower():
-                raise FetchError(f"SEC reports the file does not exist (soft 404): {url}")
-            raise FetchError(f"Unexpected HTML response (not a document) downloading {url}")
 
         disposition = (
             resp.headers.get("Content-Disposition") or resp.headers.get("content-disposition") or ""
@@ -369,6 +387,7 @@ class DocumentDownloadService:
             size=len(resp.content),
             file_url=url,
             document=document,
+            elapsed_seconds=resp.elapsed,
         )
 
     async def download_all(
@@ -461,6 +480,7 @@ class DocumentDownloadService:
                             document=document,
                             error=str(exc),
                             error_type=type(exc).__name__,
+                            status_code=getattr(exc, "status_code", None),
                         )
                     if dest_dir is not None:
                         dl.save(dest_dir)
@@ -490,6 +510,78 @@ class DocumentDownloadService:
         else:
             logger.info(f"Downloaded {len(results)}/{len(unique)} document(s)")
         return DownloadResult(files=results, failed=failures, requested=len(unique))
+
+
+def _looks_like_html(content: bytes, content_type: str) -> bool:
+    """An HTML answer: declared as one, or — with no declared type — starting like a page."""
+    if "text/html" in content_type.lower():
+        return True
+    head = content[:64].lstrip().lower()
+    return head.startswith((b"<html", b"<!doctype html"))
+
+
+def _soft_404_marker(snippet: str) -> str | None:
+    """Which :data:`SOFT_404_MARKERS` key matches ``snippet`` — the SEC's own text first."""
+    # SEC_FILE_NOT_FOUND_MARKER is SOFT_404_MARKERS["sec-thai"]; kept imported here because this
+    # module has exposed the name since before 0.26.0 (the L1 golden records it).
+    if SEC_FILE_NOT_FOUND_MARKER in snippet:
+        return "sec-thai"
+    if SOFT_404_MARKERS["generic-not-found"] in snippet.lower():
+        return "generic-not-found"
+    return None
+
+
+def _raise_for_non_document(resp: FetchResponse, url: str) -> None:
+    """Raise the typed error for an answer that is not a document; return if it is one.
+
+    Every error raised here carries the answer (:func:`~settfex.utils.parsing._page_evidence`),
+    because the answer decides what a caller does next: a block page means back off for days, an
+    upstream error page means try again later, a genuine "file not found" means stop asking. Until
+    0.26.0 the body was discarded and only the message survived (#135).
+
+    The messages are exactly the ones 0.25.0 raised as plain ``FetchError``s, and every class here
+    is a ``FetchError`` subclass, so existing handlers behave as before.
+    """
+    # A block page under ANY status. The fetcher already raises for a 2xx one; a non-2xx one
+    # reaches here, where a plain FetchError used to be raised, so BlockedError is a strict
+    # subclass of what callers caught. (JSON endpoints keep raising HTTPStatusError instead.)
+    if looks_like_block_page(resp.content):
+        logger.error(
+            f"{url} answered HTTP {resp.status_code} with a bot-protection block page. "
+            f"Stop and back off: retrying deepens the block."
+        )
+        raise BlockedError(
+            f"{url} answered with a bot-protection block page (HTTP {resp.status_code}). "
+            f"Stop and back off — every retry deepens the block.",
+            url=url,
+            **_page_evidence(resp),
+        )
+
+    # The evidence is built only on the paths that raise: a document needs none of it.
+    content_type = resp.headers.get("Content-Type") or resp.headers.get("content-type") or ""
+    if resp.status_code != 200:
+        message = f"Failed to download {url}: HTTP {resp.status_code}"
+        if _looks_like_html(resp.content, content_type):
+            raise UnexpectedPageError(message, url=url, **_page_evidence(resp))
+        # Not a page: nothing to show beyond the status, which is all 0.25.0 kept.
+        raise FetchError(message, status_code=resp.status_code)
+
+    # A real document is a binary type; an HTML body means the host answered with a page.
+    if "text/html" in content_type.lower():
+        snippet = resp.content[:SOFT_404_WINDOW_BYTES].decode("utf-8", "replace")
+        marker = _soft_404_marker(snippet)
+        if marker is not None:
+            raise SoftNotFoundError(
+                f"SEC reports the file does not exist (soft 404): {url}",
+                matched_marker=marker,
+                url=url,
+                **_page_evidence(resp),
+            )
+        raise UnexpectedPageError(
+            f"Unexpected HTML response (not a document) downloading {url}",
+            url=url,
+            **_page_evidence(resp),
+        )
 
 
 def _make_progress_bar(total: int) -> Any | None:

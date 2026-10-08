@@ -79,6 +79,21 @@ SEC_VIEWMORE_DATE_FORMAT = "%Y%m%d"
 SEC_RESULT_PANEL_ID = "ctl00_CPH_pnlControl"
 SEC_FILE_NOT_FOUND_MARKER = "ไม่พบไฟล์ที่ระบุ"
 
+# The soft-404 rule a download applies to a ``text/html`` answer, as documented constants so a
+# caller can reason about it (0.26.0). A marker found in the first SOFT_404_WINDOW_BYTES bytes
+# raises SoftNotFoundError, whose ``matched_marker`` is the key below.
+#   "sec-thai"           the SEC's own "file not found" text (ไม่พบไฟล์ที่ระบุ, "the specified file
+#                        was not found") — the page a dead FILEID really serves.
+#   "generic-not-found"  "not found" in any case. Broad on purpose (an English error page from the
+#                        same host must not pass as a document), and therefore ABLE TO MATCH A
+#                        TRANSIENT PAGE: a downstream consumer saw sixty soft-404s for files that
+#                        all existed. SoftNotFoundError is deliberately not a NotFoundError.
+SOFT_404_MARKERS: dict[str, str] = {
+    "sec-thai": SEC_FILE_NOT_FOUND_MARKER,
+    "generic-not-found": "not found",
+}
+SOFT_404_WINDOW_BYTES = 400
+
 # --- Form 59 (แบบ 59): directors' and executives' changes in holdings ---------------------------
 # Live-probed 2026-10-07 (settfex Form 59 GATE A). The search page answers a postback with at most
 # 100 rows; the "display all results" link (ViewMore/r59-2) is a plain GET that returned every row

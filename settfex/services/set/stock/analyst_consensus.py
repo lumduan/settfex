@@ -53,7 +53,9 @@ from typing import TYPE_CHECKING, Any, Literal
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
-from settfex.deprecations import warn_deprecated
+# No longer called here (its deprecation completed in 0.26.0); kept so the module's import
+# surface, which the L1 golden records, loses nothing.
+from settfex.deprecations import warn_deprecated  # noqa: F401
 from settfex.exceptions import (
     FetchError,
     InvalidSymbolError,
@@ -931,12 +933,13 @@ class AnalystConsensusService:
 
         Returns:
             ConsensusOverallResponse holding one row for a covered symbol, every covered SET
-            stock when ``symbol`` is None, and ZERO rows when settrade does not know the symbol
-            (it answers HTTP 200 with an empty list rather than an error - check ``count``).
-            Since 0.25.0 that case also emits a ``DeprecationWarning`` when the SET stock list
-            says the symbol is not listed: **0.26.0 raises** ``SymbolNotFoundError`` there.
+            stock when ``symbol`` is None, and ZERO rows for a listed symbol with no analyst
+            coverage (settrade answers HTTP 200 with an empty list - check ``count``).
 
         Raises:
+            SymbolNotFoundError: If the symbol is not listed on SET at all (0.26.0; it warned
+                in 0.25.0). Settrade answers it with the same empty list as an uncovered
+                symbol; the SET stock list tells them apart. Carries a ``suggestion``.
             InvalidSymbolError: If a symbol is given but is blank.
             InvalidLanguageError: If the language code is not recognized.
             FetchError: On HTTP or transport failures.
@@ -958,10 +961,25 @@ class AnalystConsensusService:
         )
 
         if symbol and response.count == 0:
-            if await _is_unlisted(normalize_symbol(symbol)):
-                # Not listed on SET: 0.26.0 raises SymbolNotFoundError here. Until then the
-                # answer is unchanged and the caller is warned (deprecation policy).
-                warn_deprecated("consensus-overall-unknown-symbol")
+            normalized = normalize_symbol(symbol)
+            if await _is_unlisted(normalized):
+                # Not listed on SET at all: there is no coverage to find. This answered an empty
+                # summary in 0.25.0 (with a DeprecationWarning, registry id
+                # consensus-overall-unknown-symbol); 0.26.0 makes the promised change.
+                from settfex.services.set.list import suggest_symbol
+
+                error_msg = (
+                    f"No consensus summary for '{normalized}': '{normalized}' is not a listed "
+                    f"SET symbol. Settrade answers an unknown symbol and an uncovered one with "
+                    f"the same empty list under HTTP 200; the SET stock list tells them apart."
+                )
+                logger.error(error_msg)
+                raise SymbolNotFoundError(
+                    error_msg,
+                    status_code=200,
+                    symbol=normalized,
+                    suggestion=suggest_symbol(normalized),
+                )
             logger.warning(
                 f"No consensus summary for '{normalize_symbol(symbol)}': settrade returned an "
                 f"empty 'overall' list under HTTP 200 (unknown symbol, or a listed symbol with "
@@ -1079,6 +1097,8 @@ async def get_consensus_overall(
         the symbol (HTTP 200 with an empty list)
 
     Raises:
+        SymbolNotFoundError: If the symbol is not listed on SET at all (0.26.0; it warned
+            in 0.25.0). Carries a ``suggestion``.
         InvalidSymbolError: If a symbol is given but is blank.
         InvalidLanguageError: If the language code is not recognized.
         FetchError: On HTTP or transport failures.
