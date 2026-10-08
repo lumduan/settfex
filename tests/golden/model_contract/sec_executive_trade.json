@@ -20,9 +20,11 @@
       "trans_id": "165100_2_1",
       "transaction_date": "2026-09-29"
     },
+    "duplicate_basis": "holdings",
     "duplicate_of": "165102_2_1",
     "executor_id": "CTRL_P_0000012062",
     "executor_name": "นาย ประทีป ตั้งมติธรรม",
+    "holding_conflict": false,
     "is_revoked": false,
     "is_self": false,
     "method": "ซื้อ",
@@ -60,6 +62,7 @@
       "trans_id": "165100_2_1",
       "transaction_date": "2026-09-29"
     },
+    "duplicate_basis": "holdings",
     "duplicate_of": "165102_2_1",
     "executor_id": "CTRL_P_0000012062",
     "executor_name": "นาย ประทีป ตั้งมติธรรม",

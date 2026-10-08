@@ -13,11 +13,12 @@ keep the two apart.
 
 **One trade can appear twice.** When both spouses are executives of the same company, both must
 report the trade, so the listing shows it once per reporter. The site says so in its own footnote.
-:attr:`ExecutiveTrade.duplicate_of` marks the copy, and :meth:`ExecutiveTradeList.economic_trades`
-leaves it out. Rows are never dropped. Holdings decide when the detail is fetched; otherwise a
-narrower rule decides (see :func:`_mark_duplicates`). A related-person row is **not** always a copy:
-on 2026-09-14 a KCG executive and his spouse each bought 5,000 at 9.95, and the detail shows two
-different holdings (2,515,000 → 2,520,000 and 910,000 → 915,000).
+The same happens when two executives report one company they both control.
+:attr:`ExecutiveTrade.duplicate_of` marks the copy, :attr:`ExecutiveTrade.duplicate_basis` says
+which rule did, and :meth:`ExecutiveTradeList.economic_trades` leaves the copy out. Rows are never
+dropped; see :func:`_mark_duplicates`. A related-person row is **not** always a copy: on 2026-09-14
+a KCG executive and his spouse each bought 5,000 at 9.95, and the detail shows two different
+holdings (2,515,000 → 2,520,000 and 910,000 → 915,000).
 
 **Revoked rows stay in the listing.** A filing withdrawn by its reporter shows its quantity struck
 through, with ``Revoked by Reporter``. 4,366 of 91,245 rows were revoked on 2026-10-07, mostly
@@ -98,6 +99,7 @@ BANGKOK = ZoneInfo("Asia/Bangkok")
 
 DateType = Literal["received", "transaction"]
 Side = Literal["buy", "sell", "transfer_in", "transfer_out", "other"]
+DuplicateBasis = Literal["holdings", "executor", "rule_5c"]
 
 # --- Vocabulary (harvested from the full listing, 91,245 Thai rows, 2026-10-07) -------------------
 # The method vocabulary is OPEN: ten Thai labels over the full history, four in the last year, and
@@ -389,6 +391,19 @@ class ExecutiveTrade(BaseModel):
         description="trans_id of the row this one duplicates (the same trade filed by another "
         "reporter). None for an original. Rows are never dropped.",
     )
+    duplicate_basis: DuplicateBasis | None = Field(
+        default=None,
+        description="Which rule marked the copy. 'holdings': both rows' reports show the same "
+        "holding before and after. 'rule_5c': the trader is an executive who filed the same "
+        "trade as their own row (the spouse case). 'executor': another executive filed the same "
+        "trade for the same trader, e.g. a company two executives control. None for an original.",
+    )
+    holding_conflict: bool = Field(
+        default=False,
+        description="True when the executor or 5c rule merged two rows whose reports show "
+        "DIFFERENT holdings for the same trader (one of the filings is inconsistent). False when "
+        "they agree or when holdings are not known (no detail).",
+    )
     detail: ExecutiveTradeDetail | None = Field(
         default=None,
         description="The matching transaction from the detail API, when fetched with "
@@ -493,9 +508,9 @@ class ExecutiveTradeList(BaseModel):
         return sum(1 for t in self.items if t.batch_no and t.detail is None)
 
     def economic_trades(self) -> ExecutiveTradeList:
-        """The rows that are trades: neither revoked nor a duplicate of another row."""
+        """The rows that are trades: not void (revoked, or CANCELED in its report), not a copy."""
         return self._with_items(
-            [t for t in self.items if not t.is_revoked and t.duplicate_of is None]
+            [t for t in self.items if not _is_void(t) and t.duplicate_of is None]
         )
 
     def to_table(self, *, include_revoked: bool = False, with_details: bool = False) -> str:
@@ -504,7 +519,8 @@ class ExecutiveTradeList(BaseModel):
         Within a side, rows are ordered by symbol, then by transaction date. ``**`` after a name
         marks a row whose trader is not the reporter. Warrants show as ``Warrant``, quantities
         with thousands separators, prices to 2 dp, dates as dd/mm/B.E. (as the Thai page shows
-        them). Revoked rows are skipped unless ``include_revoked``. ``with_details`` adds
+        them). Void rows (revoked, or CANCELED in their report) are skipped unless
+        ``include_revoked``. ``with_details`` adds
         ถือก่อน (held before), ถือหลัง (held after), ราคาเฉลี่ย (average price, full precision) and
         ทำรายการผ่าน (traded through); '-' where no detail was matched.
         """
@@ -512,7 +528,7 @@ class ExecutiveTradeList(BaseModel):
         if with_details:
             header += ["ถือก่อน", "ถือหลัง", "ราคาเฉลี่ย", "ทำรายการผ่าน"]
         rank = {"sell": 0, "buy": 1, "transfer_out": 2, "transfer_in": 3, "other": 4}
-        rows = [t for t in self.items if include_revoked or not t.is_revoked]
+        rows = [t for t in self.items if include_revoked or not _is_void(t)]
         rows.sort(key=lambda t: (rank[t.side], t.symbol, t.transaction_date or date.max))
         lines = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
         for t in rows:
@@ -590,6 +606,8 @@ _DATAFRAME_ACCESSORS: dict[str, Any] = {
     "price": lambda t: _float(t.price),
     "is_revoked": lambda t: t.is_revoked,
     "duplicate_of": lambda t: t.duplicate_of,
+    "duplicate_basis": lambda t: t.duplicate_basis,
+    "holding_conflict": lambda t: t.holding_conflict,
     "batch_no": lambda t: t.batch_no,
     "trans_id": lambda t: t.trans_id,
     "holding_before": lambda t: t.detail.holding_before if t.detail else None,
@@ -598,6 +616,17 @@ _DATAFRAME_ACCESSORS: dict[str, Any] = {
     "market_source": lambda t: t.detail.market_source if t.detail else None,
     "record_status": lambda t: t.detail.record_status if t.detail else None,
 }
+
+
+def _is_void(trade: ExecutiveTrade) -> bool:
+    """Not a trade: the listing shows it revoked, or its report marks it CANCELED.
+
+    On 2026-10-07 both CANCELED transactions seen were revoked in the listing too, but the two
+    signals are not the same: three revoked rows had NORMAL/EFFECTED in their report. Either one
+    voids the row.
+    """
+    cancelled = trade.detail is not None and trade.detail.record_status == "CANCELED"
+    return trade.is_revoked or cancelled
 
 
 def _traded_by_other(trade: ExecutiveTrade) -> bool:
@@ -897,23 +926,37 @@ def _trade_from_raw(
 
 
 def _mark_duplicates(items: list[ExecutiveTrade]) -> None:
-    """Set ``duplicate_of`` on rows that repeat another row's trade. Never removes a row.
+    """Set ``duplicate_of`` / ``duplicate_basis`` on copies of another row's trade. Never drops.
 
-    1. **Holdings, when both rows have their detail.** Rows with the same symbol, security type,
-       date, quantity, holding before and holding after are one trade. The copy points at the
-       reporter's own row when there is one, otherwise at the lowest trans_id.
-    2. **Otherwise, the narrow listing rule.** A row whose executor is a ``CTRL_P_`` person other
-       than its reporter is a copy when that person's OWN row (reporter == executor) shows the same
-       symbol, security type, date, quantity, price and method. That is the spouse case the site's
-       footnote describes. It never marks a ``TEMP_P_`` / company executor, because those
-       executors file no rows of their own.
+    A row is a copy when either rule holds:
 
-    Validated against holdings for every September 2026 pair: rule 2 agreed on 26 of 28. The two
-    disagreements are one CREDIT executive and spouse, two distinct CTRL_P_ ids whose holdings
-    are identical (0 → 10,000 → 13,000); rule 1 marks them, rule 2 does not. Revoked rows are never
-    marked and never pointed at.
+    1. **Holdings** (only when both rows have their report): the same symbol, security type,
+       date, quantity, holding before and holding after. The copy points at the reporter's own row
+       if there is one, otherwise at the lowest trans_id. Basis ``"holdings"``.
+    2. **Executor**: the same non-blank executor id, a DIFFERENT non-blank reporter, and the same
+       symbol, security type, date, quantity, price and method. Rows from the same reporter are
+       never merged by this rule. The copy points at the executor's own row when the executor filed
+       one (basis ``"rule_5c"``, the spouse case the site's footnote describes), otherwise at the
+       rows of the reporter with the lowest trans_id (basis ``"executor"``). Rows pair one-to-one,
+       so two genuine identical trades reported by two people stay two trades. When both rows have
+       reports and their holdings differ, the merge stands and ``holding_conflict`` is set.
+
+    Decided 2026-10-08 from all 28 September 2026 pairs checked against holdings:
+
+    - SPALI (11): one trade from two spouse-executives, so a copy.
+    - KCG (7): two traders, so never a copy.
+    - CREDIT, one executive's own and spouse rows (2): holdings identical, so a copy by holdings,
+      although the executor ids differ.
+    - CREDIT, one reporter filing twice (1): never merged.
+    - STX (7): one company reported by two executives. A copy by executor, with
+      ``holding_conflict``: their holdings stay 70,000 apart.
+
+    Void rows (revoked, or CANCELED in their report) are never marked and never pointed at.
     """
-    live = [t for t in items if not t.is_revoked and t.trans_id]
+    live = [t for t in items if not _is_void(t) and t.trans_id]
+
+    def tid(t: ExecutiveTrade) -> str:
+        return t.trans_id or ""
 
     groups: dict[tuple[Any, ...], list[ExecutiveTrade]] = defaultdict(list)
     for t in live:
@@ -924,34 +967,42 @@ def _mark_duplicates(items: list[ExecutiveTrade]) -> None:
     for members in groups.values():
         if len(members) < 2:
             continue
-        canon = next((m for m in members if m.is_self), None) or min(
-            members, key=lambda m: m.trans_id or ""
-        )
+        canon = next((m for m in members if m.is_self), None) or min(members, key=tid)
         for m in members:
             if m is not canon:
-                m.duplicate_of = canon.trans_id
+                m.duplicate_of, m.duplicate_basis = canon.trans_id, "holdings"
 
-    def trade_key(t: ExecutiveTrade) -> tuple[Any, ...]:
-        return (t.symbol, t.security_type, t.transaction_date, t.quantity, t.price, t.method)
-
-    own: dict[tuple[Any, ...], list[ExecutiveTrade]] = defaultdict(list)
-    for t in sorted(live, key=lambda t: t.trans_id or ""):
-        if t.reporter_id and t.reporter_id == t.executor_id and t.duplicate_of is None:
-            own[(*trade_key(t), t.executor_id)].append(t)
-    for t in sorted(live, key=lambda t: t.trans_id or ""):
-        if (
-            t.duplicate_of is not None
-            or not t.executor_id
-            or not t.executor_id.startswith("CTRL_P_")
-            or t.reporter_id == t.executor_id
-        ):
+    by_trade: dict[tuple[Any, ...], list[ExecutiveTrade]] = defaultdict(list)
+    for t in sorted(live, key=tid):
+        if t.duplicate_of is None and t.executor_id and t.reporter_id:
+            trade = (t.symbol, t.security_type, t.transaction_date, t.quantity, t.price, t.method)
+            by_trade[(t.executor_id, *trade)].append(t)
+    for members in by_trade.values():
+        by_reporter: dict[str, list[ExecutiveTrade]] = defaultdict(list)
+        for m in members:
+            by_reporter[m.reporter_id or ""].append(m)
+        if len(by_reporter) < 2:
             continue
-        twins = own.get((*trade_key(t), t.executor_id))
-        if not twins:
-            continue
-        if t.detail is not None and twins[0].detail is not None:
-            continue  # both have holdings: rule 1 already decided, and said "different trades"
-        t.duplicate_of = twins.pop(0).trans_id
+        executor = members[0].executor_id or ""
+        basis: DuplicateBasis
+        if executor in by_reporter:
+            canon_reporter, basis = executor, "rule_5c"
+        else:
+            canon_reporter = min(by_reporter, key=lambda r: tid(by_reporter[r][0]))
+            basis = "executor"
+        canon_rows = by_reporter[canon_reporter]
+        for reporter, rows in by_reporter.items():
+            if reporter == canon_reporter:
+                continue
+            for row, twin in zip(rows, canon_rows, strict=False):
+                row.duplicate_of = twin.trans_id
+                row.duplicate_basis = basis
+                row.holding_conflict = (
+                    row.detail is not None
+                    and twin.detail is not None
+                    and (row.detail.holding_before, row.detail.holding_after)
+                    != (twin.detail.holding_before, twin.detail.holding_after)
+                )
 
 
 # ==================================================================================================
@@ -1071,14 +1122,18 @@ def _price_matches(listing: Decimal | None, detail: Decimal) -> bool:
 
 
 def _link_details(items: list[ExecutiveTrade], reports: list[ExecutiveTradeReport]) -> None:
-    """Attach each report's transactions to their listing rows. Unique matches only.
+    """Attach each report's transactions to their listing rows, without guessing.
 
     The detail API has no transaction id, and its order is by date while the listing's transId
     sequence is by entry (PEACE batch 592000452610: 6 of 53 matched by position). So rows are
-    matched on (transaction date, quantity, method, security type, price within listing rounding)
-    plus the reporter's name. A key that occurs more than once in the batch on either side is left
-    unmatched rather than guessed; such rows keep ``detail=None`` and are counted on
-    ``ExecutiveTradeList.detail_unmatched``. On 2026-10-07 that was 1.3% of linked rows.
+    matched on (transaction date, quantity, method, security type, price within the listing's
+    rounding) plus the reporter's name.
+
+    A key that occurs once on each side links. A key that occurs N times on each side links only
+    when the N detail transactions are identical in every field, so any pairing attaches the same
+    data: the CANCELED re-filings of CREDIT batch 592001242610 are such a pair. Anything else stays
+    ``detail=None`` and is counted on ``ExecutiveTradeList.detail_unmatched`` (about 1.3% of
+    linked rows on 2026-10-07).
     """
     by_batch: dict[str, list[ExecutiveTrade]] = defaultdict(list)
     for t in items:
@@ -1096,20 +1151,25 @@ def _link_details(items: list[ExecutiveTrade], reports: list[ExecutiveTradeRepor
         rows = by_batch.get(report.batch_no, [])
         if rows and report.symbol is None:
             report.symbol = rows[0].symbol
-        detail_counts = Counter(detail_key(d) for d in report.transactions)
         reporter = " ".join(report.reporter_name.split())
-        for t in rows:
-            if " ".join(t.reporter_name.split()) != reporter:
+        row_groups: dict[tuple[Any, ...], list[ExecutiveTrade]] = defaultdict(list)
+        for t in sorted(rows, key=lambda r: r.trans_id or ""):
+            if " ".join(t.reporter_name.split()) == reporter:
+                row_groups[listing_key(t)].append(t)
+        detail_groups: dict[tuple[Any, ...], list[ExecutiveTradeDetail]] = defaultdict(list)
+        for d in report.transactions:
+            detail_groups[detail_key(d)].append(d)
+        for key, group in row_groups.items():
+            details = detail_groups.get(key, [])
+            if not details or len(details) != len(group):
                 continue
-            key = listing_key(t)
-            same_rows = [r for r in rows if listing_key(r) == key]
-            candidates = [
-                d
-                for d in report.transactions
-                if detail_key(d) == key and _price_matches(t.price, d.avg_price)
-            ]
-            if len(same_rows) == 1 and detail_counts[key] == 1 and len(candidates) == 1:
-                t.detail = candidates[0].model_copy(update={"trans_id": t.trans_id})
+            first = details[0].model_dump()
+            if any(d.model_dump() != first for d in details[1:]):
+                continue
+            if not all(_price_matches(t.price, details[0].avg_price) for t in group):
+                continue
+            for t, d in zip(group, details, strict=True):
+                t.detail = d.model_copy(update={"trans_id": t.trans_id})
 
 
 # ==================================================================================================

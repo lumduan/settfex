@@ -1502,6 +1502,12 @@
               "default": "None",
               "required": false
             },
+            "duplicate_basis": {
+              "alias": null,
+              "annotation": "Optional[Literal['holdings', 'executor', 'rule_5c']]",
+              "default": "None",
+              "required": false
+            },
             "duplicate_of": {
               "alias": null,
               "annotation": "str | None",
@@ -1517,6 +1523,12 @@
               "alias": null,
               "annotation": "str | None",
               "required": true
+            },
+            "holding_conflict": {
+              "alias": null,
+              "annotation": "bool",
+              "default": "False",
+              "required": false
             },
             "is_revoked": {
               "alias": null,
@@ -2013,6 +2025,7 @@
         "BlockedError",
         "CompanyNotFoundError",
         "DateType",
+        "DuplicateBasis",
         "ExecutiveTrade",
         "ExecutiveTradeDetail",
         "ExecutiveTradeList",

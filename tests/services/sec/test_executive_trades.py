@@ -123,10 +123,45 @@ SPALI_DETAIL_BATCHES = [
     "592003462609", "592004192609", "592004202609", "592004532609", "592004542609",
     "592004992609", "592005002609",
 ]  # fmt: skip
+# The 35 reports behind the 28 September 2026 pairs (every one captured).
 PAIR_BATCHES = [
-    "592002622609", "592002632609", "592000092610", "592000082610",
-    "592001242610", "592000142610", "592004052609", "592004042609",
+    "592000082610", "592000092610", "592000102610", "592000142610", "592000152610",
+    "592000532609", "592000542609", "592001242610", "592001262610", "592001352609",
+    "592001372609", "592002622609", "592002632609", "592002772609", "592002782609",
+    "592002882609", "592002892609", "592003112609", "592003122609", "592003452609",
+    "592003462609", "592003632609", "592003652609", "592004042609", "592004052609",
+    "592004192609", "592004202609", "592004532609", "592004542609", "592004802609",
+    "592004812609", "592004992609", "592005002609", "592005172609", "592005182609",
 ]  # fmt: skip
+
+# The pinned outcome of every September 2026 pair: copy -> (original, basis, holding_conflict).
+# Rows not listed are originals. Decided 2026-10-08 (see _mark_duplicates).
+SPALI_COPIES = {
+    "164748_2_1": "164747_2_1", "164748_2_2": "164747_2_2", "164843_2_1": "164845_2_1",
+    "164938_2_1": "164939_2_1", "164938_2_2": "164939_2_2", "164974_2_1": "164975_2_1",
+    "164974_2_2": "164975_2_2", "165022_2_1": "165023_2_1", "165100_2_1": "165102_2_1",
+    "165100_2_2": "165102_2_2", "165100_2_3": "165102_2_3",
+}  # fmt: skip
+STX_COPIES = {
+    "164899_2_1": "164897_2_1", "164899_2_2": "164897_2_2", "164899_2_3": "164897_2_3",
+    "164953_2_1": "164952_2_1", "164953_2_2": "164952_2_2", "164953_2_3": "164952_2_3",
+    "164953_2_4": "164952_2_4",
+}  # fmt: skip
+CREDIT_COPIES = {"165233_2_1": "165109_2_1", "165233_2_2": "165110_2_1"}
+KCG_ROWS = [
+    "164499_2_1", "164500_2_1", "164610_2_1", "164612_2_1", "164754_2_1", "164755_2_1",
+    "164780_2_1", "164781_2_1", "164804_2_1", "164805_2_1", "164867_2_1", "164868_2_1",
+    "165046_2_1", "165047_2_1",
+]  # fmt: skip
+WITH_DETAILS = {
+    **{c: (o, "holdings", False) for c, o in SPALI_COPIES.items()},
+    **{c: (o, "holdings", False) for c, o in CREDIT_COPIES.items()},
+    **{c: (o, "executor", True) for c, o in STX_COPIES.items()},
+}
+WITHOUT_DETAILS = {
+    **{c: (o, "rule_5c", False) for c, o in SPALI_COPIES.items()},
+    **{c: (o, "executor", False) for c, o in STX_COPIES.items()},
+}
 
 
 def _trade(**overrides: Any) -> ExecutiveTrade:
@@ -642,33 +677,65 @@ class TestWithDetails:
         assert len(failed_rows) == 2 and all(t.detail is None for t in failed_rows)
         assert len(linked) == 22 and result.detail_unmatched == 2
         assert all(t.detail.trans_id == t.trans_id for t in linked if t.detail)
-        assert result.duplicate_count == 12  # holdings where both have detail, rule 2 otherwise
+        assert result.duplicate_count == 12
+        bases = {t.duplicate_basis for t in result if t.duplicate_of}
+        assert bases == {"holdings", "rule_5c"}  # holdings where both reports came, 5c where not
         copy = next(t for t in result if t.trans_id == "165100_2_1")
-        assert copy.duplicate_of == "165102_2_1"
+        assert (copy.duplicate_of, copy.duplicate_basis) == ("165102_2_1", "holdings")
         assert copy.detail is not None and copy.detail.holding_before == 701_197_455
 
     @pytest.mark.asyncio
-    async def test_the_september_pairs_decided_by_holdings(self) -> None:
-        """Every duplicate class found validating rule 2 against holdings (2026-10-07)."""
+    async def test_all_28_september_pairs_with_details(self) -> None:
+        """SPALI 11 and CREDIT 2 are copies by holdings; STX 7 by executor, holdings in conflict.
+
+        KCG 7 and CREDIT's same-reporter pair (165104_2_1 / 165237_3_1) stay separate trades.
+        """
         sec = FakeSec("th_sep_pairs.html", details=details(*PAIR_BATCHES))
         with sec.patch():
             result = await get_executive_trades(received_date="2026-10-01", with_details=True)
-        dup = {t.trans_id: t.duplicate_of for t in result}
-        assert dup["164755_2_1"] is None  # KCG spouse: different holdings, a separate trade
-        assert dup["165100_2_1"] == "165102_2_1"  # SPALI: same holdings, a copy
-        # CREDIT: two different CTRL_P_ executors with identical holdings (0 -> 10,000). Holdings
-        # call it one trade; the listing rule (rows without detail) does not. Pinned both ways.
-        assert dup["165233_2_1"] == "165109_2_1"
-        # STX: one company executor, two reporters, holdings 70,000 apart. Neither rule merges it.
-        assert dup["164897_2_1"] is None and dup["164899_2_1"] is None
-        assert result.detail_unmatched == 0
+        assert len(result) == 58 and result.detail_unmatched == 0
+        outcome = {
+            t.trans_id: (t.duplicate_of, t.duplicate_basis, t.holding_conflict) for t in result
+        }
+        for trans_id, got in outcome.items():
+            assert got == WITH_DETAILS.get(trans_id, (None, None, False)), trans_id
+        assert outcome["165104_2_1"] == outcome["165237_3_1"] == (None, None, False)
+        assert all(outcome[t] == (None, None, False) for t in KCG_ROWS)
+        stx = next(t for t in result if t.trans_id == "164899_2_1")
+        assert stx.detail is not None and stx.detail.holding_before == 37_900_050
+        assert result.duplicate_count == 20
 
-    def test_without_details_the_listing_rule_decides(self) -> None:
-        dup = {t.trans_id: t.duplicate_of for t in parse("th_sep_pairs.html")}
-        assert dup["165100_2_1"] == "165102_2_1"
-        assert dup["164755_2_1"] is None
-        assert dup["165233_2_1"] is None  # rule 2 needs the executor to be the twin's reporter
-        assert dup["164897_2_1"] is None and dup["164899_2_1"] is None
+    def test_all_28_september_pairs_without_details(self) -> None:
+        """Without reports: SPALI by the 5c shape, STX by executor, CREDIT and KCG separate."""
+        items = parse("th_sep_pairs.html")
+        outcome = {
+            t.trans_id: (t.duplicate_of, t.duplicate_basis, t.holding_conflict) for t in items
+        }
+        for trans_id, got in outcome.items():
+            assert got == WITHOUT_DETAILS.get(trans_id, (None, None, False)), trans_id
+        assert sum(t.duplicate_of is not None for t in items) == 18
+
+    @pytest.mark.asyncio
+    async def test_a_cancelled_transaction_is_not_a_trade(self) -> None:
+        """CREDIT batch 592001242610 re-files 01/10 13,000 twice; the report marks both CANCELED.
+
+        The two transactions are identical in every field, so they link (any pairing attaches the
+        same data) even though their key repeats. Both rows are revoked in the listing as well.
+        """
+        sec = FakeSec("th_sep_pairs.html", details=details(*PAIR_BATCHES))
+        with sec.patch():
+            result = await get_executive_trades(received_date="2026-10-01", with_details=True)
+        cancelled = [t for t in result if t.trans_id in ("165233_2_3", "165233_2_4")]
+        assert [t.detail.record_status for t in cancelled if t.detail] == ["CANCELED", "CANCELED"]
+        economic = {t.trans_id for t in result.economic_trades()}
+        assert not economic & {"165233_2_3", "165233_2_4"}
+        # A row the listing still shows live but its report cancels is not a trade either.
+        live = cancelled[0].model_copy(update={"is_revoked": False, "trans_id": "x"})
+        both = _list([live, _trade(trans_id="y")])
+        assert [t.trans_id for t in both.economic_trades()] == ["y"]
+        assert "นาย ศุภชัย" not in both.to_table() and "นาย ศุภชัย" in both.to_table(
+            include_revoked=True
+        )
 
     @pytest.mark.asyncio
     async def test_over_the_batch_cap_nothing_is_sent(self) -> None:
@@ -693,7 +760,7 @@ class TestWithDetails:
         sec = FakeSec("th_sep_pairs.html")
         with sec.patch(), pytest.raises(FetchError) as info:
             await get_executive_trades(received_date="2026-10-01", with_details=True)
-        assert "All 8 Form 59 detail requests failed." in (info.value.__notes__ or [])
+        assert "All 35 Form 59 detail requests failed." in (info.value.__notes__ or [])
 
 
 # ==================================================================================================
@@ -800,7 +867,7 @@ class TestContainer:
     def test_to_dataframe(self) -> None:
         pytest.importorskip("pandas")
         frame = _list(parse("th_sep_pairs.html")).to_dataframe()
-        assert len(frame) == 8 and "holding_before" in frame.columns
+        assert len(frame) == 58 and {"holding_before", "duplicate_basis"} <= set(frame.columns)
         assert frame["price"].dtype.kind == "f"
         assert list(_list([]).to_dataframe(["symbol"]).columns) == ["symbol"]
         with pytest.raises(ValueError, match="Unknown DataFrame column"):
@@ -906,8 +973,8 @@ class TestRemainingBranches:
         assert result.unknown_labels["method"] == {"ซื้อพิเศษ": 1}
         assert "outside the known vocabulary" in warn.call_args.args[0]
 
-    def test_rule_two_defers_to_holdings_when_both_rows_have_them(self) -> None:
-        """Two rows rule 2 would pair, whose holdings differ: holdings win, no copy is marked."""
+    def test_the_5c_shape_with_conflicting_holdings_is_merged_and_flagged(self) -> None:
+        """The executor's own row and another reporter's, holdings different: merged, flagged."""
         detail = {
             "holder_label": "x", "executor": "x", "security_type": "หุ้นสามัญ",
             "transaction_date": date(2026, 9, 30), "quantity": 1, "avg_price": Decimal("1.00"),
@@ -922,4 +989,35 @@ class TestRemainingBranches:
             trans_id="b", detail=ExecutiveTradeDetail(**detail, holding_before=5, holding_after=6)
         )
         et._mark_duplicates([copy, own])
-        assert copy.duplicate_of is None
+        assert (copy.duplicate_of, copy.duplicate_basis, copy.holding_conflict) == (
+            "b",
+            "rule_5c",
+            True,
+        )
+
+    def test_the_executor_rule_never_merges_one_reporters_rows_and_pairs_one_to_one(self) -> None:
+        same_reporter = [
+            _trade(trans_id="a", executor_id="TEMP_C_1", is_self=False),
+            _trade(trans_id="b", executor_id="TEMP_C_1", is_self=False),
+        ]
+        et._mark_duplicates(same_reporter)
+        assert [t.duplicate_of for t in same_reporter] == [None, None]
+        # Two identical trades filed by reporter 1, one by reporter 2: one copy, not two.
+        rows = [
+            _trade(trans_id="a", executor_id="TEMP_C_1", is_self=False),
+            _trade(trans_id="b", executor_id="TEMP_C_1", is_self=False),
+            _trade(trans_id="c", reporter_id="CTRL_P_2", executor_id="TEMP_C_1", is_self=False),
+        ]
+        et._mark_duplicates(rows)
+        assert [(t.duplicate_of, t.duplicate_basis) for t in rows] == [
+            (None, None),
+            (None, None),
+            ("a", "executor"),
+        ]
+        # A blank reporter id cannot prove "different reporter": never merged by the executor rule.
+        blank = [
+            _trade(trans_id="a", executor_id="TEMP_C_1", is_self=False),
+            _trade(trans_id="b", reporter_id=None, executor_id="TEMP_C_1", is_self=None),
+        ]
+        et._mark_duplicates(blank)
+        assert [t.duplicate_of for t in blank] == [None, None]
