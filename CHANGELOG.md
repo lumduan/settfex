@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-11-02
+
+**Security: settfex no longer depends on `diskcache`, and nothing it caches is ever unpickled.**
+The same fix is released for the older lines that consumers still pin, as 0.17.1, 0.15.1 and
+0.3.1, so each can take a patch bump instead of migrating across 0.24.0.
+
 ### Security
 
 - **The session cache no longer unpickles anything, and `diskcache` is no longer a dependency**
