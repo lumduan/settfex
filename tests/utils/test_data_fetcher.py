@@ -581,3 +581,36 @@ class TestAsyncDataFetcherPost:
 
         assert resp.content == raw
         assert resp.encoding == "latin1"
+
+
+class TestRequestFailureLogging:
+    """A failed request must re-raise ITS OWN exception, whatever its text contains.
+
+    The except-branch used to call ``logger.error(f"...{e}", exc_info=True)``. ``exc_info`` is a
+    stdlib-logging argument; loguru treats any keyword as a format argument and runs
+    ``str.format()`` on the already-interpolated message, so an error text containing braces
+    (a JSON fragment, a dict repr) made the LOGGING call raise ``KeyError`` and replace the real
+    error. It fired only with settfex logging enabled (disabled by default since 0.24.2).
+    """
+
+    @pytest.mark.asyncio
+    async def test_braces_in_the_error_text_do_not_replace_the_error(self) -> None:
+        from loguru import logger
+
+        records: list[str] = []
+        logger.enable("settfex")
+        sink = logger.add(lambda m: records.append(m.record["message"]), level="ERROR")
+        try:
+            fetcher = AsyncDataFetcher(config=FetcherConfig(use_session=False, max_retries=0))
+            boom = ConnectionError("upstream said {'k': 1} and {0}")
+            with (
+                patch("settfex.utils.data_fetcher.requests.get", side_effect=boom),
+                pytest.raises(ConnectionError) as excinfo,
+            ):
+                await fetcher._make_request("https://x/y", headers={})
+        finally:
+            logger.remove(sink)
+            logger.disable("settfex")
+
+        assert excinfo.value is boom, "the logging call must not swap the exception"
+        assert records == ["Request failed: upstream said {'k': 1} and {0}"]

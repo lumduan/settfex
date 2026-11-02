@@ -288,7 +288,11 @@ class AsyncDataFetcher:
                 logger.debug(f"Request completed: status={response.status_code}, url={url}")
                 return response
             except Exception as e:
-                logger.error(f"Request failed: {e}", exc_info=True)
+                # The error goes in as an ARGUMENT, so loguru never reads braces in its text as
+                # format fields. (`exc_info=True` here made loguru str.format() the f-string, and
+                # an error text like "{'k': 1}" raised KeyError in place of the real error.)
+                # No traceback on purpose: loguru's diagnose mode would print frame locals.
+                logger.error("Request failed: {}", e)
                 raise
 
     async def fetch(
