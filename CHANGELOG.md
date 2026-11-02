@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.3] - 2026-11-02
+
+Cookie hardening for the session cache. No API change; one extra warm-up per site after upgrading.
+
 ### Security
 
 - **A cached session's cookies are sent only to the domain they were issued for**

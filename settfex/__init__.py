@@ -64,7 +64,7 @@ Usage:
     >>> asyncio.run(main())
 """
 
-__version__ = "0.26.2"
+__version__ = "0.26.3"
 __author__ = "batt"
 __license__ = "MIT"
 
