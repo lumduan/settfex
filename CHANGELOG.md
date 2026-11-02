@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-11-02
+
+Security backport for the 0.15 line: the same fix as 0.26.1, with nothing else changed.
+
+### Security
+
+- **The session cache no longer unpickles anything, and `diskcache` is no longer a dependency**
+  (`settfex.utils.session_cache`). `diskcache` reads cached values back with pickle
+  (PYSEC-2026-2447 / CVE-2025-69872 / GHSA-w8v5-vhqr-4h9v). It has no fixed release, so anyone
+  able to write into the cache directory could execute code in the process that read it.
+  - The store is now stdlib `sqlite3` holding JSON text (`sessions.sqlite3`, created `0600`
+    inside a `0700` directory). A row that is not a JSON object is a cache miss, never code.
+  - The old `cache.db` is never opened, so a session warms up once after the upgrade.
+  - `SessionCache`'s API is unchanged.
+
 ## [0.15.0] - 2026-07-27
 
 ### Added
