@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.3] - 2026-11-02
+
+Cookie hardening for the session cache. No API change; one extra warm-up per site after upgrading.
+
+### Security
+
+- **A cached session's cookies are sent only to the domain they were issued for**
+  (`settfex.utils.session_manager`). The cache kept only name → value, and a restore set each
+  cookie with **no domain**. curl_cffi binds a domain-less cookie to the host of the first request
+  that carries it, so the first request after a restore decided where a site's cookies went, even to
+  a foreign host. A loopback test (two hostnames resolved to 127.0.0.1) showed the restored SET
+  cookies reaching `attacker.example` on 0.26.2.
+  - The cache now stores each cookie's domain, host-only flag, path, secure flag and expiry
+    (`cookie_jar`), and a restore rebuilds exactly that. It keeps writing the plain `cookies` map, so
+    0.26.1/0.26.2 processes sharing the directory still read it.
+  - An entry from 0.26.2 or older (no `cookie_jar`) is a cache miss: one anonymous warm-up after
+    upgrading, then the row is rewritten. So is a row holding a malformed cookie or one outside the
+    site's own domain (`set.or.th`, `tfex.co.th`, `settrade.com`).
+  - Verified live on 2026-11-02, 12 requests in all. First, one warm-up per site showed what each
+    site issues: `.set.or.th` / `.tfex.co.th` / `.settrade.com`, plus a host-only `charlot` on the
+    `www.` host. Then a cold process (warm-up, save, one real call per site) and a second process
+    restoring from that cache with no warm-up; all six calls returned data.
+- **`get_session_for_url()` matches the URL's hostname, not a substring of the whole URL.**
+  `https://evil.example/?next=www.settrade.com` used to route to the Settrade session, and
+  `settrade.com.evil.example` would have too. A host must now equal the site's domain or be a
+  subdomain of it; anything else uses the SET session, as before.
+
 ## [0.26.2] - 2026-11-02
 
 Two logging fixes, and a Security workflow that now audits every extra. No API change.

@@ -16,8 +16,10 @@ Key features:
 
 import asyncio
 import time
+from http.cookiejar import Cookie
 from pathlib import Path
 from typing import Any, ClassVar
+from urllib.parse import urlsplit
 
 from curl_cffi import requests
 from loguru import logger
@@ -36,12 +38,80 @@ WARMUP_URLS: dict[str, tuple[str, str]] = {
     "settrade": ("https://www.settrade.com/th/home", "Settrade"),
 }
 
-# Host substring -> warmup site, for get_session_for_url(). Anything unmatched uses the SET
-# warmup. Order is irrelevant today (no host matches two entries) but the tuple keeps it stable.
+# Registrable domain -> warmup site, for get_session_for_url(). A URL is matched on its HOSTNAME:
+# the host equals the domain or ends with "." + domain. Until 0.26.3 this was a substring test on
+# the whole URL, so "https://evil.example/?next=www.settrade.com" routed to the Settrade session.
+# Anything unmatched uses the SET warmup. Order is irrelevant (no host matches two entries).
 _URL_WARMUP_SITES: tuple[tuple[str, str], ...] = (
     ("tfex.co.th", "tfex"),
     ("settrade.com", "settrade"),
 )
+
+
+def _host_in_domain(host: str, domain: str) -> bool:
+    """True when ``host`` is ``domain`` itself or a subdomain of it (never a mere suffix)."""
+    host = host.lower().lstrip(".")
+    return host == domain or host.endswith("." + domain)
+
+
+def _site_cookie_domain(warmup_site: str) -> str:
+    """The domain a site's cookies must belong to: its warmup host minus a leading ``www.``."""
+    warmup_url, _ = WARMUP_URLS.get(warmup_site, WARMUP_URLS["set"])
+    host = urlsplit(warmup_url).hostname or ""
+    return host.removeprefix("www.")
+
+
+def _cookie_to_cache(cookie: Cookie) -> dict[str, Any]:
+    """The attributes that decide WHERE a cookie is sent, so a restore sends it nowhere else."""
+    return {
+        "name": cookie.name,
+        "value": cookie.value,
+        "domain": cookie.domain,
+        "domain_specified": cookie.domain_specified,
+        "path": cookie.path,
+        "secure": cookie.secure,
+        "expires": cookie.expires,
+    }
+
+
+def _cookie_from_cache(entry: Any, site_domain: str) -> Cookie | None:
+    """Rebuild one cached cookie, or ``None`` if the entry is malformed or off-site.
+
+    A cookie without a domain must never be restored: curl_cffi binds a domain-less cookie to
+    the host of the FIRST request that carries it (``Cookies.get_cookies_for_curl``), wherever
+    that request goes. A domain outside the site's own is refused as well, so a cache entry
+    cannot direct a site's cookies to another host.
+    """
+    if not isinstance(entry, dict):
+        return None
+    name, value, domain = entry.get("name"), entry.get("value"), entry.get("domain")
+    path = entry.get("path") or "/"
+    expires = entry.get("expires")
+    if not (isinstance(name, str) and name and isinstance(value, str)):
+        return None
+    if not (isinstance(domain, str) and domain and _host_in_domain(domain, site_domain)):
+        return None
+    if not isinstance(path, str) or (expires is not None and not isinstance(expires, int)):
+        return None
+    domain_specified = bool(entry.get("domain_specified"))
+    return Cookie(
+        version=0,
+        name=name,
+        value=value,
+        port=None,
+        port_specified=False,
+        domain=domain,
+        domain_specified=domain_specified,
+        domain_initial_dot=domain.startswith("."),
+        path=path,
+        path_specified=True,
+        secure=bool(entry.get("secure")),
+        expires=expires,
+        discard=expires is None,
+        comment=None,
+        comment_url=None,
+        rest={},
+    )
 
 
 class SessionManager:
@@ -206,23 +276,41 @@ class SessionManager:
                 cache.delete(self._cache_key)
                 return False
 
-            # Load cookies from cache
-            cookies_dict = cached.get("cookies", {})
             browser = cached.get("browser", self.browser)
 
-            if not cookies_dict:
-                logger.warning("Cached session has no cookies")
+            # Restore cookies WITH the domain/path/flags they were issued for (0.26.3). An entry
+            # written by 0.26.2 or older holds only name -> value, and restoring that would bind
+            # the cookies to whatever host the first request goes to, so it is a cache miss:
+            # one anonymous warm-up, then the entry is rewritten in this format.
+            entries = cached.get("cookie_jar")
+            if not isinstance(entries, list) or not entries:
+                if cached.get("cookies"):
+                    logger.info(
+                        "Cached session predates cookie domains (settfex <= 0.26.2) - "
+                        "re-warming once instead of restoring cookies without a domain"
+                    )
+                else:
+                    logger.warning("Cached session has no cookies")
+                return False
+
+            site_domain = _site_cookie_domain(self.warmup_site)
+            cookies = [_cookie_from_cache(entry, site_domain) for entry in entries]
+            if any(cookie is None for cookie in cookies):
+                logger.warning(
+                    f"Cached session has a malformed or off-site cookie (site domain "
+                    f"{site_domain}) - re-warming instead of restoring it"
+                )
                 return False
 
             # Create new session with cached cookies
             if self._session is None:
                 self._session = requests.Session()
 
-            # Restore cookies to session
-            for name, value in cookies_dict.items():
-                self._session.cookies.set(name, value)
+            for cookie in cookies:
+                assert cookie is not None  # narrowed by the any() check above
+                self._session.cookies.jar.set_cookie(cookie)
 
-            cookie_count = len(cookies_dict)
+            cookie_count = len(cookies)
             age = time.time() - cached.get("cached_at", 0)
             logger.success(
                 f"✓ Loaded session from cache: {cookie_count} cookies "
@@ -267,10 +355,16 @@ class SessionManager:
                 logger.warning("No cookies to cache")
                 return
 
+            # The full attributes, so a restore sends each cookie only where it was issued for.
+            # "cookies" (name -> value) stays alongside for settfex 0.26.1/0.26.2 processes
+            # reading the same cache directory.
+            cookie_jar = [_cookie_to_cache(cookie) for cookie in self._session.cookies.jar]
+
             # Save to cache
             cache.set(
                 self._cache_key,
                 {
+                    "cookie_jar": cookie_jar,
                     "cookies": cookies_dict,
                     "browser": self.browser,
                     "warmup_time": self._last_warmup_time,
@@ -518,8 +612,10 @@ async def get_session_for_url(url: str, browser: str = "chrome120") -> SessionMa
         >>> session = await get_session_for_url("https://www.settrade.com/api/set-fund/...")
         >>> # Automatically uses Settrade warmup
     """
-    # Auto-detect warmup site based on URL host; anything unmatched uses the SET warmup.
-    lowered = url.lower()
-    warmup_site = next((site for host, site in _URL_WARMUP_SITES if host in lowered), "set")
+    # Auto-detect the warmup site from the URL's HOSTNAME; anything unmatched uses the SET warmup.
+    host = urlsplit(url).hostname or ""
+    warmup_site = next(
+        (site for domain, site in _URL_WARMUP_SITES if _host_in_domain(host, domain)), "set"
+    )
 
     return await get_shared_session(browser=browser, warmup_site=warmup_site)
