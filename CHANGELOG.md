@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **With settfex logging enabled, a failed request whose error text contained braces raised
+  `KeyError` instead of its own error** (`settfex.utils.data_fetcher`). The standalone request path
+  logged with `logger.error(f"...{e}", exc_info=True)`. `exc_info` is a stdlib-logging argument:
+  loguru treats any keyword as a format argument and ran `str.format()` on the already-interpolated
+  message, so an error such as `"... {'k': 1} ..."` made the logging call itself raise. That
+  replaced the real error, which was never re-raised. The error is now passed as an argument
+  (`logger.error("Request failed: {}", e)`). No traceback is logged, deliberately: with
+  `setup_logger()`'s `diagnose=True` a traceback would print frame locals. Only reachable after
+  `logger.enable("settfex")` or `setup_logger()`, because settfex logging has been off by default
+  since 0.24.2. Found while comparing security findings with a sibling library.
+
+### Security
+
+- **The Security workflow now audits every extra** (`--all-extras`). It used to sync only the dev
+  group, so the `examples` extra (jupyter, notebook, matplotlib) was never audited. A full-lock
+  audit found 103 advisories in 9 packages there, all now bumped in `uv.lock` (pillow 13.0.0,
+  tornado 6.6, mistune 3.4.0, soupsieve 2.9.2, nbconvert 7.17.2, anyio 4.14.2, bleach 6.4.0,
+  fonttools 4.68.0, jupyter-server 2.21.1). Lock-only: the published wheel's requirements are
+  unchanged, and `pip install settfex[examples]` always resolved current versions.
+
 ## [0.26.1] - 2026-11-02
 
 **Security: settfex no longer depends on `diskcache`, and nothing it caches is ever unpickled.**
