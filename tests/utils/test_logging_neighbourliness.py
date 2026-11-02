@@ -335,3 +335,46 @@ class TestEnableMustComeAfterTheImport:
         assert "settfex." in log.read_text(encoding="utf-8"), (
             'logger.enable("settfex") after `import settfex` must make settfex audible'
         )
+
+
+class TestSetupLoggerDoesNotPrintFrameLocals:
+    """setup_logger()'s sinks run with diagnose=False: a logged traceback carries no values.
+
+    loguru's diagnose mode annotates every traceback frame with its local variables. A caller's
+    ``logger.exception()`` whose traceback passes through a frame holding a secret would write
+    that secret to the console and the log file.
+    """
+
+    def test_a_secret_in_a_frame_local_stays_out_of_the_log_file(self, tmp_path: Path) -> None:
+        log = tmp_path / "trace.log"
+        result = run_in_fresh_interpreter(
+            f"""
+            from loguru import logger
+            from settfex.utils.logging import setup_logger
+
+            # Drop loguru's own default stderr handler (diagnose=True by loguru's default). It is
+            # the host's, and setup_logger() never removes a handler it did not add, so stderr
+            # would carry the value through it. This test is about the two sinks settfex adds.
+            logger.remove()
+            setup_logger(level="DEBUG", log_file={str(log)!r})
+
+            def send(cookie):
+                raise RuntimeError("request failed")
+
+            def handler():
+                session_cookie = "TOPSECRET-incap-value"
+                send(session_cookie)   # diagnose annotates the names on a traceback line
+
+            try:
+                handler()
+            except RuntimeError:
+                logger.exception("caller logs the failure")
+            logger.remove()
+            """,
+            tmp_path,
+        )
+        assert result.returncode == 0, result.stderr
+        text = log.read_text(encoding="utf-8")
+        assert "RuntimeError: request failed" in text, "the traceback itself must still be logged"
+        assert "TOPSECRET" not in text, "diagnose mode printed a frame local into the log file"
+        assert "TOPSECRET" not in result.stderr, "diagnose mode printed a frame local to stderr"
