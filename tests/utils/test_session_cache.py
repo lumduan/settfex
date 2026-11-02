@@ -1,14 +1,15 @@
-"""Tests for SessionCache, focused on the on-disk permissions of the cache directory.
+"""Tests for SessionCache: the on-disk permissions, and the store that never unpickles.
 
-The mode of that directory is a security property, not a cosmetic one: diskcache reads cached
-values back with pickle (CVE-2025-69872, no fixed release upstream), so write access to the
-directory is code execution inside the calling process. These tests pin the cases that behave
-differently — a directory we create, a loose default directory we own, a loose directory the
-caller chose deliberately, and a chmod we are not allowed to make.
+The cached cookies are credentials, so the directory and file modes are a security property.
+Until 0.26.1 the store was diskcache, which reads values back with pickle (CVE-2025-69872 /
+PYSEC-2026-2447, no fixed release upstream): write access to the directory was code execution in
+the reading process. The store is now stdlib sqlite3 holding JSON text, and these tests pin that
+nothing in a row can become code, plus the behaviour SessionManager relies on.
 """
 
 import os
 import stat
+import time
 from pathlib import Path
 from typing import Any
 
@@ -86,7 +87,7 @@ class TestCacheDirectoryPermissions:
 
         # Breaking a deliberate multi-account layout silently would be worse than warning.
         assert _mode(shared) == 0o777
-        assert any("CVE-2025-69872" in message for message in messages)
+        assert any("are credentials" in message for message in messages)
 
     def test_caller_supplied_readable_directory_is_left_alone_silently(
         self, tmp_path: Path
@@ -130,3 +131,110 @@ class TestCacheDirectoryPermissions:
             logger.remove(sink_id)
 
         assert any("Could not verify permissions" in message for message in messages)
+
+
+class TestNothingIsUnpickled:
+    """The store is JSON text in SQLite: a hostile row is a cache miss, never code."""
+
+    def _raw(self, cache: SessionCache, key: str, value: str) -> None:
+        cache._db.execute(
+            "INSERT OR REPLACE INTO sessions (key, value, stored_at, expires_at) VALUES (?,?,?,?)",
+            (key, value, time.time(), time.time() + 3600),
+        )
+
+    def test_a_pickle_payload_is_a_miss_not_code(self, tmp_path: Path) -> None:
+        import pickle
+
+        class Boom:
+            def __reduce__(self) -> tuple[Any, ...]:
+                return (os.system, ("touch " + str(tmp_path / "pwned"),))
+
+        with SessionCache(cache_dir=tmp_path) as cache:
+            self._raw(cache, "k", pickle.dumps(Boom()).decode("latin-1"))
+            assert cache.get("k") is None
+        assert not (tmp_path / "pwned").exists()
+
+    def test_json_that_is_not_an_object_is_a_miss(self, tmp_path: Path) -> None:
+        with SessionCache(cache_dir=tmp_path) as cache:
+            self._raw(cache, "k", "[1, 2, 3]")
+            assert cache.get("k") is None
+
+    def test_the_legacy_diskcache_database_is_never_opened(self, tmp_path: Path) -> None:
+        legacy = tmp_path / "cache.db"
+        legacy.write_bytes(b"not a database, and certainly not read")
+        before = legacy.stat().st_mtime_ns
+        with SessionCache(cache_dir=tmp_path) as cache:
+            assert cache.get("set_session_chrome120") is None
+            assert cache.set("k", {"cookies": {"a": "b"}})
+        assert legacy.read_bytes() == b"not a database, and certainly not read"
+        assert legacy.stat().st_mtime_ns == before
+
+    def test_the_module_does_not_depend_on_diskcache(self) -> None:
+        import settfex.utils.session_cache as module
+
+        source = Path(module.__file__).read_text(encoding="utf-8")
+        assert "import diskcache" not in source and "import pickle" not in source
+
+
+class TestTheStoreBehavesAsBefore:
+    """What SessionManager relies on: round-trip, TTL, delete, clear, stats, size limit."""
+
+    def test_round_trip_adds_metadata(self, tmp_path: Path) -> None:
+        with SessionCache(cache_dir=tmp_path) as cache:
+            assert cache.set("k", {"cookies": {"incap_ses": "x"}, "browser": "chrome120"})
+            got = cache.get("k")
+        assert got is not None
+        assert got["cookies"] == {"incap_ses": "x"} and got["browser"] == "chrome120"
+        assert got["ttl"] == 3600 and isinstance(got["cached_at"], float)
+
+    def test_an_expired_entry_is_gone(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        with SessionCache(cache_dir=tmp_path) as cache:
+            cache.set("k", {"cookies": {}}, ttl=10)
+            real = time.time
+            monkeypatch.setattr(time, "time", lambda: real() + 11)
+            assert cache.get("k") is None
+            assert cache.is_expired("k")
+            assert cache.stats()["count"] == 0
+
+    def test_is_expired_honours_max_age(self, tmp_path: Path) -> None:
+        with SessionCache(cache_dir=tmp_path) as cache:
+            cache.set("k", {"cookies": {}})
+            assert not cache.is_expired("k")
+            assert cache.is_expired("k", max_age=-1)
+            assert cache.is_expired("missing")
+
+    def test_delete_clear_and_stats(self, tmp_path: Path) -> None:
+        with SessionCache(cache_dir=tmp_path) as cache:
+            cache.set("a", {"cookies": {}})
+            cache.set("b", {"cookies": {}})
+            assert cache.stats()["count"] == 2 and cache.stats()["size"] > 0
+            assert cache.delete("a") is True and cache.delete("a") is False
+            cache.clear()
+            assert cache.stats() == {"size": 0, "count": 0}
+
+    def test_a_value_json_cannot_encode_is_refused_not_raised(self, tmp_path: Path) -> None:
+        with SessionCache(cache_dir=tmp_path) as cache:
+            assert cache.set("k", {"cookies": object()}) is False
+            assert cache.get("k") is None
+
+    def test_size_limit_evicts_the_oldest(self, tmp_path: Path) -> None:
+        with SessionCache(cache_dir=tmp_path, size_limit=400) as cache:
+            for i in range(5):
+                cache.set(f"k{i}", {"cookies": {"c": "x" * 100}})
+            assert cache.get("k4") is not None
+            assert cache.get("k0") is None
+            assert cache.stats()["size"] <= 400
+
+    def test_the_database_file_is_private(self, tmp_path: Path) -> None:
+        with SessionCache(cache_dir=tmp_path / "c") as cache:
+            cache.set("k", {"cookies": {}})
+            assert not _mode(cache.path) & 0o077
+
+    def test_two_instances_share_one_directory(self, tmp_path: Path) -> None:
+        """Several processes on one host share ~/.settfex/cache; WAL lets them coexist."""
+        with SessionCache(cache_dir=tmp_path) as writer, SessionCache(cache_dir=tmp_path) as reader:
+            writer.set("set_session_chrome120", {"cookies": {"a": "b"}})
+            got = reader.get("set_session_chrome120")
+        assert got is not None and got["cookies"] == {"a": "b"}
