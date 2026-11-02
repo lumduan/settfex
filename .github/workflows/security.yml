@@ -59,7 +59,12 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - run: uv python install 3.12
-      - run: uv sync --group dev --frozen
+      # --all-extras: pip-audit inspects what is INSTALLED, and the dev group alone leaves out
+      # the `examples` extra (jupyter, notebook, matplotlib), so its whole tree went unaudited.
+      # Found 2026-11-02: a full-lock audit showed 103 advisories in 9 packages there, while this
+      # job printed "No known vulnerabilities found". (`--all-groups` would not have helped: groups
+      # are not extras.) The bandit job keeps the dev sync, because it scans settfex/ itself.
+      - run: uv sync --group dev --all-extras --frozen
 
       # Non-blocking: surfaces dependency CVEs for triage without blocking PRs.
       # Some advisories are transitive or not-yet-fixed upstream (e.g. no fix
