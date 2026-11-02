@@ -26,7 +26,12 @@ The same fix is released for the older lines that consumers still pin, as 0.17.1
     after the upgrade, and an INFO line says the old file can be deleted.
   - `SessionCache`'s API is unchanged (the same methods and parameters), and so is
     `SessionManager`.
-  - settfex's own Security workflow no longer needs an ignore: `pip-audit` reports nothing.
+  - settfex's own Security workflow no longer needs an ignore. This release also moves four
+    packages that `pip-audit` flagged in `uv.lock`, one commit each: `certifi` 2026.10.23 (a
+    `curl-cffi` dependency), plus `virtualenv` 21.14.13, `filelock` 4.2.6 and `msgpack` 1.2.4
+    (dev tools only). After these bumps `pip-audit` reports no known vulnerabilities. None of them
+    is a floor in `pyproject.toml`, so the only change to the published wheel's requirements is
+    the removal of `diskcache`.
 
 ## [0.26.0] - 2026-10-08
 
