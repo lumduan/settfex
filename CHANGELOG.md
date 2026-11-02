@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **The session cache no longer unpickles anything, and `diskcache` is no longer a dependency**
+  (`settfex.utils.session_cache`). `diskcache` reads cached values back with pickle
+  (PYSEC-2026-2447 / CVE-2025-69872 / GHSA-w8v5-vhqr-4h9v). It has no fixed release, and upstream
+  has been dormant since 2023, so anyone able to write into the cache directory could execute code
+  in the process that read it. Every consumer's pip-audit flagged it on a runtime dependency.
+  - The store is now stdlib `sqlite3` holding JSON text (`sessions.sqlite3`, WAL, created `0600`
+    inside the `0700` directory). A row that is not a JSON object is a cache miss, never code.
+  - The pre-0.26.1 `cache.db` is never opened, so it is never unpickled. A session warms up once
+    after the upgrade, and an INFO line says the old file can be deleted.
+  - `SessionCache`'s API is unchanged (the same methods and parameters), and so is
+    `SessionManager`.
+  - settfex's own Security workflow no longer needs an ignore: `pip-audit` reports nothing.
+
 ## [0.26.0] - 2026-10-08
 
 **SEC Form 59 arrives: directors' and executives' trades, with the report behind each one.**
