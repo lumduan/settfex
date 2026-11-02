@@ -255,14 +255,17 @@ await manager.ensure_initialized()
 ### Cache Location
 
 ```
-~/.settfex/cache/
-├── cache.db              # SQLite index
-├── 00/                   # Data shards
-│   ├── 00.val
-│   ├── 01.val
-│   └── ...
-└── ...
+~/.settfex/cache/                 # 0700
+├── sessions.sqlite3              # 0600 - one row per site/browser, JSON text (since 0.26.1)
+├── sessions.sqlite3-wal          # SQLite write-ahead log
+├── sessions.sqlite3-shm
+└── cache.db, 00/ ...             # only if upgraded from <= 0.26.0: the old diskcache store,
+                                  #   never opened again; safe to delete
 ```
+
+Each row holds a site's cookies **with the domain, host-only flag, path, secure flag and expiry
+they were issued for** (`cookie_jar`, since 0.26.3), plus the plain `cookies` name → value map that
+0.26.1/0.26.2 read.
 
 ### Directory Permissions
 
@@ -278,6 +281,16 @@ which reads values back with pickle
 write access to this directory meant code execution in your process. The store is now stdlib
 `sqlite3` holding JSON text: a row that is not a JSON object is a cache miss, never code. The old
 `cache.db` is never opened; delete it if you like. The session warms up once after the upgrade.
+
+**Each cookie is restored with the domain it was issued for (since 0.26.3).** Until 0.26.3 the cache
+kept only name → value and restored each cookie with no domain. curl_cffi binds such a cookie to the
+host of the **first** request that carries it, so the first request after a restore decided where a
+site's cookies went, even to another host. Each cookie now comes back with its own attributes
+(a real SET warm-up yields `.set.or.th` for the Incapsula cookies and host-only `www.set.or.th` for
+`charlot`), so it is sent to that domain and nowhere else. An entry without those attributes,
+written by 0.26.2 or older, is treated as a miss: one anonymous warm-up, then the row is rewritten.
+A cookie whose domain is not the site's own is refused the same way, so a planted row cannot steer a
+site's cookies to another host.
 
 A directory **you** passed as `cache_dir` is treated differently: it is created `0700` if new, but
 if it already exists and is group/other-**writable**, settfex logs a warning and
