@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-11-02
+
+**Security: settfex no longer depends on `diskcache`, and nothing it caches is ever unpickled.**
+The same fix is released for the older lines that consumers still pin, as 0.17.1, 0.15.1 and
+0.3.1, so each can take a patch bump instead of migrating across 0.24.0.
+
+### Security
+
+- **The session cache no longer unpickles anything, and `diskcache` is no longer a dependency**
+  (`settfex.utils.session_cache`). `diskcache` reads cached values back with pickle
+  (PYSEC-2026-2447 / CVE-2025-69872 / GHSA-w8v5-vhqr-4h9v). It has no fixed release, and upstream
+  has been dormant since 2023, so anyone able to write into the cache directory could execute code
+  in the process that read it. Every consumer's pip-audit flagged it on a runtime dependency.
+  - The store is now stdlib `sqlite3` holding JSON text (`sessions.sqlite3`, WAL, created `0600`
+    inside the `0700` directory). A row that is not a JSON object is a cache miss, never code.
+  - The pre-0.26.1 `cache.db` is never opened, so it is never unpickled. A session warms up once
+    after the upgrade, and an INFO line says the old file can be deleted.
+  - `SessionCache`'s API is unchanged (the same methods and parameters), and so is
+    `SessionManager`.
+  - settfex's own Security workflow no longer needs an ignore. This release also moves four
+    packages that `pip-audit` flagged in `uv.lock`, one commit each: `certifi` 2026.10.23 (a
+    `curl-cffi` dependency), plus `virtualenv` 21.14.13, `filelock` 4.2.6 and `msgpack` 1.2.4
+    (dev tools only). After these bumps `pip-audit` reports no known vulnerabilities. None of them
+    is a floor in `pyproject.toml`, so the only change to the published wheel's requirements is
+    the removal of `diskcache`.
+
 ## [0.26.0] - 2026-10-08
 
 **SEC Form 59 arrives: directors' and executives' trades, with the report behind each one.**

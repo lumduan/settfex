@@ -40,9 +40,9 @@ The `settfex` library uses **disk-based session caching** to dramatically improv
                   │
                   ▼
 ┌─────────────────────────────────────────────────┐
-│  SessionCache (diskcache)                       │
-│  Location: ~/.settfex/cache/                    │
-│  Format: SQLite + pickled data                  │
+│  SessionCache (stdlib sqlite3)                  │
+│  Location: ~/.settfex/cache/sessions.sqlite3    │
+│  Format: SQLite rows holding JSON text          │
 │  TTL: 1 hour (configurable)                     │
 │  Keys:                                          │
 │    - set_session_chrome120                      │
@@ -269,16 +269,18 @@ await manager.ensure_initialized()
 The cache directory is created **`0700`** (owner only), and an existing `~/.settfex/cache` left
 looser by an earlier version is tightened in place on the next run, with a log line saying so.
 
-Two reasons, and the second is the sharp one:
+The reason: the cached cookies are credentials. Anything that can read them can impersonate your
+session, and anything that can write them can plant cookies your process will send.
 
-1. The cached cookies are credentials — anything that can read them can impersonate your session.
-2. `diskcache` reads cached values back with **pickle**. Anyone who can *write* into this
-   directory can therefore execute code inside your process the next time it reads the cache
-   ([CVE-2025-69872](https://nvd.nist.gov/vuln/detail/CVE-2025-69872)). The advisory has no fixed
-   release — upstream's last release was 2023 — so the directory mode is the mitigation.
+**Nothing in the cache is unpickled (since 0.26.1).** Before 0.26.1 the store was `diskcache`,
+which reads values back with pickle
+([CVE-2025-69872](https://nvd.nist.gov/vuln/detail/CVE-2025-69872), no fixed release upstream), so
+write access to this directory meant code execution in your process. The store is now stdlib
+`sqlite3` holding JSON text: a row that is not a JSON object is a cache miss, never code. The old
+`cache.db` is never opened; delete it if you like. The session warms up once after the upgrade.
 
 A directory **you** passed as `cache_dir` is treated differently: it is created `0700` if new, but
-if it already exists and is group/other-**writable**, settfex logs a warning naming the CVE and
+if it already exists and is group/other-**writable**, settfex logs a warning and
 **leaves the mode alone**. A shared cache may be deliberate, and silently breaking that layout
 would be worse than telling you about it.
 
@@ -496,9 +498,8 @@ Single request comparison:
 
 ## Dependencies
 
-Session caching requires:
-- `diskcache >= 5.6.0` - Disk-based cache with SQLite backend
-- Automatically installed with `settfex`
+Session caching uses only the standard library (`sqlite3`, `json`). There is no third-party
+cache dependency since 0.26.1, which dropped `diskcache` and its pickle advisory.
 
 ## Summary
 
