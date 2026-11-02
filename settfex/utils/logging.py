@@ -108,7 +108,12 @@ def setup_logger(
             colorize=colorize,
             filter=filter,
             backtrace=True,
-            diagnose=True,
+            # diagnose=False: loguru's diagnose mode prints every frame's LOCAL VARIABLES in a
+            # logged traceback, and loguru itself advises turning it off in production because
+            # that leaks data. A caller's logger.exception() whose traceback passes through
+            # settfex frames would otherwise print what those frames hold. backtrace=True only
+            # extends the frame list; it prints no values.
+            diagnose=False,
         )
     )
 
@@ -127,7 +132,7 @@ def setup_logger(
                 compression="zip",
                 filter=filter,
                 backtrace=True,
-                diagnose=True,
+                diagnose=False,  # see the console handler above
             )
         )
 

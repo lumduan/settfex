@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.2] - 2026-11-02
+
+Two logging fixes, and a Security workflow that now audits every extra. No API change.
+
 ### Fixed
 
 - **With settfex logging enabled, a failed request whose error text contained braces raised
@@ -22,6 +26,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **`setup_logger()` no longer prints variable values in logged tracebacks**
+  (`settfex.utils.logging`). Both sinks it adds (console and `log_file`) used loguru's
+  `diagnose=True`, which annotates every traceback frame with its local variables. loguru itself
+  advises against that in production, because it leaks data: a caller's `logger.exception()` whose
+  traceback ran through a frame holding a cookie or token would write the value to the console and
+  the log file. Both sinks now use `diagnose=False`; `backtrace=True` stays, because it only
+  extends the frame list. loguru's own default stderr handler belongs to the host process, and
+  `setup_logger()` still never removes a handler it did not add. Remove it yourself if you need the
+  same guarantee there. A test drives a real `logger.exception()` through a frame holding a secret
+  and asserts it reaches neither sink.
 - **The Security workflow now audits every extra** (`--all-extras`). It used to sync only the dev
   group, so the `examples` extra (jupyter, notebook, matplotlib) was never audited. A full-lock
   audit found 103 advisories in 9 packages there, all now bumped in `uv.lock` (pillow 13.0.0,
