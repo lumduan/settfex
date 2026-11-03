@@ -52,8 +52,9 @@ rate, the stock list (3,605 SET rows) and the holiday calendar (20 holidays).
 - **`get_stock_list()`** (from 0.3.x only): since 0.8.0 each stock is enriched with its index
   membership by default, which costs extra requests. `include_indices=False` gives the 0.3 behaviour.
 - **`get_holidays()`**: a 401 is no longer retried (0.24.1), so it fails in seconds rather than
-  minutes. The endpoint itself answered 401 for the current year for weeks from 2026-09-20 (#140)
-  on every version, and was serving again on 2026-11-03. Keep a fallback.
+  minutes. The endpoint answers 401 for the current year **intermittently**, on every version
+  (#140): reported as persistent from 2026-09-20, yet a 30-minute poller succeeded at least once
+  every day. Retry later, and keep a fallback.
 - **Company profile** (from 0.3.x only): `Management.start_date` can be `None` (0.10.1). Guard
   before `.strftime()`.
 - **`to_dataframe()`** with pandas 3 (0.19.0): missing values are `NaN`, not `None`. Use
@@ -79,13 +80,13 @@ use and compare the fields you read. That is how the verification above was done
 
 ### Changed
 
-- **`get_holidays()`'s 401 message no longer says the endpoint is down now.** It said that since
-  2026-09-20 the endpoint "has answered 401 for the CURRENT year". That was true for weeks (#140),
-  but the endpoint was serving again on 2026-11-03: three live calls that day, on 0.15.1 and
-  0.26.3, returned 2026's 20 holidays. The message now names the causes a 401 can have (an unserved
-  year, a transient failure, an upstream outage) and points at #140 as history. README and
-  AGENTS.md said the call "cannot succeed" and are corrected the same way. A 401 is still not
-  retried: the endpoint degrades under polling.
+- **`get_holidays()`'s 401 message no longer says the endpoint is down.** It said that since
+  2026-09-20 the endpoint "has answered 401 for the CURRENT year", and README and AGENTS.md said
+  the call "cannot succeed". Both claims came from settfex's own probes (#140, closed as
+  persistent), but a downstream consumer's poller, running every 30 minutes, banked at least one successful response on every logged day from 2026-09-15 to 2026-11-02 (36 days), and three live calls on 2026-11-03 (on 0.15.1 and 0.26.3) all returned
+  2026's 20 holidays. The current-year 401 is **intermittent, not persistent**. The message now
+  says so, and says to retry later rather than in a loop: the endpoint degrades under polling, so a
+  401 is still not retried internally.
 
 ### Documentation
 

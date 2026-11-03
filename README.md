@@ -89,11 +89,13 @@ logger.enable("settfex")          # AFTER `import settfex` — see the note abov
   than the SET-listed `PMC LABEL MATERIAL`. Verify by comparing `company_name` against the issuer
   you intended; re-resolving and comparing `unique_id` proves only that resolution is
   deterministic. A caller-side check is proposed for 0.25.0.
-- **`get_holidays()` can fail for weeks at a time, upstream** — from 2026-09-20 the SET holiday
-  endpoint answered HTTP 401 for the current year (the only year it serves), which no settfex
-  version could fix; it was serving again on 2026-11-03. Keep a fallback for market closures.
-  Since 0.24.1 a 401 fails immediately rather than retrying for ~128 s.
-  History: [#140](https://github.com/lumduan/settfex/issues/140).
+- **`get_holidays()` fails intermittently, upstream** — the SET holiday endpoint sometimes
+  answers HTTP 401 for the current year (the only year it serves), which no settfex version can
+  fix. From 2026-09-20 this was reported as a persistent outage
+  ([#140](https://github.com/lumduan/settfex/issues/140)), but a downstream poller running every
+  30 minutes succeeded at least once on every day, and every call on 2026-11-03 succeeded. Since
+  0.24.1 a 401 fails immediately rather than retrying for ~128 s: try again later, and keep a
+  fallback for market closures.
 
 ## Versioning policy
 
