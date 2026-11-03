@@ -594,8 +594,8 @@ class TestA401FailsFast:
     * the endpoint **degrades under polling** — success falls from ~100% cold to ~35% after ~50
       requests and ~12% after ~150, recovering only when left idle. A retry therefore makes the
       next attempt *less* likely to succeed;
-    * against the persistent 401 it has served since 2026-09-20 (issue #140) the ladder buys
-      nothing and costs ~128 s per call at the default ``max_retries=3``.
+    * against the long upstream outage from 2026-09-20 (issue #140; serving again by 2026-11-03)
+      the ladder bought nothing and cost ~128 s per call at the default ``max_retries=3``.
 
     This stays a **patch**: the raised type and status are unchanged from 0.24.0 —
     ``FetchError(status_code=401)`` via ``raise_for_status`` — so ``except FetchError`` handlers
