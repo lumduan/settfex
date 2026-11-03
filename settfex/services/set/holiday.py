@@ -64,8 +64,9 @@ MAX_YEAR = 2100
 #   * The endpoint DEGRADES UNDER POLLING. Success falls from ~100% cold to ~35% after ~50 requests
 #     and ~12% after ~150, recovering only when left idle. Retrying a 401 therefore makes the next
 #     attempt LESS likely to succeed, not more -- the ladder actively works against itself.
-#   * Against the long upstream outage from 2026-09-20 (issue #140; serving again by 2026-11-03)
-#     the ladder bought nothing and cost ~128s per call at the default max_retries=3.
+#   * Against the run of current-year 401s from 2026-09-20 (issue #140; intermittent, not
+#     persistent, as a 30-minute poller's daily successes later showed) the ladder bought nothing
+#     and cost ~128s per call at the default max_retries=3.
 #
 # 403 and 429 stay retryable: neither has been observed here, and both are ordinary transient
 # statuses elsewhere.
@@ -330,11 +331,12 @@ class HolidayService:
                 # see the note on _RETRYABLE_STATUS for why retrying made things worse.
                 error_msg += (
                     " - the API returns 401 for years it does not serve (only the current year is"
-                    " available), for transient failures, and during upstream outages: from"
-                    " 2026-09-20 it answered 401 for the CURRENT year for weeks, which no settfex"
-                    " change could fix (see https://github.com/lumduan/settfex/issues/140; it was"
-                    " serving again on 2026-11-03). Not retried: this endpoint degrades under"
-                    " polling, so a retry ladder lowers the chance of success"
+                    " available) and, intermittently, for the CURRENT year too: an upstream"
+                    " behaviour no settfex change can fix (see"
+                    " https://github.com/lumduan/settfex/issues/140 - reported as persistent from"
+                    " 2026-09-20, but a 30-minute poller still succeeded at least once every day)."
+                    " Not retried: this endpoint degrades under polling, so a retry ladder lowers"
+                    " the chance of success; try again later instead"
                 )
             logger.error(error_msg)
             raise_for_status(response.status_code, error_msg, suggest=False)

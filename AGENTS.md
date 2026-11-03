@@ -408,12 +408,14 @@ text:
 
 ---
 
-### ⚠️ `get_holidays()` has failed upstream for weeks at a time
+### ⚠️ `get_holidays()` fails intermittently upstream
 
-From 2026-09-20 the SET holiday endpoint answered **HTTP 401 for the current year** (the only year
-it serves), so the call could not succeed on any settfex version (issue #140). It was **serving
-again on 2026-11-03** (2026: 20 holidays). Treat it as available but unreliable: a 401 can be an
-outage, a transient failure or an unserved year, and the response looks the same in all three cases.
+The SET holiday endpoint sometimes answers **HTTP 401 for the current year**, the only year it
+serves. From 2026-09-20 settfex's own probes saw it repeatedly and reported it as a persistent
+outage (issue #140). But a downstream poller running every 30 minutes succeeded at least once on
+every day from 2026-09-15 to 2026-11-02, and all three calls on 2026-11-03 succeeded (2026: 20
+holidays). So treat it as **available but unreliable**: a 401 can be an intermittent failure or an
+unserved year, and the response looks the same in both cases.
 
 Since 0.24.1 a 401 fails **immediately** instead of retrying for ~128 s. Do not retry it in a
 loop (the endpoint degrades under polling), and do not report a 401 as a library bug. Keep another
