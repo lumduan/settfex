@@ -408,15 +408,17 @@ text:
 
 ---
 
-### ⚠️ `get_holidays()` is broken upstream right now
+### ⚠️ `get_holidays()` has failed upstream for weeks at a time
 
-The SET holiday endpoint answers **HTTP 401 for the current year**, which is the only year it
-serves, so the call cannot succeed. This is an upstream change (since 2026-09-20), **not** a
-settfex defect, and no version fixes it — tracking: issue #140.
+From 2026-09-20 the SET holiday endpoint answered **HTTP 401 for the current year** (the only year
+it serves), so the call could not succeed on any settfex version (issue #140). It was **serving
+again on 2026-11-03** (2026: 20 holidays). Treat it as available but unreliable: a 401 can be an
+outage, a transient failure or an unserved year, and the response looks the same in all three cases.
 
-Since 0.24.1 it fails **immediately** instead of retrying for ~128 s, and the error message says
-so. Do not retry it, and do not report it as a library bug. If you need trading-day logic, you
-need another source for market closures; remember `is_holiday()` never covered weekends anyway.
+Since 0.24.1 a 401 fails **immediately** instead of retrying for ~128 s. Do not retry it in a
+loop (the endpoint degrades under polling), and do not report a 401 as a library bug. Keep another
+source for market closures if trading-day logic depends on it; `is_holiday()` never covered
+weekends anyway.
 
 ## Run it, don't hand it over
 
