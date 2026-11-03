@@ -54,7 +54,7 @@ rate, the stock list (3,605 SET rows) and the holiday calendar (20 holidays).
 - **`get_holidays()`**: a 401 is no longer retried (0.24.1), so it fails in seconds rather than
   minutes. The endpoint answers 401 for the current year **intermittently**, on every version
   (#140): reported as persistent from 2026-09-20, yet a 30-minute poller succeeded at least once
-  every day. Retry later, and keep a fallback.
+  on every logged day. Retry later, and keep a fallback.
 - **Company profile** (from 0.3.x only): `Management.start_date` can be `None` (0.10.1). Guard
   before `.strftime()`.
 - **`to_dataframe()`** with pandas 3 (0.19.0): missing values are `NaN`, not `None`. Use
@@ -83,7 +83,7 @@ use and compare the fields you read. That is how the verification above was done
 - **`get_holidays()`'s 401 message no longer says the endpoint is down.** It said that since
   2026-09-20 the endpoint "has answered 401 for the CURRENT year", and README and AGENTS.md said
   the call "cannot succeed". Both claims came from settfex's own probes (#140, closed as
-  persistent), but a downstream consumer's poller, running every 30 minutes, banked at least one successful response on every logged day from 2026-09-15 to 2026-11-02 (36 days), and three live calls on 2026-11-03 (on 0.15.1 and 0.26.3) all returned
+  persistent), but a downstream consumer's poller, running every 30 minutes, banked at least one successful response on every logged day from 2026-09-15 to 2026-11-02 (32 dates; first reported as 36, recounted), and three live calls on 2026-11-03 (on 0.15.1 and 0.26.3) all returned
   2026's 20 holidays. The current-year 401 is **intermittent, not persistent**. The message now
   says so, and says to retry later rather than in a loop: the endpoint degrades under polling, so a
   401 is still not retried internally.

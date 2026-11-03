@@ -413,7 +413,7 @@ text:
 The SET holiday endpoint sometimes answers **HTTP 401 for the current year**, the only year it
 serves. From 2026-09-20 settfex's own probes saw it repeatedly and reported it as a persistent
 outage (issue #140). But a downstream poller running every 30 minutes succeeded at least once on
-every day from 2026-09-15 to 2026-11-02, and all three calls on 2026-11-03 succeeded (2026: 20
+every LOGGED day from 2026-09-15 to 2026-11-02 (32 dates; days with no log carry no evidence either way), and all three calls on 2026-11-03 succeeded (2026: 20
 holidays). So treat it as **available but unreliable**: a 401 can be an intermittent failure or an
 unserved year, and the response looks the same in both cases.
 
