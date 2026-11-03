@@ -5,7 +5,94 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Upgrading from 0.3.x, 0.15.x or 0.17.x
+
+The 0.3, 0.15 and 0.17 lines received one last security release each (0.3.1, 0.15.1, 0.17.1, on
+2026-11-02, removing `diskcache`). They get no further fixes: the way forward is the latest release.
+This section collects everything between those lines and the latest one that can change what your
+code sees, so you do not have to read every release below. Most code needs no change at all.
+
+**Verified 2026-11-03 against four downstream consumers** (TFEX trading statistics, underlying
+price and series list; ThaiBMA yield curve; corporate actions; stock list; holidays). Each one's own
+test suite passed unchanged on 0.26.3, and live calls through its own code returned the same fields
+with the same types as on its pinned line. Concretely: the four suites (190, 1,899, 233 and 1,334 tests) passed
+on both versions, and a live comparison after the TFEX day close (16:57-16:59 ICT) produced
+identical output on both versions for every path: TFEX settlement and underlying price (S50X26),
+the series list (762 series), trading statistics, corporate actions (CPALL), the ThaiBMA carry
+rate, the stock list (3,605 SET rows) and the holiday calendar (20 holidays).
+
+### 1. Change the pin
+
+- Lift any upper cap (e.g. `<0.18`), then `uv lock --upgrade-package settfex==<latest>`. Pin the
+  exact version: an open range would also take any later minor release unseen.
+- `requires-python` is still `>=3.11`, and the runtime floors are unchanged (`curl-cffi>=0.6.0`,
+  `pydantic>=2.0.0`, `loguru>=0.7.0`). `diskcache` is no longer a dependency at all.
+
+### 2. What changes for everyone (no code change needed, but expect it)
+
+- **One extra warm-up per site on the first run.** The session cache is a new store (0.26.1:
+  sqlite3 + JSON, nothing is unpickled), and since 0.26.3 cookies are cached with the domain they
+  were issued for. Older entries are treated as a miss, never guessed. The old
+  `~/.settfex/cache/cache.db` is never opened again; delete it if you like.
+- **settfex is silent by default (0.24.2), and no longer removes your loguru handlers at import.**
+  Errors are still raised; only settfex's own log lines are off. To see them, call
+  `logger.enable("settfex")` after `import settfex`, or `setup_logger()`.
+  `setup_logger()` no longer prints frame locals in logged tracebacks (0.26.2).
+- **Exceptions are typed (0.9.0) and only ever got wider.** Every settfex error is still an
+  `Exception`, so `except Exception` behaves as before. `ResponseParseError` is now also a
+  `FetchError` (0.24.0) and still a `ValueError`; `SymbolNotFoundError` is now also a
+  `NotFoundError` (0.25.0). If you retry on `FetchError`, catch `NotFoundError` first, and catch
+  `BlockedError` (a WAF block page, never worth retrying) before `ValueError`. Import exceptions
+  from `settfex.exceptions`.
+- **New keyword parameters were appended, with defaults**, e.g. `get_stock_list(include_indices=...)`
+  and `setup_logger(filter=...)`. No parameter was renamed or reordered on these lines' functions.
+
+### 3. Only if you use these
+
+- **`get_stock_list()`** (from 0.3.x only): since 0.8.0 each stock is enriched with its index
+  membership by default, which costs extra requests. `include_indices=False` gives the 0.3 behaviour.
+- **`get_holidays()`**: a 401 is no longer retried (0.24.1), so it fails in seconds rather than
+  minutes. The endpoint itself answered 401 for the current year for weeks from 2026-09-20 (#140)
+  on every version, and was serving again on 2026-11-03. Keep a fallback.
+- **Company profile** (from 0.3.x only): `Management.start_date` can be `None` (0.10.1). Guard
+  before `.strftime()`.
+- **`to_dataframe()`** with pandas 3 (0.19.0): missing values are `NaN`, not `None`. Use
+  `pd.isna()`.
+- **`Stock.get_latest_price()`** (from 0.15.x): DR symbols return the TradingView indicative price
+  by default (0.16.0); pass `prefer_dr_indicative=False` for the SET chart path.
+- **SEC documents** (`settfex.services.sec`): read the **Migration** list under 0.24.0 below.
+  `SecDocumentList` and `DownloadResult` are Pydantic models (`isinstance(x, list)` is now
+  `False`); name lookups need `allow_name_match=True`; the incidental re-export
+  `settfex.services.sec.sec.SymbolNotFoundError` is gone (`CompanyNotFoundError` from
+  `settfex.exceptions`).
+- **Analyst consensus**: an unknown symbol raises `SymbolNotFoundError` (0.25.0 per-symbol table,
+  0.26.0 overall summary).
+- **Building response models by hand**: `IndexListResponse.indices` and
+  `IndexInfoListResponse.index_industry_sectors` became required (0.24.0); an empty list is fine.
+
+### 4. Check it
+
+Run your own test suite on the new pin, then make one live call through each settfex function you
+use and compare the fields you read. That is how the verification above was done.
+
 ## [Unreleased]
+
+### Changed
+
+- **`get_holidays()`'s 401 message no longer says the endpoint is down now.** It said that since
+  2026-09-20 the endpoint "has answered 401 for the CURRENT year". That was true for weeks (#140),
+  but the endpoint was serving again on 2026-11-03: three live calls that day, on 0.15.1 and
+  0.26.3, returned 2026's 20 holidays. The message now names the causes a 401 can have (an unserved
+  year, a transient failure, an upstream outage) and points at #140 as history. README and
+  AGENTS.md said the call "cannot succeed" and are corrected the same way. A 401 is still not
+  retried: the endpoint degrades under polling.
+
+### Documentation
+
+- **"Upgrading from 0.3.x, 0.15.x or 0.17.x"** at the top of this file. It collects everything
+  between those lines and the latest release that can change what calling code sees. Built from
+  a mechanical diff of the public API (functions, parameters, model fields and exception classes,
+  with annotation-only changes ignored) and checked against four downstream consumers.
 
 ## [0.26.3] - 2026-11-02
 
