@@ -115,6 +115,23 @@ config = FetcherConfig(timeout=60)
 stats = await get_trading_statistics("S50Z25", config=config)
 ```
 
+## Errors
+
+| Situation | Raised | What to do |
+|---|---|---|
+| Unknown series symbol (TFEX answers HTTP 404) | `SeriesNotFoundError` (0.27.0) | fix the symbol; never retry |
+| Any other non-2xx | `HTTPStatusError` (`.status_code`, `.url`) | 5xx/429 may be worth a later retry |
+| Body is not a JSON object / invalid JSON | `ResponseParseError` | report it; do not retry in a loop |
+
+`SeriesNotFoundError` is an `HTTPStatusError` **and** a `NotFoundError`, so `except NotFoundError`
+(the library-wide "do not retry" catch) now covers an unknown TFEX series. Before 0.27.0 the same
+answer was a plain `HTTPStatusError(404)` that `except NotFoundError` silently missed. Keying on
+`exc.status_code == 404` works on every version. Import from `settfex.exceptions`, not from httpx:
+settfex's `HTTPStatusError` has the same name as httpx's but is a different class.
+
+The same applies to `get_underlying_price()`. The series *list* takes no symbol, so a 404 there
+means a wrong route and stays an `HTTPStatusError`.
+
 ## Usage Examples
 
 ### Example 1: Basic Trading Statistics

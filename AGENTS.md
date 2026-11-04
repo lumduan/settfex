@@ -339,10 +339,11 @@ Everything is importable from one place:
 ```python
 from settfex.exceptions import (
     # --- the cross-cutting catch: a name that does not exist (0.25.0) ---
-    NotFoundError,           # base of SymbolNotFoundError AND CompanyNotFoundError; never retry
+    NotFoundError,           # base of Symbol-, Series- AND CompanyNotFoundError; never retry
     # --- the FETCH family: `except FetchError` catches all of these ---
     FetchError,              # HTTP/transport failure; carries .status_code and .symbol
     HTTPStatusError,         # a non-2xx, with .url and .report_code as data
+    SeriesNotFoundError,     # TFEX 404: unknown series (0.27.0); an HTTPStatusError, never retry
     UnexpectedPageError,     # a PAGE where a document was expected (0.26.0); carries the answer
     SoftNotFoundError,       # its "file not found" page — can be FALSE; NOT a NotFoundError
     SymbolNotFoundError,     # SET 404, or an unlisted analyst-consensus symbol; .suggestion
@@ -367,11 +368,12 @@ never is.** An input error means the request *succeeded* and your argument was w
 loop on one spins forever. `InvalidSymbolError`, `InvalidLanguageError` and `InvalidDateError` are
 raised before any network call at all.
 
-⚠️ Two "not found" taxonomies still coexist: a SET 404 is a `SymbolNotFoundError` (a
-`FetchError`), while the SEC equivalent is a `CompanyNotFoundError` (a `ValueError`). Since 0.25.0
-both are also a **`NotFoundError`** — catch that one, and catch it **before** `FetchError`, because
-a `SymbolNotFoundError` is a `FetchError` too and a retry handler would otherwise retry a typo
-forever:
+⚠️ Several "not found" types still coexist. A SET 404 is a `SymbolNotFoundError` (a `FetchError`);
+an unknown TFEX series is a `SeriesNotFoundError` (an `HTTPStatusError`, since 0.27.0; before that
+a plain `HTTPStatusError(404)` that `except NotFoundError` missed); the SEC equivalent is a
+`CompanyNotFoundError` (a `ValueError`). All of them are also a **`NotFoundError`**. Catch that
+one, and catch it **before** `FetchError`: a `SymbolNotFoundError` or `SeriesNotFoundError` is a
+`FetchError` too, and a retry handler would otherwise retry a typo forever:
 
 ```python
 try:

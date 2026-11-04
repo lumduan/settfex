@@ -69,6 +69,7 @@
         "setup_logger",
         "FetchError",
         "NotFoundError",
+        "SeriesNotFoundError",
         "SymbolNotFoundError",
         "StaleDataError",
         "InvalidSymbolError",
@@ -109,6 +110,7 @@
         "SecCompany",
         "SecDocument",
         "SecDocumentList",
+        "SeriesNotFoundError",
         "SetIndex",
         "StaleDataError",
         "Stock",
@@ -244,6 +246,7 @@
         "ParseError",
         "IncompleteListingError",
         "HTTPStatusError",
+        "SeriesNotFoundError",
         "UnexpectedPageError",
         "SoftNotFoundError",
         "CompanyNotFoundError",
@@ -545,6 +548,59 @@
             "builtins.object"
           ]
         },
+        "SeriesNotFoundError": {
+          "bases": [
+            "settfex.exceptions.HTTPStatusError",
+            "settfex.exceptions.NotFoundError"
+          ],
+          "kind": "exception",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "message",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "int | None",
+                  "default": "None",
+                  "name": "status_code",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "url",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "report_code",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "symbol",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            }
+          },
+          "mro": [
+            "settfex.exceptions.SeriesNotFoundError",
+            "settfex.exceptions.HTTPStatusError",
+            "settfex.exceptions.FetchError",
+            "settfex.exceptions.NotFoundError",
+            "builtins.Exception",
+            "builtins.BaseException",
+            "builtins.object"
+          ]
+        },
         "SoftNotFoundError": {
           "bases": [
             "settfex.exceptions.UnexpectedPageError"
@@ -805,6 +861,7 @@
         "NoReturn",
         "NotFoundError",
         "ParseError",
+        "SeriesNotFoundError",
         "SoftNotFoundError",
         "StaleDataError",
         "SymbolNotFoundError",
@@ -14733,6 +14790,7 @@
         "TFEX_TRADING_STATISTICS_ENDPOINT",
         "TradingStatistics",
         "TradingStatisticsService",
+        "fetch_series_json",
         "get_trading_statistics",
         "validate_or_raise"
       ],
@@ -14929,6 +14987,7 @@
         "TFEX_BASE_URL",
         "TFEX_UNDERLYING_PRICE_ENDPOINT",
         "UnderlyingPrice",
+        "fetch_series_json",
         "get_underlying_price",
         "validate_or_raise"
       ],

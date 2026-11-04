@@ -77,6 +77,7 @@ from settfex.exceptions import (
     InvalidLanguageError,
     InvalidSymbolError,
     NotFoundError,
+    SeriesNotFoundError,
     StaleDataError,
     SymbolNotFoundError,
 )
@@ -242,6 +243,7 @@ __all__ = [
     # Exceptions
     "FetchError",
     "NotFoundError",
+    "SeriesNotFoundError",
     "SymbolNotFoundError",
     "StaleDataError",
     "InvalidSymbolError",

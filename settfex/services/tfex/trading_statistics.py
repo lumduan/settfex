@@ -6,6 +6,7 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from settfex.services.tfex._series import fetch_series_json
 from settfex.services.tfex.constants import (
     TFEX_BASE_URL,
     TFEX_TRADING_STATISTICS_ENDPOINT,
@@ -100,7 +101,10 @@ class TradingStatisticsService:
             TradingStatistics with all trading statistics data
 
         Raises:
-            Exception: If request fails or response cannot be parsed
+            SeriesNotFoundError: If TFEX answers HTTP 404, i.e. the series symbol is unknown
+                (0.27.0; an ``HTTPStatusError`` and a ``NotFoundError``: do not retry).
+            HTTPStatusError: If TFEX answers any other non-2xx status.
+            Exception: If the request itself fails or the response cannot be parsed
 
         Example:
             >>> service = TradingStatisticsService()
@@ -139,7 +143,13 @@ class TradingStatisticsService:
             }
 
             # Fetch JSON data from API - SessionManager handles cookies automatically
-            data = await fetcher.fetch_json(url, headers=headers)
+            data = await fetch_series_json(
+                fetcher,
+                url,
+                headers=headers,
+                symbol=normalized_symbol,
+                endpoint="trading-statistics",
+            )
 
             # Parse and validate response using Pydantic (context-rich on failure)
             statistics = validate_or_raise(
@@ -168,7 +178,10 @@ class TradingStatisticsService:
             Raw dictionary from API
 
         Raises:
-            Exception: If request fails
+            SeriesNotFoundError: If TFEX answers HTTP 404, i.e. the series symbol is unknown
+                (0.27.0; an ``HTTPStatusError`` and a ``NotFoundError``: do not retry).
+            HTTPStatusError: If TFEX answers any other non-2xx status.
+            Exception: If the request itself fails
 
         Example:
             >>> service = TradingStatisticsService()
@@ -205,7 +218,13 @@ class TradingStatisticsService:
             }
 
             # Fetch JSON data
-            data: Any = await fetcher.fetch_json(url, headers=headers)
+            data: Any = await fetch_series_json(
+                fetcher,
+                url,
+                headers=headers,
+                symbol=normalized_symbol,
+                endpoint="trading-statistics",
+            )
             # Guard the documented dict return type explicitly (asserts are stripped under -O).
             if not isinstance(data, dict):
                 raise ResponseParseError(
@@ -229,6 +248,10 @@ async def get_trading_statistics(
 
     Returns:
         TradingStatistics with all trading statistics data
+
+    Raises:
+        SeriesNotFoundError: If the series symbol is unknown to TFEX (HTTP 404; 0.27.0).
+        HTTPStatusError: If TFEX answers any other non-2xx status.
 
     Example:
         >>> from settfex.services.tfex import get_trading_statistics

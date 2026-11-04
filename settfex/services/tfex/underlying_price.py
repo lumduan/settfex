@@ -6,6 +6,7 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from settfex.services.tfex._series import fetch_series_json
 from settfex.services.tfex.constants import (
     TFEX_BASE_URL,
     TFEX_UNDERLYING_PRICE_ENDPOINT,
@@ -107,6 +108,9 @@ class TFEXUnderlyingPriceService:
             UnderlyingPrice with the underlying instrument's price data
 
         Raises:
+            SeriesNotFoundError: If TFEX answers HTTP 404, i.e. the series symbol is unknown
+                (0.27.0; an ``HTTPStatusError`` and a ``NotFoundError``: do not retry).
+            HTTPStatusError: If TFEX answers any other non-2xx status.
             ResponseParseError: If the response is not valid JSON or contains a
                 NaN/Infinity literal (rejected to avoid silent financial-data corruption).
             pydantic.ValidationError: If the response does not satisfy the model.
@@ -151,7 +155,9 @@ class TFEXUnderlyingPriceService:
             # Fetch JSON data from API - SessionManager handles cookies automatically.
             # fetch_json routes the body through decode_json, which rejects NaN/Infinity
             # literals (the silent financial-data-corruption guard) with URL context.
-            data = await fetcher.fetch_json(url, headers=headers)
+            data = await fetch_series_json(
+                fetcher, url, headers=headers, symbol=normalized_symbol, endpoint="underlying-price"
+            )
 
             # Parse and validate response using Pydantic (context-rich on failure)
             underlying_price = validate_or_raise(
@@ -180,7 +186,10 @@ class TFEXUnderlyingPriceService:
             Raw dictionary from API
 
         Raises:
-            ResponseParseError: If the request fails or the response is not a JSON object.
+            SeriesNotFoundError: If TFEX answers HTTP 404, i.e. the series symbol is unknown
+                (0.27.0; an ``HTTPStatusError`` and a ``NotFoundError``: do not retry).
+            HTTPStatusError: If TFEX answers any other non-2xx status.
+            ResponseParseError: If the response is not a JSON object.
 
         Example:
             >>> service = TFEXUnderlyingPriceService()
@@ -217,7 +226,9 @@ class TFEXUnderlyingPriceService:
             }
 
             # Fetch JSON data
-            data: Any = await fetcher.fetch_json(url, headers=headers)
+            data: Any = await fetch_series_json(
+                fetcher, url, headers=headers, symbol=normalized_symbol, endpoint="underlying-price"
+            )
             # Guard the documented dict return type explicitly (asserts are stripped under -O).
             if not isinstance(data, dict):
                 raise ResponseParseError(
@@ -239,6 +250,10 @@ async def get_underlying_price(symbol: str, config: FetcherConfig | None = None)
 
     Returns:
         UnderlyingPrice with the underlying instrument's price data
+
+    Raises:
+        SeriesNotFoundError: If the series symbol is unknown to TFEX (HTTP 404; 0.27.0).
+        HTTPStatusError: If TFEX answers any other non-2xx status.
 
     Example:
         >>> from settfex.services.tfex import get_underlying_price
