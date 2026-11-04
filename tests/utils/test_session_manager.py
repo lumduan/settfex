@@ -1,6 +1,7 @@
 """Tests for SessionManager, focused on warmup concurrency correctness."""
 
 import asyncio
+import time
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -187,9 +188,16 @@ class TestGetSessionForUrl:
 
 # The jar a real SET warm-up produced (live, 2026-11-02): one host-only cookie and two Incapsula
 # cookies on the registrable domain. Values are placeholders.
+#
+# Expiries are RELATIVE TO NOW, keeping the lifetimes the live jar showed: charlot ~1 day,
+# visid_incap ~1 year, incap_ses a session cookie. They were first written as the captured
+# absolute timestamps, so the fixture expired with the real cookie (charlot at 2026-11-03 20:42
+# ICT): an expired cookie is dropped from the jar, and the leak test went red on main the next
+# day with no code change. A fixture that copies a live expiry is a time bomb.
+_NOW = int(time.time())
 _LIVE_SHAPED_JAR = [
-    ("charlot", "c" * 36, "www.set.or.th", False, 1793713363),
-    ("visid_incap_2046605", "v" * 64, ".set.or.th", True, 1825082024),
+    ("charlot", "c" * 36, "www.set.or.th", False, _NOW + 86_400),
+    ("visid_incap_2046605", "v" * 64, ".set.or.th", True, _NOW + 365 * 86_400),
     ("incap_ses_297_2046605", "s" * 56, ".set.or.th", True, None),
 ]
 

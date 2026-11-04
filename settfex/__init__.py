@@ -64,7 +64,7 @@ Usage:
     >>> asyncio.run(main())
 """
 
-__version__ = "0.26.3"
+__version__ = "0.27.0"
 __author__ = "batt"
 __license__ = "MIT"
 
@@ -77,6 +77,7 @@ from settfex.exceptions import (
     InvalidLanguageError,
     InvalidSymbolError,
     NotFoundError,
+    SeriesNotFoundError,
     StaleDataError,
     SymbolNotFoundError,
 )
@@ -242,6 +243,7 @@ __all__ = [
     # Exceptions
     "FetchError",
     "NotFoundError",
+    "SeriesNotFoundError",
     "SymbolNotFoundError",
     "StaleDataError",
     "InvalidSymbolError",

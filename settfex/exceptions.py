@@ -28,6 +28,7 @@ __all__ = [
     "ParseError",
     "IncompleteListingError",
     "HTTPStatusError",
+    "SeriesNotFoundError",
     "UnexpectedPageError",
     "SoftNotFoundError",
     "CompanyNotFoundError",
@@ -254,6 +255,24 @@ class HTTPStatusError(FetchError):
         super().__init__(message, status_code=status_code, symbol=symbol)
         self.url = url
         self.report_code = report_code
+
+
+class SeriesNotFoundError(HTTPStatusError, NotFoundError):
+    """A TFEX per-series endpoint answered HTTP 404: the series symbol is unknown to TFEX.
+
+    Raised by the trading-statistics and underlying-price services (0.27.0). Until 0.27.0 the same
+    answer was a plain :class:`HTTPStatusError` with ``status_code=404``, while the SET stock
+    endpoints raise :class:`SymbolNotFoundError`, so ``except NotFoundError`` caught a bad stock
+    symbol but silently missed every bad TFEX series.
+
+    A **strict subclass of** :class:`HTTPStatusError`, keeping ``status_code``, ``url`` and
+    ``symbol``: every ``except HTTPStatusError`` / ``except FetchError`` written against 0.26.x
+    still catches it, so this is additive, not a change. The :class:`NotFoundError` marker adds
+    the "do not retry" catch. A caller keying on ``status_code == 404`` works on every version.
+
+    The series LIST endpoint does not raise this: it takes no symbol, so a 404 there means a wrong
+    route, not an unknown series, and stays an :class:`HTTPStatusError`.
+    """
 
 
 class UnexpectedPageError(FetchError):

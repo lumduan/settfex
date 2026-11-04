@@ -43,7 +43,8 @@ rate, the stock list (3,605 SET rows) and the holiday calendar (20 holidays).
   `FetchError` (0.24.0) and still a `ValueError`; `SymbolNotFoundError` is now also a
   `NotFoundError` (0.25.0). If you retry on `FetchError`, catch `NotFoundError` first, and catch
   `BlockedError` (a WAF block page, never worth retrying) before `ValueError`. Import exceptions
-  from `settfex.exceptions`.
+  from `settfex.exceptions`. An unknown TFEX series raises `SeriesNotFoundError` from 0.27.0
+  (still an `HTTPStatusError`, now also a `NotFoundError`).
 - **New keyword parameters were appended, with defaults**, e.g. `get_stock_list(include_indices=...)`
   and `setup_logger(filter=...)`. No parameter was renamed or reordered on these lines' functions.
 
@@ -78,15 +79,52 @@ use and compare the fields you read. That is how the verification above was done
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-04
+
+An unknown TFEX series gets its own "not found" error, and the holiday docs stop calling a
+working endpoint dead. **Additive:** nothing a 0.26.x caller catches stops catching.
+
+### Added
+
+- **`SeriesNotFoundError`** (`settfex.exceptions`), raised by `get_trading_statistics()` and
+  `get_underlying_price()` (and their service and `_raw` methods) when TFEX answers **HTTP 404**,
+  i.e. the series symbol is unknown. Live-probed 2026-11-03: `ZZZZ99` answers 404 on both
+  endpoints. Until now that reached callers as a plain `HTTPStatusError(404)`, while SET stock
+  endpoints raise `SymbolNotFoundError`. So `except NotFoundError`, the library-wide "do not
+  retry" catch, caught a bad stock symbol and silently missed every bad TFEX series. A downstream
+  consumer nearly shipped exactly that catch.
+  - It is `SeriesNotFoundError(HTTPStatusError, NotFoundError)`: a **strict subclass** of what was
+    raised before, keeping `status_code`, `url` and `symbol`. So every `except HTTPStatusError` /
+    `except FetchError` still catches it. Additive under the deprecation policy, hence a minor
+    release and no warning period.
+  - Keying on `exc.status_code == 404` works on every version.
+  - Only a 404 is converted; every other status stays a plain `HTTPStatusError`, so a 503 is never
+    mistaken for "does not exist". The series **list** takes no symbol, so its 404 means a wrong
+    route and is unchanged.
+  - ⚠️ settfex's `HTTPStatusError` has the **same name** as httpx's and is a different class; import
+    it from `settfex.exceptions`. A downstream consumer's `except httpx.HTTPStatusError` had never
+    fired.
+
+### Fixed
+
+- **A test fixture that expired with the cookie it copied** (`tests/utils/test_session_manager.py`,
+  test-only). 0.26.3's cookie tests used the absolute expiry timestamps of a live 2026-11-02 jar,
+  and `charlot`'s (a ~1-day cookie) passed at 2026-11-03 20:42 ICT. An expired cookie is dropped
+  from the jar, so the leak test failed on main the next day with no code change. Expiries are now
+  relative to the test's own clock, with the live lifetimes kept (~1 day, ~1 year, session). The
+  library was never affected.
+
 ### Changed
 
 - **`get_holidays()`'s 401 message no longer says the endpoint is down.** It said that since
   2026-09-20 the endpoint "has answered 401 for the CURRENT year", and README and AGENTS.md said
   the call "cannot succeed". Both claims came from settfex's own probes (#140, closed as
-  persistent), but a downstream consumer's poller, running every 30 minutes, banked at least one successful response on every logged day from 2026-09-15 to 2026-11-02 (32 dates; first reported as 36, recounted), and three live calls on 2026-11-03 (on 0.15.1 and 0.26.3) all returned
-  2026's 20 holidays. The current-year 401 is **intermittent, not persistent**. The message now
-  says so, and says to retry later rather than in a loop: the endpoint degrades under polling, so a
-  401 is still not retried internally.
+  persistent). But a downstream consumer's poller, running every 30 minutes, banked at least one
+  successful response on every logged day from 2026-09-15 to 2026-11-02 (32 dates; first reported
+  as 36, recounted), and three live calls on 2026-11-03 (on 0.15.1 and 0.26.3) all returned 2026's
+  20 holidays. The current-year 401 is **intermittent, not persistent**. The message now says so,
+  and says to retry later rather than in a loop: the endpoint degrades under polling, so a 401 is
+  still not retried internally.
 
 ### Documentation
 
@@ -94,6 +132,7 @@ use and compare the fields you read. That is how the verification above was done
   between those lines and the latest release that can change what calling code sees. Built from
   a mechanical diff of the public API (functions, parameters, model fields and exception classes,
   with annotation-only changes ignored) and checked against four downstream consumers.
+- An **Errors** table in `docs/settfex/services/tfex/trading_statistics.md`.
 
 ## [0.26.3] - 2026-11-02
 
