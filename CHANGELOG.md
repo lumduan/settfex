@@ -79,6 +79,16 @@ use and compare the fields you read. That is how the verification above was done
 
 ## [Unreleased]
 
+### Documentation
+
+- **How unreliable `get_holidays()` is, measured.** A downstream consumer polled it once every
+  30 minutes for 72 h on 0.26.3 (2026-11-04 19:20 → 11-07 19:33 ICT): **13 of 145 calls succeeded
+  (9.0%)**, every typed failure was a 401, at least two calls succeeded on every day, and the
+  longest gap was 17 h. AGENTS.md, README and the CLAUDE.md gotcha now say that one call usually
+  fails, and that callers should poll on a schedule and keep the last good calendar. 401 stays
+  un-retried: a retry would multiply load on an endpoint that degrades under polling, while daily
+  freshness already holds without one.
+
 ## [0.27.0] - 2026-11-04
 
 An unknown TFEX series gets its own "not found" error, and the holiday docs stop calling a
