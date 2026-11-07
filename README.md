@@ -93,7 +93,8 @@ logger.enable("settfex")          # AFTER `import settfex` — see the note abov
   answers HTTP 401 for the current year (the only year it serves), which no settfex version can
   fix. From 2026-09-20 this was reported as a persistent outage
   ([#140](https://github.com/lumduan/settfex/issues/140)), but a downstream poller running every
-  30 minutes succeeded at least once on every logged day (32 dates), and every call on 2026-11-03 succeeded. Since
+  30 minutes succeeded at least once on every logged day (32 dates). Over a measured 72 h
+  (2026-11-04 → 11-07) about 9% of single calls succeeded, at least twice a day. Since
   0.24.1 a 401 fails immediately rather than retrying for ~128 s: try again later, and keep a
   fallback for market closures.
 

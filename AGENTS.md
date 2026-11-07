@@ -419,6 +419,11 @@ every LOGGED day from 2026-09-15 to 2026-11-02 (32 dates; days with no log carry
 holidays). So treat it as **available but unreliable**: a 401 can be an intermittent failure or an
 unserved year, and the response looks the same in both cases.
 
+How unreliable, measured over 72 h (2026-11-04 → 11-07, one attempt every 30 minutes): **13 of 145
+calls succeeded (9%)**, but at least twice on every day, with a longest gap of 17 h. So **one call
+usually fails**. Poll on a schedule and keep the last good calendar; never treat a single 401 as
+"no holidays" or as an answer.
+
 Since 0.24.1 a 401 fails **immediately** instead of retrying for ~128 s. Do not retry it in a
 loop (the endpoint degrades under polling), and do not report a 401 as a library bug. Keep another
 source for market closures if trading-day logic depends on it; `is_holiday()` never covered
