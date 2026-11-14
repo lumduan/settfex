@@ -49,6 +49,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from settfex.exceptions import SeriesNotFoundError
 from settfex.services.sec import get_sec_documents
 from settfex.services.sec.executive_trades import (
     get_executive_trade_report,
@@ -60,7 +61,11 @@ from settfex.services.set import (
     get_stock_info,
     get_stock_list,
 )
-from settfex.services.tfex import get_series_list
+from settfex.services.tfex import (
+    get_series_list,
+    get_trading_statistics,
+    get_underlying_price,
+)
 from settfex.services.thaibma import get_government_yield_curve
 from settfex.utils.data_fetcher import FetcherConfig
 from settfex.utils.session_cache import SessionCache
@@ -143,6 +148,27 @@ async def test_live_tfex_series_list():
     elapsed = time.perf_counter() - t0
     assert response.count > 50
     _record("tfex_series_list", response, elapsed, count=response.count)
+
+
+@pytest.mark.asyncio
+async def test_live_tfex_unknown_series_is_series_not_found():
+    """The contract SeriesNotFoundError (0.27.0) rests on: TFEX answers an unknown series with 404.
+
+    A downstream service's 503-instead-of-404 bug survived because its tests built the 404 by hand;
+    only asking the live host can show that TFEX still says 404, so this is a live test, with a
+    POSITIVE CONTROL (a real series from the live list must still succeed). Without the control,
+    a library that answered 404 for everything would pass too. Four requests plus the list.
+    """
+    listing = await get_series_list()
+    real = next(s.symbol for s in listing.series if s.active)
+    stats = await get_trading_statistics(real)
+    assert stats.symbol == real, "positive control: a live series must still resolve"
+
+    for fetch in (get_trading_statistics, get_underlying_price):
+        with pytest.raises(SeriesNotFoundError) as excinfo:
+            await fetch("ZZZZ99")
+        assert excinfo.value.status_code == 404
+    _record("tfex_unknown_series", stats, 0.0, control=real)
 
 
 @pytest.mark.asyncio
