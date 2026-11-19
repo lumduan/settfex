@@ -79,6 +79,47 @@ use and compare the fields you read. That is how the verification above was done
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-19
+
+Two SEC answers a caller could not tell apart, from a downstream archive's reports: a bot-management challenge, and an off-host redirect. **Additive:** nothing a 0.27.x caller catches stops catching. Built from that archive's captured page and recorded bytes. One live listing call on 2026-11-19 09:05 ICT confirmed the normal path is unaffected (no challenge was active at that moment).
+
+### Added
+
+- **`BotChallengeError`** (`settfex.utils.parsing`), a `BlockedError` subclass for a
+  bot-management **challenge** page. Since 2026-11-11, reported by a downstream archive,
+  `market.sec.or.th`'s iDisc listing GET answers **HTTP 200** `text/html` with Akamai Bot
+  Manager's interstitial: a `<meta refresh>` carrying a `bm-verify` token, and a script that POSTs
+  the token with a proof of work to `/_sec/verify`. Until now the listing surfaced it as
+  `FetchError("SEC search page returned no __VIEWSTATE token — the page structure may have
+  changed…")` with no status, so a challenge was indistinguishable from a site redesign. A download
+  with no `Content-Type` would have accepted it as the document.
+  - It is recognised (both `bm-verify` and `/_sec/verify` in a body of at most 8 KB) and **never
+    solved**: the refresh is not followed, the script is not run, the token is not sent.
+  - The fetcher raises it for any 2xx (listings, ViewMore, downloads, Form 59), and the download
+    path for any status. Never retried.
+  - Evidence: status, URL, headers without `Set-Cookie` (`ak_bmsc`), the body with its
+    `bm-verify` token screened, and the elapsed time.
+  - Being a `BlockedError` (and so an `UnexpectedPageError`, `ParseError` and `FetchError`), every
+    existing "stop and back off" handler and the batch stops catch it unchanged.
+  - The test fixture is the downstream archive's real capture, copied verbatim.
+- **`OffHostRedirectError`** (`settfex.exceptions`), an `UnexpectedPageError`. The old-format
+  download's `capital.sec.or.th/tmp/<id>.zip` fetch followed redirects to any host. A downstream
+  archive's raw-byte capture (2026-10-09) showed BigIP answering it, for some filings, with an
+  HTTP/1.0 302 to an Azure host serving SEC's maintenance page. libcurl followed it, the Azure host
+  answered 505, and the error said `Failed to download http://capital.sec.or.th/tmp/…: HTTP 505`,
+  a status from a host the message never named.
+  - Redirects are now followed only while they stay on the host (at most 5); an off-host one raises
+    this error before any request leaves the host, carrying `location` and `target_host`. The same
+    rule the JavaScript indirection already applied.
+- **`AsyncDataFetcher.fetch(..., follow_redirects=True)`**: `False` returns a 3xx as the response.
+  It requires `use_session=False`; a persistent session raises `NotImplementedError`.
+
+### Changed
+
+- **A download error names the host that answered** when a followed redirect left the requested
+  one (`Failed to download <url>: HTTP 505 (answered by <host>)`). When the hosts match, the message
+  is exactly as before.
+
 ### Documentation
 
 - **How unreliable `get_holidays()` is, measured.** A downstream consumer polled it once every
