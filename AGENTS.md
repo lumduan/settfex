@@ -329,6 +329,7 @@ being wrong, so none of them will announce itself.
 | **`market_status` says `'Closed'` for every symbol after hours** — it is not a suspension flag | use `.is_suspended`, which reads the per-symbol sign |
 | **A suspended symbol returns HTTP 200 with `last`/OHLC/volume all `null`** and an empty book | that is data, not an error; quote `.prior` as its last known price |
 | **A market-wide sign scan via index compositions sees COMMON STOCKS only** (929 of 3,954 symbols) | suspended warrants/DWs/DRs are invisible to it — check those with `get_stock_info()` |
+| **A SET financial statement's `download_url` is the same zip as SEC's `Download?FILEID=`** (identical bytes), but the SET API lists only **five periods** | for older periods or other filing types use `get_sec_documents()`. While the SEC listing raises `BotChallengeError`, the SET link still serves the latest statements |
 
 ---
 
@@ -346,6 +347,7 @@ from settfex.exceptions import (
     SeriesNotFoundError,     # TFEX 404: unknown series (0.27.0); an HTTPStatusError, never retry
     UnexpectedPageError,     # a PAGE where a document was expected (0.26.0); carries the answer
     SoftNotFoundError,       # its "file not found" page — can be FALSE; NOT a NotFoundError
+    OffHostRedirectError,    # an old-format download redirected to ANOTHER host (0.28.0); not followed
     SymbolNotFoundError,     # SET 404, or an unlisted analyst-consensus symbol; .suggestion
     StaleDataError,          # ThaiBMA rolled back and you asked it to raise
     ParseError,              # a response arrived intact and could not be mapped
@@ -360,6 +362,7 @@ from settfex.exceptions import (
 from settfex.utils.parsing import (
     ResponseParseError,      # also a ParseError since 0.24.0
     BlockedError,            # a WAF block page (0.25.0): stop, never retry; an UnexpectedPageError
+    BotChallengeError,       # a bot-management CHALLENGE page (Akamai, 0.28.0): a BlockedError; never solved
 )
 ```
 

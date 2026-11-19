@@ -249,6 +249,7 @@
         "SeriesNotFoundError",
         "UnexpectedPageError",
         "SoftNotFoundError",
+        "OffHostRedirectError",
         "CompanyNotFoundError",
         "AmbiguousCompanyError",
         "InvalidSymbolError",
@@ -499,6 +500,50 @@
           "methods": {},
           "mro": [
             "settfex.exceptions.NotFoundError",
+            "builtins.Exception",
+            "builtins.BaseException",
+            "builtins.object"
+          ]
+        },
+        "OffHostRedirectError": {
+          "bases": [
+            "settfex.exceptions.UnexpectedPageError"
+          ],
+          "kind": "exception",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "message",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "location",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "target_host",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "Any",
+                  "name": "evidence",
+                  "param_kind": "VAR_KEYWORD"
+                }
+              ],
+              "returns": "None"
+            }
+          },
+          "mro": [
+            "settfex.exceptions.OffHostRedirectError",
+            "settfex.exceptions.UnexpectedPageError",
+            "settfex.exceptions.FetchError",
             "builtins.Exception",
             "builtins.BaseException",
             "builtins.object"
@@ -860,6 +905,7 @@
         "InvalidSymbolError",
         "NoReturn",
         "NotFoundError",
+        "OffHostRedirectError",
         "ParseError",
         "SeriesNotFoundError",
         "SoftNotFoundError",
@@ -1610,6 +1656,7 @@
         "Any",
         "AsyncDataFetcher",
         "BlockedError",
+        "BotChallengeError",
         "DEFAULT_DOWNLOAD_TIMEOUT",
         "DocumentDownloadService",
         "DownloadResult",
@@ -1618,6 +1665,7 @@
         "FetchError",
         "FetchResponse",
         "FetcherConfig",
+        "OffHostRedirectError",
         "ParseError",
         "SEC_BASE_URL",
         "SEC_DOWNLOAD_ENDPOINT",
@@ -1632,6 +1680,7 @@
         "download_sec_document",
         "download_sec_documents",
         "looks_like_block_page",
+        "looks_like_bot_challenge",
         "overload"
       ],
       "functions": {
@@ -16643,6 +16692,12 @@
                   "default": "True",
                   "name": "decode_text",
                   "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "bool",
+                  "default": "True",
+                  "name": "follow_redirects",
+                  "param_kind": "KEYWORD_ONLY"
                 }
               ],
               "returns": "settfex.utils.data_fetcher.FetchResponse"
@@ -16846,12 +16901,14 @@
         "Any",
         "AsyncDataFetcher",
         "BlockedError",
+        "BotChallengeError",
         "FetchError",
         "FetchResponse",
         "FetcherConfig",
         "HTTPStatusError",
         "decode_json",
-        "looks_like_block_page"
+        "looks_like_block_page",
+        "looks_like_bot_challenge"
       ],
       "functions": {}
     },
@@ -17086,9 +17143,11 @@
     "settfex.utils.parsing": {
       "all": [
         "BlockedError",
+        "BotChallengeError",
         "ResponseParseError",
         "decode_json",
         "looks_like_block_page",
+        "looks_like_bot_challenge",
         "validate_list_or_raise",
         "validate_or_raise"
       ],
@@ -17172,6 +17231,85 @@
             "builtins.object"
           ]
         },
+        "BotChallengeError": {
+          "bases": [
+            "settfex.utils.parsing.BlockedError"
+          ],
+          "kind": "exception",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "message",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "url",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "int | None",
+                  "default": "None",
+                  "name": "status_code",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "content_type",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "dict[str, str] | None",
+                  "default": "None",
+                  "name": "headers",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "bytes",
+                  "default": "<bytes>",
+                  "name": "body",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "final_url",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "bool",
+                  "default": "False",
+                  "name": "body_truncated",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "float | None",
+                  "default": "None",
+                  "name": "elapsed_seconds",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            }
+          },
+          "mro": [
+            "settfex.utils.parsing.BotChallengeError",
+            "settfex.utils.parsing.BlockedError",
+            "settfex.utils.parsing.ResponseParseError",
+            "settfex.exceptions.ParseError",
+            "settfex.exceptions.UnexpectedPageError",
+            "settfex.exceptions.FetchError",
+            "builtins.ValueError",
+            "builtins.Exception",
+            "builtins.BaseException",
+            "builtins.object"
+          ]
+        },
         "ResponseParseError": {
           "bases": [
             "settfex.exceptions.ParseError",
@@ -17224,6 +17362,7 @@
       "exports": [
         "Any",
         "BlockedError",
+        "BotChallengeError",
         "ModelT",
         "ParseError",
         "Protocol",
@@ -17232,6 +17371,7 @@
         "UnexpectedPageError",
         "decode_json",
         "looks_like_block_page",
+        "looks_like_bot_challenge",
         "validate_list_or_raise",
         "validate_or_raise"
       ],
@@ -17253,6 +17393,17 @@
           "returns": "Any"
         },
         "looks_like_block_page": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "bytes",
+              "name": "content",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "bool"
+        },
+        "looks_like_bot_challenge": {
           "kind": "function",
           "params": [
             {

@@ -79,8 +79,77 @@ use and compare the fields you read. That is how the verification above was done
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-19
+
+Two SEC answers a caller could not tell apart, from a downstream archive's reports: a bot-management challenge, and an off-host redirect. **Additive:** nothing a 0.27.x caller catches stops catching. Built from that archive's captured page and recorded bytes. One live listing call on 2026-11-19 09:05 ICT confirmed the normal path is unaffected (no challenge was active at that moment).
+
+### Added
+
+- **`BotChallengeError`** (`settfex.utils.parsing`), a `BlockedError` subclass for a
+  bot-management **challenge** page. Since 2026-11-11, `market.sec.or.th`'s iDisc listing GET
+  **sometimes** answers a client that does not run JavaScript with **HTTP 200** `text/html`:
+  Akamai Bot Manager's interstitial. It is a `<meta refresh>` carrying a `bm-verify` token, plus a
+  script that POSTs the token with a proof of work to `/_sec/verify`, behind a SEC-branded loading
+  animation.
+  - **When it started:** with an SEC infrastructure change on the night of 2026-11-10/11, per a
+    downstream archive's response headers. The listing's F5 cookies (`TS01…`) were replaced by
+    Akamai's `ak_bmsc`, and HTTP/3 `alt-svc`, HSTS and a CSP appeared.
+  - **It is not a maintenance page:** a browser on the same IP saw the normal listing on 11-17 and
+    11-19. SEC's maintenance answers in that period came from `capital.sec.or.th` (via
+    `maintenance.sec.or.th`, or an Azure fallback), a different host.
+  - **It is intermittent:** on 2026-11-19 a settfex listing passed at 09:05 ICT, and three bare
+    GETs from the same IP were challenged at 09:10-09:11.
+  - **Keeping the `ak_bmsc` cookie does not clear it** (tested, two GETs on one session): it waits
+    for the script's proof of work. That is why SET-style cookie warming cannot help here. Until now the listing surfaced it as
+  `FetchError("SEC search page returned no __VIEWSTATE token — the page structure may have
+  changed…")` with no status, so a challenge was indistinguishable from a site redesign. A download
+  with no `Content-Type` would have accepted it as the document.
+  - It is recognised (both `bm-verify` and `/_sec/verify` in a body of at most 8 KB) and **never
+    solved**: the refresh is not followed, the script is not run, the token is not sent.
+  - The fetcher raises it for any 2xx (listings, ViewMore, downloads, Form 59), and the download
+    path for any status. Never retried.
+  - Evidence: status, URL, headers without `Set-Cookie` (`ak_bmsc`), the body with its
+    `bm-verify` token screened, and the elapsed time.
+  - Being a `BlockedError` (and so an `UnexpectedPageError`, `ParseError` and `FetchError`), every
+    existing "stop and back off" handler and the batch stops catch it unchanged.
+  - The test fixture is the downstream archive's real capture, copied verbatim.
+- **`OffHostRedirectError`** (`settfex.exceptions`), an `UnexpectedPageError`. The old-format
+  download's `capital.sec.or.th/tmp/<id>.zip` fetch followed redirects to any host. A downstream
+  archive's raw-byte capture (2026-10-09) showed BigIP answering it, for some filings, with an
+  HTTP/1.0 302 to an Azure host serving SEC's maintenance page. libcurl followed it, the Azure host
+  answered 505, and the error said `Failed to download http://capital.sec.or.th/tmp/…: HTTP 505`,
+  a status from a host the message never named.
+  - Redirects are now followed only while they stay on the host (at most 5); an off-host one raises
+    this error before any request leaves the host, carrying `location` and `target_host`. The same
+    rule the JavaScript indirection already applied.
+- **`AsyncDataFetcher.fetch(..., follow_redirects=True)`**: `False` returns a 3xx as the response.
+  It requires `use_session=False`; a persistent session raises `NotImplementedError`.
+
+### Changed
+
+- **A download error names the host that answered** when a followed redirect left the requested
+  one (`Failed to download <url>: HTTP 505 (answered by <host>)`). When the hosts match, the message
+  is exactly as before.
+
 ### Documentation
 
+- **Where to download a financial statement: SEC or SET's link, and why settfex uses SEC.**
+  Verified live 2026-11-19 (`docs/settfex/services/sec/financial_report.md`, and the
+  `download_url` section of `docs/settfex/services/set/financial.md`).
+  - **The SET factsheet's `download_url` is the same zip.** It is on `weblink.set.or.th`, at the
+    same `dat/news/…` path as SEC's `Download?FILEID=`, with **identical bytes** (CPALL Q3/2569,
+    sha256 `d61e0115…`). It is also the link behind the "งบการเงินล่าสุด" (latest financial
+    statements) button on SET's quote page.
+  - **Why settfex downloads from SEC:**
+    - full history (SET's API lists five periods);
+    - five filing categories (SET: statements only);
+    - the completeness checks;
+    - it is the record SET mirrors.
+  - **When SET's link is the better route:** the latest statements while the SEC listing is
+    challenged, because the SET host is not behind Akamai.
+  - **SET's copy is not earlier:** the SET news item came about 3.5 h after the file's stamp, and
+    the factsheet lags further.
+  - The `9M` quarter code is now documented.
 - **How unreliable `get_holidays()` is, measured.** A downstream consumer polled it once every
   30 minutes for 72 h on 0.26.3 (2026-11-04 19:20 → 11-07 19:33 ICT): **13 of 145 calls succeeded
   (9.0%)**, every typed failure was a 401, at least two calls succeeded on every day, and the
