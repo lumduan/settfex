@@ -51,8 +51,18 @@ Also available as a facade: `SecCompany("CPALL")`.
 >      cannot help.
 >    - **What settfex does:** it recognises the page, raises `BotChallengeError` (a `BlockedError`)
 >      and **never** solves it. Stop and back off.
->    - **Downloads are unaffected so far**, from both `Download?FILEID=` and SET's copy of the same
->      file (see "Financial statements: download from SEC, or from SET's link?").
+>    - **Downloads: mostly unaffected, with one exception.** A downstream consumer's fixed
+>      known-good file downloaded normally every night from 11-11. Then, at 2026-11-19 21:45 ICT,
+>      the same URL answered HTTP 200 `text/html` with SEC's 118-byte `ไม่พบไฟล์ที่ระบุ`
+>      (file not found) page, and that answer set Akamai's `ak_bmsc` cookie. No download answer
+>      had carried that cookie before; they set F5's `TS01…` only.
+>      - settfex raises that page as `SoftNotFoundError`, which is correct for the bytes and
+>        possibly wrong about the file (as noted under "What a failed download raises").
+>      - 18 minutes later (22:03) a different known file downloaded normally: HTTP 200, the same
+>        bytes as that morning, `TS01…` only.
+>      - Not established: whether the bot layer, SEC's backend or chance produced the not-found.
+>      - SET's copy of a file at the same path settles it either way (see "Financial statements:
+>        download from SEC, or from SET's link?").
 
 ## Quick Start
 
@@ -399,7 +409,9 @@ points at `https://weblink.set.or.th/dat/news/<YYYYMM>/<name>.zip`, and this ser
 
 - **For the latest statements while the SEC listing is challenged** (gotcha 5). Neither the SET
   factsheet API nor `weblink.set.or.th` is behind the Akamai challenge, and the file is the same.
-  settfex has no SET downloader. The stateless fetcher works, and it is what was tested:
+- **To check a `SoftNotFoundError`** on a `dat/news/…` statement that the SET API still lists.
+  `weblink.set.or.th/<the same path>` answers whether the file exists, without asking SEC again.
+- settfex has no SET downloader. The stateless fetcher works, and it is what was tested:
 
   ```python
   from settfex.services.set import get_balance_sheet
