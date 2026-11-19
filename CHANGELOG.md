@@ -79,6 +79,18 @@ use and compare the fields you read. That is how the verification above was done
 
 ## [Unreleased]
 
+### Documentation
+
+- **The 0.28.0 note that SEC downloads were "unaffected" by the Akamai layer was too strong.**
+  - **What happened:** at 2026-11-19 21:45 ICT a downstream consumer's known-good
+    `Download?FILEID=` URL answered SEC's 118-byte "file not found" page under HTTP 200, and that
+    answer carried Akamai's `ak_bmsc` cookie, a first on the download leg.
+  - **A normal download 18 minutes later:** at 22:03 another known file downloaded normally,
+    byte-identical to its morning copy.
+  - **Not established:** the cause.
+  - **The docs now say:** "mostly unaffected, with one exception", and a SET `weblink` copy at the
+    same path can check a `SoftNotFoundError` on a statement (`docs/settfex/services/sec/financial_report.md`).
+
 ## [0.28.0] - 2026-11-19
 
 Two SEC answers a caller could not tell apart, from a downstream archive's reports: a bot-management challenge, and an off-host redirect. **Additive:** nothing a 0.27.x caller catches stops catching. Built from that archive's captured page and recorded bytes. One live listing call on 2026-11-19 09:05 ICT confirmed the normal path is unaffected (no challenge was active at that moment).

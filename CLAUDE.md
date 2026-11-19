@@ -110,8 +110,10 @@ evidence from that sweep was unusable, and the host stayed hostile long after th
   handler still catches it — which also makes it a `ValueError`: catch `BlockedError` first. Only
   the SEC page is recognised; no SET/Incapsula block page has ever been captured. **Since 0.28.0
   Akamai Bot Manager's interstitial challenge is recognised too** (`BotChallengeError`, a
-  `BlockedError`: needs both `bm-verify` and `/_sec/verify` in a small body). It has answered SEC's
-  iDisc listing GET nightly since 2026-11-11 (HTTP 200, `text/html`). settfex never solves it. Before 0.25.0 a
+  `BlockedError`: needs both `bm-verify` and `/_sec/verify` in a small body). Since 2026-11-11 it
+  has answered SEC's iDisc listing GET intermittently (HTTP 200, `text/html`): every night in a
+  downstream archive's 20:00 probe, but not on every request by day (see the Akamai gotcha below).
+  settfex never solves it. Before 0.25.0 a
   download **saved the block page as the filing** (it has no Content-Type). When one fires in the
   wild, `exc.body` (support ID screened) is the byte-exact fixture the synthetic test page is
   waiting to be replaced by.

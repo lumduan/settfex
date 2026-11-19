@@ -1,7 +1,8 @@
 """SEC refusals and redirects a caller could not tell apart (0.28.0), from a downstream archive's reports.
 
-1. **Akamai Bot Manager's interstitial**: the iDisc listing GET has answered HTTP 200 with a
-   challenge page every night since 2026-11-11. It reached callers as "no __VIEWSTATE token", the
+1. **Akamai Bot Manager's interstitial**: since 2026-11-11 the iDisc listing GET has
+   intermittently answered HTTP 200 with a challenge page (every night in a downstream archive's
+   probe, not on every request by day). It reached callers as "no __VIEWSTATE token", the
    same words as a site redesign. Now it is ``BotChallengeError``, a ``BlockedError``. It is
    recognised and never solved: the refresh is not followed, the script is not run, the token is
    not sent. The page is the archive's real capture (``idisc_akamai_interstitial.html``, tokens
