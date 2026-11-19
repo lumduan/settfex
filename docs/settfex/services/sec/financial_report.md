@@ -66,6 +66,12 @@ Also available as a facade: `SecCompany("CPALL")`.
 >      - Not established: whether the bot layer or SEC's backend produced it. One observation.
 >      - SET's copy of a file at the same path is what settled it (see "Financial statements:
 >        download from SEC, or from SET's link?").
+>      - **`ak_bmsc` is not, on its own, a sign of refusal.** On 2026-11-20 at 06:25 SEC's
+>        **genuine** "file not found" page carried it too: a `dat/annual/` path that SET also
+>        answered 404.
+>      - **Since 0.29.0 a failing download fetches SET's copy itself** (see "SET's copy: the
+>        automatic fallback (0.29.0)"). A page error's `set_cookie_names` shows which layer
+>        answered.
 
 ## Quick Start
 
@@ -412,9 +418,9 @@ points at `https://weblink.set.or.th/dat/news/<YYYYMM>/<name>.zip`, and this ser
 
 - **For the latest statements while the SEC listing is challenged** (gotcha 5). Neither the SET
   factsheet API nor `weblink.set.or.th` is behind the Akamai challenge, and the file is the same.
-- **To check a `SoftNotFoundError`** on a `dat/news/…` statement that the SET API still lists.
-  `weblink.set.or.th/<the same path>` answers whether the file exists, without asking SEC again.
-- settfex has no SET downloader. The stateless fetcher works, and it is what was tested:
+  The SET factsheet API gives the path, since the listing cannot.
+- **When an SEC download fails.** Since 0.29.0 `download()` does this itself; see the next section.
+- To fetch a SET `download_url` directly, the stateless fetcher works, and it is what was tested:
 
   ```python
   from settfex.services.set import get_balance_sheet
@@ -425,6 +431,43 @@ points at `https://weblink.set.or.th/dat/news/<YYYYMM>/<name>.zip`, and this ser
       response = await fetcher.fetch(latest.download_url, decode_text=False)
   # Check response.status_code == 200 and that the bytes are a zip before keeping them.
   ```
+
+### SET's copy: the automatic fallback (0.29.0)
+
+When SEC's answer for a `Download?FILEID=<path>` file fails, `download()` / `download_all()` fetch
+SET's copy at `https://weblink.set.or.th/<path>` once, and return it if it is a document.
+
+- **The trigger is any SEC failure:** a "file not found" page, a block or challenge page, another
+  page, a non-200, or a transport error.
+- **The result says so.** `source` is `"set_weblink"`, `file_url` is the SET URL,
+  `requested_url` is the SEC URL you asked for, and `fallback_reason` is SEC's error as
+  `"<ErrorType>: <message>"`. A WARNING is logged per file, and one per batch.
+- **The SET answer passes the same page checks.** A block, challenge or "not found" page from SET
+  is never returned as a file.
+- **When SET's copy fails too,** SEC's error is raised, with a note (`exc.__notes__`) saying what
+  SET answered. A SET 404 next to a SEC "file not found" is the strongest sign the file is really
+  gone.
+- **Which paths:** `SET_WEBLINK_FILEID_PREFIXES` = `dat/news/`, `dat/f56/`, the ones verified
+  byte-identical:
+  - 2026-11-19/20: two `dat/news/` statement zips, one compared three times;
+  - a `dat/news/` MD&A pdf;
+  - a 42 MB `dat/f56/` One Report.
+  `dat/annual/` is left out: its one sample was a dead path on both hosts, so SET carrying it is
+  unverified. IPOS, `FinancialStatementDownload`, `viewdoc` and `capital.sec.or.th` files live in
+  other stores and are never mapped.
+- **In a batch:** after SEC's first block or challenge page, nothing more is sent to SEC.
+  - The remaining files with a SET copy are fetched from SET.
+  - The rest are recorded as "not requested", as before.
+  - After SET's own first block page, nothing more is sent to SET either.
+- **Turn it off with `set_fallback=False`** on `DocumentDownloadService(...)`,
+  `download_sec_document(...)` or `download_sec_documents(...)`, when the bytes must come from SEC
+  itself.
+
+```python
+dl = await download_sec_document("dat/news/202608/0646FIN130820261551150876T.zip")
+dl.source            # 'sec', or 'set_weblink' when SEC could not serve it
+dl.fallback_reason   # None, or e.g. 'SoftNotFoundError: SEC reports the file does not exist ...'
+```
 
 ### Timing: SET's copy is not earlier
 
@@ -479,6 +522,12 @@ the symbol's listed company).
 request took; a slow success is worth seeing), plus `.save(dest)` — writes to `dest/<filename>` if
 `dest` is a directory (else to `dest`) and records `.path`.
 
+Since 0.29.0 it also carries:
+- `source`: `"sec"`, or `"set_weblink"` when SET's copy stood in;
+- `fallback_reason: str | None`: SEC's error when SET served the file;
+- `requested_url: str | None`: the SEC URL asked for. It differs from `file_url` when SET served
+  the file, or when an old-format indirection was resolved.
+
 ## Service classes
 
 ### `FinancialReportService`
@@ -489,7 +538,7 @@ fetch_documents(unique_id, *, company_name=None, types=None, from_date=None, to_
 fetch_documents_raw(unique_id, *, code, from_date=None, to_date=None, lang="en") -> list[dict]
 ```
 
-### `DocumentDownloadService(config=None, *, timeout=None)`
+### `DocumentDownloadService(config=None, *, timeout=None, set_fallback=True)`
 
 ```python
 download(target, *, fetcher=None, referer=...) -> DownloadedFile   # target: SecDocument|URL|FILEID
@@ -524,7 +573,14 @@ When a followed redirect left the requested host, the message ends with `(answer
 
 Each page error carries `url`, `final_url`, `status_code`, `content_type`, `headers` (without
 `Set-Cookie`, `Cookie`, `Authorization`, `Proxy-Authorization`), `body` (the first 8,192 bytes,
-support ID screened) with `body_truncated`, and `elapsed_seconds`. The 8 KB cap equals the
+support ID screened) with `body_truncated`, `elapsed_seconds`, and `set_cookie_names` (0.29.0).
+- `set_cookie_names` holds the NAMES of the cookies the answer set, in order. The values are
+  credentials and are never kept.
+- The names say which layer answered: F5 sets `TS01…`, Akamai sets `ak_bmsc`.
+- `ak_bmsc` also arrives on SEC's genuine "file not found" page, so it is a clue, not proof.
+
+With the SET fallback on (the default since 0.29.0), these errors reach you only when SET's copy
+failed too, or the path has none. The 8 KB cap equals the
 block-page detector's, so `looks_like_block_page(exc.body)` gives settfex's own verdict.
 
 **Known gap:** an HTTP 200 answer with **no** `Content-Type` is still returned as a document

@@ -330,6 +330,7 @@ being wrong, so none of them will announce itself.
 | **A suspended symbol returns HTTP 200 with `last`/OHLC/volume all `null`** and an empty book | that is data, not an error; quote `.prior` as its last known price |
 | **A market-wide sign scan via index compositions sees COMMON STOCKS only** (929 of 3,954 symbols) | suspended warrants/DWs/DRs are invisible to it — check those with `get_stock_info()` |
 | **A SET financial statement's `download_url` is the same zip as SEC's `Download?FILEID=`** (identical bytes), but the SET API lists only **five periods** | for older periods or other filing types use `get_sec_documents()`. While the SEC listing raises `BotChallengeError`, the SET link still serves the latest statements |
+| **An SEC download can come from SET (0.29.0):** when SEC cannot serve a `dat/news/` or `dat/f56/` file, SET's identical copy is fetched and `DownloadedFile.source == "set_weblink"` | quote `source` / `fallback_reason` when provenance matters; pass `set_fallback=False` if the bytes must come from SEC |
 
 ---
 
@@ -409,7 +410,9 @@ text:
 | `UnexpectedPageError` (itself) | any other page, e.g. an upstream error page | the source is degraded; try again later |
 
 `download_all` keeps the kind on each failure: `FailedDownload.error_type` names the class and
-`.status_code` the status.
+`.status_code` the status. Since 0.29.0 these reach you for `dat/news/` / `dat/f56/` files only
+when SET's copy failed too (see `exc.__notes__`), and every page error carries `set_cookie_names`:
+cookie names only, never values.
 
 ---
 
