@@ -87,7 +87,9 @@ use and compare the fields you read. That is how the verification above was done
     answer carried Akamai's `ak_bmsc` cookie, a first on the download leg.
   - **A normal download 18 minutes later:** at 22:03 another known file downloaded normally,
     byte-identical to its morning copy.
-  - **Not established:** the cause.
+  - **The not-found was false:** at 22:07 `weblink.set.or.th` at the same path served the bytes
+    SEC had served at 20:00 (443,209 B, same sha256), so the file existed.
+  - **Not established:** whether the bot layer or SEC's backend refused it.
   - **The docs now say:** "mostly unaffected, with one exception", and a SET `weblink` copy at the
     same path can check a `SoftNotFoundError` on a statement (`docs/settfex/services/sec/financial_report.md`).
 
