@@ -60,8 +60,11 @@ Also available as a facade: `SecCompany("CPALL")`.
 >        possibly wrong about the file (as noted under "What a failed download raises").
 >      - 18 minutes later (22:03) a different known file downloaded normally: HTTP 200, the same
 >        bytes as that morning, `TS01…` only.
->      - Not established: whether the bot layer, SEC's backend or chance produced the not-found.
->      - SET's copy of a file at the same path settles it either way (see "Financial statements:
+>      - **The not-found was false. The file existed:** at 22:07, `weblink.set.or.th` at the same
+>        path served the very bytes SEC had served at 20:00 (443,209 B, sha256 `c46238f0db12…`).
+>        So that `SoftNotFoundError` was a refusal or an error, not a missing file.
+>      - Not established: whether the bot layer or SEC's backend produced it. One observation.
+>      - SET's copy of a file at the same path is what settled it (see "Financial statements:
 >        download from SEC, or from SET's link?").
 
 ## Quick Start
