@@ -31,6 +31,7 @@ __all__ = [
     "SeriesNotFoundError",
     "UnexpectedPageError",
     "SoftNotFoundError",
+    "OffHostRedirectError",
     "CompanyNotFoundError",
     "AmbiguousCompanyError",
     "InvalidSymbolError",
@@ -375,6 +376,43 @@ class SoftNotFoundError(UnexpectedPageError):
             elapsed_seconds=elapsed_seconds,
         )
         self.matched_marker = matched_marker
+
+
+class OffHostRedirectError(UnexpectedPageError):
+    """A download was redirected to a DIFFERENT host, and settfex refused to follow (0.28.0).
+
+    Raised by the SEC old-format (``capital.sec.or.th``) download path. Its ``/tmp/<id>.zip``
+    fetch used to follow redirects anywhere. A downstream archive recorded on 2026-10-09 that for
+    some filings BigIP answers that fetch with an HTTP/1.0 302 to
+    ``secdocumentstorage.z23.web.core.windows.net``, an Azure site serving SEC's maintenance page.
+    libcurl followed it as ``GET / HTTP/1.0``, and the Azure site answered **505**. The caller
+    saw ``"Failed to download http://capital.sec.or.th/tmp/…: HTTP 505"``, a status from a host the
+    message never named. Four such errors tripped that archive's circuit breaker as a refusal.
+
+    Now the fetch does not follow: a redirect that stays on the host is followed (bounded), and
+    one that leaves it raises this, before any request is sent to the other host. The same rule
+    the JavaScript indirection already applied.
+
+    A :class:`UnexpectedPageError` subclass. That class (for the HTML 505) or a plain
+    :class:`FetchError` (otherwise) is what this case raised before, so existing handlers still
+    catch it.
+
+    Attributes (beyond :class:`UnexpectedPageError`'s):
+        location: The ``Location`` the server sent, resolved to an absolute URL.
+        target_host: The host it points to.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        location: str | None = None,
+        target_host: str | None = None,
+        **evidence: Any,
+    ) -> None:
+        super().__init__(message, **evidence)
+        self.location = location
+        self.target_host = target_host
 
 
 class CompanyNotFoundError(ValueError, NotFoundError):

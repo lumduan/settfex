@@ -18,7 +18,13 @@ from urllib.parse import unquote, urljoin, urlparse
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
-from settfex.exceptions import FetchError, ParseError, SoftNotFoundError, UnexpectedPageError
+from settfex.exceptions import (
+    FetchError,
+    OffHostRedirectError,
+    ParseError,
+    SoftNotFoundError,
+    UnexpectedPageError,
+)
 from settfex.services.sec.constants import (
     SEC_BASE_URL,
     SEC_DOWNLOAD_ENDPOINT,
@@ -30,7 +36,13 @@ from settfex.services.sec.constants import (
 from settfex.services.sec.financial_report import SecDocument
 from settfex.services.sec.utils import _CAPITAL_HOST, build_sec_headers
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig, FetchResponse
-from settfex.utils.parsing import BlockedError, _page_evidence, looks_like_block_page
+from settfex.utils.parsing import (
+    BlockedError,
+    BotChallengeError,
+    _page_evidence,
+    looks_like_block_page,
+    looks_like_bot_challenge,
+)
 
 
 class DownloadedFile(BaseModel):
@@ -340,10 +352,14 @@ class DocumentDownloadService:
             referer: Referer header for the request.
 
         Raises:
+            BotChallengeError: The answer was a bot-management challenge page (Akamai's
+                interstitial; 0.28.0), under any status, a ``BlockedError``. Never solved.
             BlockedError: The answer was a bot-protection block page, under any status. Stop and
                 back off; never retry.
             SoftNotFoundError: The answer was the host's "file not found" page (a soft 404 under
                 HTTP 200). **Not proof the file is gone** — see the class.
+            OffHostRedirectError: The old-format (capital.sec.or.th) archive fetch was redirected
+                to another host (0.28.0). Never followed; an ``UnexpectedPageError``.
             UnexpectedPageError: Any other HTML page where a document was expected, including an
                 HTML error page under a non-200 status.
             FetchError: Any other non-200 answer, or a transport failure.
@@ -365,7 +381,9 @@ class DocumentDownloadService:
                 # is minted per request and would be stale by the time anyone used it.
                 url = _capital_redirect_target(resp.content, url)
                 logger.debug(f"Resolved the old-format indirection to {url}")
-                resp = await fetcher.fetch(url, headers=headers, decode_text=False)
+                # Not a plain fetch since 0.28.0: an off-host 302 here used to be followed, and
+                # its other host's status reported under this host's name (see _fetch_on_host).
+                resp = await _fetch_on_host(fetcher, url, headers)
         finally:
             if owns_fetcher:
                 await fetcher.__aexit__(None, None, None)
@@ -531,6 +549,58 @@ def _soft_404_marker(snippet: str) -> str | None:
     return None
 
 
+_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+#: Redirects followed while they stay on the host. None was ever needed on the observed path.
+_MAX_ON_HOST_REDIRECTS = 5
+
+
+async def _fetch_on_host(
+    fetcher: AsyncDataFetcher, url: str, headers: dict[str, str]
+) -> FetchResponse:
+    """Fetch ``url``, following a redirect only while it stays on ``url``'s host.
+
+    Evidence (a downstream archive's raw-byte capture, 2026-10-09): for some old-format filings,
+    BigIP answers ``capital.sec.or.th/tmp/<id>.zip`` with ``HTTP/1.0 302`` to an Azure fallback
+    host serving SEC's maintenance page. Followed, that hop answered 505. The JavaScript
+    indirection already refused an off-host target (``_capital_redirect_target``); this applies the
+    same rule to an HTTP redirect, before any request leaves the host.
+    """
+    host = urlparse(url).hostname
+    current = url
+    for _ in range(_MAX_ON_HOST_REDIRECTS + 1):
+        resp = await fetcher.fetch(
+            current, headers=headers, decode_text=False, follow_redirects=False
+        )
+        if resp.status_code not in _REDIRECT_STATUSES:
+            return resp
+        location = resp.headers.get("Location") or resp.headers.get("location") or ""
+        target = urljoin(current, location)
+        target_host = urlparse(target).hostname
+        if not location or target_host != host:
+            logger.error(f"{current} redirected off-host to {target_host}; not following it.")
+            raise OffHostRedirectError(
+                f"{current} redirected (HTTP {resp.status_code}) off-host to {target_host} — "
+                f"refusing to follow it. On this host that has meant the archive was not built "
+                f"for this filing and BigIP sent its fallback host instead.",
+                location=target or None,
+                target_host=target_host,
+                url=current,
+                **_page_evidence(resp),
+            )
+        current = target
+    raise FetchError(f"Too many on-host redirects downloading {url}", status_code=resp.status_code)
+
+
+def _answered_by(resp: FetchResponse, url: str) -> str:
+    """`` (answered by <host>)`` when a followed redirect left the requested host, else ``""``.
+
+    So the status in a download error is never attributed to a host that did not send it. When
+    the hosts match, the message is exactly what it was before 0.28.0.
+    """
+    asked, answered = urlparse(url).hostname, urlparse(resp.url or url).hostname
+    return f" (answered by {answered})" if answered and answered != asked else ""
+
+
 def _raise_for_non_document(resp: FetchResponse, url: str) -> None:
     """Raise the typed error for an answer that is not a document; return if it is one.
 
@@ -542,6 +612,22 @@ def _raise_for_non_document(resp: FetchResponse, url: str) -> None:
     The messages are exactly the ones 0.25.0 raised as plain ``FetchError``s, and every class here
     is a ``FetchError`` subclass, so existing handlers behave as before.
     """
+    # A bot-management challenge (Akamai's interstitial, 0.28.0) under ANY status: recognised,
+    # never solved. The fetcher already raises for a 2xx one; this covers a non-2xx one. Every
+    # previous outcome for this page was a FetchError (or, with no Content-Type, an accepted
+    # "document"), so BotChallengeError is a strict subclass of what callers caught.
+    if looks_like_bot_challenge(resp.content):
+        logger.error(
+            f"{url} answered HTTP {resp.status_code} with a bot-management challenge page. "
+            f"settfex does not solve challenges: stop and back off."
+        )
+        raise BotChallengeError(
+            f"{url} answered with a bot-management challenge page (HTTP {resp.status_code}), "
+            f"not a document. settfex does not solve challenges — stop and back off.",
+            url=url,
+            **_page_evidence(resp),
+        )
+
     # A block page under ANY status. The fetcher already raises for a 2xx one; a non-2xx one
     # reaches here, where a plain FetchError used to be raised, so BlockedError is a strict
     # subclass of what callers caught. (JSON endpoints keep raising HTTPStatusError instead.)
@@ -560,7 +646,7 @@ def _raise_for_non_document(resp: FetchResponse, url: str) -> None:
     # The evidence is built only on the paths that raise: a document needs none of it.
     content_type = resp.headers.get("Content-Type") or resp.headers.get("content-type") or ""
     if resp.status_code != 200:
-        message = f"Failed to download {url}: HTTP {resp.status_code}"
+        message = f"Failed to download {url}: HTTP {resp.status_code}{_answered_by(resp, url)}"
         if _looks_like_html(resp.content, content_type):
             raise UnexpectedPageError(message, url=url, **_page_evidence(resp))
         # Not a page: nothing to show beyond the status, which is all 0.25.0 kept.
@@ -572,13 +658,13 @@ def _raise_for_non_document(resp: FetchResponse, url: str) -> None:
         marker = _soft_404_marker(snippet)
         if marker is not None:
             raise SoftNotFoundError(
-                f"SEC reports the file does not exist (soft 404): {url}",
+                f"SEC reports the file does not exist (soft 404): {url}{_answered_by(resp, url)}",
                 matched_marker=marker,
                 url=url,
                 **_page_evidence(resp),
             )
         raise UnexpectedPageError(
-            f"Unexpected HTML response (not a document) downloading {url}",
+            f"Unexpected HTML response (not a document) downloading {url}{_answered_by(resp, url)}",
             url=url,
             **_page_evidence(resp),
         )

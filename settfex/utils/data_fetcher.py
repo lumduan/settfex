@@ -11,9 +11,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from settfex.exceptions import FetchError, HTTPStatusError
 from settfex.utils.parsing import (
     BlockedError,
+    BotChallengeError,
     _page_evidence,
     decode_json,
     looks_like_block_page,
+    looks_like_bot_challenge,
 )
 
 # Static default request headers, built once at import and copied per request. Copying a
@@ -116,6 +118,9 @@ class FetchResponse(BaseModel):
 def _raise_if_blocked(response: FetchResponse) -> None:
     """Raise :class:`BlockedError` if a 2xx response is actually a bot-protection block page.
 
+    Since 0.28.0 also :class:`BotChallengeError` (a ``BlockedError``) for Akamai Bot Manager's
+    interstitial challenge, which arrives as HTTP 200 ``text/html``. It is recognised, never solved.
+
     Only 2xx: a non-2xx already announces itself through its status, and every service reports it
     as such (``HTTPStatusError`` via ``fetch_json``, or an explicit status check). Checking it here
     would only relabel an error that is already visible.
@@ -123,7 +128,22 @@ def _raise_if_blocked(response: FetchResponse) -> None:
     Reads ``content`` rather than ``text``, so binary fetches (``decode_text=False``, the SEC
     download path) are covered — that path is where the page used to be saved as a document.
     """
-    if not 200 <= response.status_code < 300 or not looks_like_block_page(response.content):
+    if not 200 <= response.status_code < 300:
+        return
+    if looks_like_bot_challenge(response.content):
+        # Recognised, never solved: the refresh is not followed and the token is not sent.
+        logger.error(
+            f"{response.url} answered HTTP {response.status_code} with a bot-management challenge "
+            f"(Akamai interstitial). settfex does not solve challenges: stop and back off."
+        )
+        raise BotChallengeError(
+            f"{response.url} answered with a bot-management challenge page "
+            f"(HTTP {response.status_code}), not the content. settfex does not solve "
+            f"challenges — stop and back off.",
+            url=response.url,
+            **_page_evidence(response),
+        )
+    if not looks_like_block_page(response.content):
         return
     logger.error(
         f"{response.url} answered HTTP {response.status_code} with a bot-protection block page. "
@@ -211,6 +231,7 @@ class AsyncDataFetcher:
         method: str = "GET",
         json_body: Any | None = None,
         data: Any | None = None,
+        follow_redirects: bool = True,
     ) -> Any:
         """
         Make an HTTP request using either a persistent session or a standalone request.
@@ -232,10 +253,16 @@ class AsyncDataFetcher:
             Response object from curl_cffi
 
         Raises:
-            NotImplementedError: If a non-GET method is requested with use_session=True
+            NotImplementedError: If a non-GET method, or ``follow_redirects=False``, is requested
+                with use_session=True (persistent sessions always follow redirects)
                 (persistent sessions are GET-only; use FetcherConfig(use_session=False)).
             Exception: If request fails
         """
+        if self.config.use_session and not follow_redirects:
+            raise NotImplementedError(
+                "follow_redirects=False via persistent session is not supported; "
+                "use FetcherConfig(use_session=False)"
+            )
         if self.config.use_session:
             # Persistent (cookie-warmed) sessions support GET only. Non-GET targets — e.g.
             # the cookieless opportunity-day API — must use a standalone fetcher
@@ -268,6 +295,7 @@ class AsyncDataFetcher:
                             headers=headers,
                             timeout=self.config.timeout,
                             impersonate=self.config.browser_impersonate,
+                            allow_redirects=follow_redirects,
                         )
                     return requests.post(
                         url,
@@ -275,12 +303,14 @@ class AsyncDataFetcher:
                         headers=headers,
                         timeout=self.config.timeout,
                         impersonate=self.config.browser_impersonate,
+                        allow_redirects=follow_redirects,
                     )
                 return requests.get(
                     url,
                     headers=headers,
                     timeout=self.config.timeout,
                     impersonate=self.config.browser_impersonate,
+                    allow_redirects=follow_redirects,
                 )
 
             try:
@@ -304,6 +334,7 @@ class AsyncDataFetcher:
         json_body: Any | None = None,
         data: Any | None = None,
         decode_text: bool = True,
+        follow_redirects: bool = True,
     ) -> FetchResponse:
         """
         Fetch data from a URL asynchronously with proper Unicode handling.
@@ -328,6 +359,9 @@ class AsyncDataFetcher:
                 (UTF-8, latin1 fallback). Set False for binary payloads (zip/xlsx/pdf) to
                 skip the wasteful decode — ``text`` is then ``""`` and the raw bytes are
                 available on ``FetchResponse.content``.
+            follow_redirects: When True (default) redirects are followed, as before. When False
+                (0.28.0) a 3xx is returned as the response, so a caller can inspect ``Location``
+                before deciding whether to leave the host. Requires ``use_session=False``.
 
         Returns:
             FetchResponse with status, content, and metadata. **A non-2xx status is returned,
@@ -336,6 +370,8 @@ class AsyncDataFetcher:
         Raises:
             BlockedError: A 2xx response turned out to be a bot-protection block page. Raised on
                 the first occurrence and never retried, because retrying deepens the block.
+            BotChallengeError: A 2xx response was a bot-management challenge page (Akamai's
+                interstitial; 0.28.0), a ``BlockedError``. Never solved, never retried.
             FetchError: Every attempt failed to complete (connection reset, timeout, ...),
                 chained from the last underlying error.
 
@@ -374,7 +410,12 @@ class AsyncDataFetcher:
 
                 # Make request (either via persistent session or standalone)
                 response = await self._make_request(
-                    url, default_headers, method=method, json_body=json_body, data=data
+                    url,
+                    default_headers,
+                    method=method,
+                    json_body=json_body,
+                    data=data,
+                    follow_redirects=follow_redirects,
                 )
 
                 elapsed = time.time() - start_time

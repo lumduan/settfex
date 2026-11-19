@@ -346,6 +346,7 @@ from settfex.exceptions import (
     SeriesNotFoundError,     # TFEX 404: unknown series (0.27.0); an HTTPStatusError, never retry
     UnexpectedPageError,     # a PAGE where a document was expected (0.26.0); carries the answer
     SoftNotFoundError,       # its "file not found" page — can be FALSE; NOT a NotFoundError
+    OffHostRedirectError,    # an old-format download redirected to ANOTHER host (0.28.0); not followed
     SymbolNotFoundError,     # SET 404, or an unlisted analyst-consensus symbol; .suggestion
     StaleDataError,          # ThaiBMA rolled back and you asked it to raise
     ParseError,              # a response arrived intact and could not be mapped
@@ -360,6 +361,7 @@ from settfex.exceptions import (
 from settfex.utils.parsing import (
     ResponseParseError,      # also a ParseError since 0.24.0
     BlockedError,            # a WAF block page (0.25.0): stop, never retry; an UnexpectedPageError
+    BotChallengeError,       # a bot-management CHALLENGE page (Akamai, 0.28.0): a BlockedError; never solved
 )
 ```
 

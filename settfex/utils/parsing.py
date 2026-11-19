@@ -27,9 +27,11 @@ from settfex.exceptions import ParseError, UnexpectedPageError
 
 __all__ = [
     "BlockedError",
+    "BotChallengeError",
     "ResponseParseError",
     "decode_json",
     "looks_like_block_page",
+    "looks_like_bot_challenge",
     "validate_list_or_raise",
     "validate_or_raise",
 ]
@@ -124,6 +126,33 @@ class BlockedError(ResponseParseError, UnexpectedPageError):
         self.elapsed_seconds = elapsed_seconds
 
 
+class BotChallengeError(BlockedError):
+    """The server answered with a bot-management CHALLENGE page instead of the content (0.28.0).
+
+    Observed on ``market.sec.or.th`` every night from 2026-11-11 (reported by a downstream
+    archive): the iDisc listing GET answers **HTTP 200** ``text/html`` with Akamai Bot Manager's
+    interstitial. It is a page whose ``<meta refresh>`` carries a ``bm-verify`` token and whose
+    script POSTs that token, with a proof of work, to ``/_sec/verify?provider=interstitial``. A
+    browser solves it in about 5 s; settfex **never** does. It recognises the page and stops.
+    It never follows the refresh, runs the script or sends the token.
+
+    Until 0.28.0 the listing path surfaced it as ``FetchError("SEC search page returned no
+    __VIEWSTATE token — the page structure may have changed, or the request was blocked.")``
+    with ``status_code=None``, so a caller could not tell a challenge from a site redesign. A
+    download with no ``Content-Type`` would have accepted it as the document.
+
+    **A** :class:`BlockedError` **subclass**: every ``except BlockedError`` (stop and back off),
+    ``except UnexpectedPageError``, ``except ParseError`` and ``except FetchError`` written
+    before 0.28.0 catches it, and the batch operations that stop on a block page stop on this
+    one too. Back off and try later. A challenge is a probabilistic bot check, and repeating
+    the request at once only feeds it.
+
+    Carries the same evidence as :class:`BlockedError`. In ``body``, the challenge's
+    ``bm-verify`` token is screened (a session credential), and ``Set-Cookie`` (``ak_bmsc``) is
+    already removed from ``headers``.
+    """
+
+
 #: A block page is small: the one observed was 242 bytes. The cap keeps the check off real
 #: documents entirely — a multi-megabyte PDF is never scanned.
 _MAX_BLOCK_PAGE_BYTES = 8192
@@ -137,6 +166,17 @@ _BLOCK_SUPPORT_ID = re.compile(rb"your\s+support\s+id\s+is\s*:", re.IGNORECASE)
 _SUPPORT_ID_VALUE = re.compile(rb"(your\s+support\s+id\s+is\s*:\s*)[0-9A-Za-z-]+", re.IGNORECASE)
 
 
+# The two stable markers of Akamai Bot Manager's interstitial, as captured on market.sec.or.th
+# (2026-11-11 onward): the `bm-verify` token parameter, and the `/_sec/verify` endpoint its script
+# POSTs to. BOTH must match: either alone can be an ordinary link or a word in prose.
+_CHALLENGE_TOKEN = re.compile(rb"bm-verify")
+_CHALLENGE_VERIFY_PATH = re.compile(rb"/_sec/verify")
+# The token appears as a query value (`bm-verify=<token>`) and as a JSON value
+# (`"bm-verify": "<token>"`); both are a session credential, so both are screened.
+# A token starts with an alphanumeric, so the page's own JS regex (`bm-verify=[^#]*`) stays as is.
+_CHALLENGE_TOKEN_VALUE = re.compile(rb'(bm-verify(?:=|"\s*:\s*"))[A-Za-z0-9][^\'"&#\s]*')
+
+
 def looks_like_block_page(content: bytes) -> bool:
     """Is this body the BIG-IP ASM block page? Needs both markers, and a small body."""
     if len(content) > _MAX_BLOCK_PAGE_BYTES:
@@ -144,9 +184,25 @@ def looks_like_block_page(content: bytes) -> bool:
     return bool(_BLOCK_TITLE.search(content)) and bool(_BLOCK_SUPPORT_ID.search(content))
 
 
+def looks_like_bot_challenge(content: bytes) -> bool:
+    """Is this body Akamai Bot Manager's interstitial? Needs both markers, and a small body.
+
+    The page observed was ~2.4 KB, so the same cap as the block page keeps the check off real
+    documents entirely.
+    """
+    if len(content) > _MAX_BLOCK_PAGE_BYTES:
+        return False
+    return bool(_CHALLENGE_TOKEN.search(content)) and bool(_CHALLENGE_VERIFY_PATH.search(content))
+
+
 def _screen_support_id(content: bytes) -> bytes:
-    """Replace the per-incident support ID, which identifies one request from one client."""
-    return _SUPPORT_ID_VALUE.sub(rb"\1<SCREENED>", content)
+    """Replace the per-incident support ID, which identifies one request from one client.
+
+    Also screens an Akamai challenge's ``bm-verify`` token (0.28.0), a session credential.
+    """
+    return _CHALLENGE_TOKEN_VALUE.sub(
+        rb"\1<SCREENED>", _SUPPORT_ID_VALUE.sub(rb"\1<SCREENED>", content)
+    )
 
 
 #: Response headers that can carry a credential or a session, and so never ride on an exception.
