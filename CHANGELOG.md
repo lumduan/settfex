@@ -86,10 +86,21 @@ Two SEC answers a caller could not tell apart, from a downstream archive's repor
 ### Added
 
 - **`BotChallengeError`** (`settfex.utils.parsing`), a `BlockedError` subclass for a
-  bot-management **challenge** page. Since 2026-11-11, reported by a downstream archive,
-  `market.sec.or.th`'s iDisc listing GET answers **HTTP 200** `text/html` with Akamai Bot
-  Manager's interstitial: a `<meta refresh>` carrying a `bm-verify` token, and a script that POSTs
-  the token with a proof of work to `/_sec/verify`. Until now the listing surfaced it as
+  bot-management **challenge** page. Since 2026-11-11, `market.sec.or.th`'s iDisc listing GET
+  **sometimes** answers a client that does not run JavaScript with **HTTP 200** `text/html`:
+  Akamai Bot Manager's interstitial. It is a `<meta refresh>` carrying a `bm-verify` token, plus a
+  script that POSTs the token with a proof of work to `/_sec/verify`, behind a SEC-branded loading
+  animation.
+  - **When it started:** with an SEC infrastructure change on the night of 2026-11-10/11, per a
+    downstream archive's response headers. The listing's F5 cookies (`TS01…`) were replaced by
+    Akamai's `ak_bmsc`, and HTTP/3 `alt-svc`, HSTS and a CSP appeared.
+  - **It is not a maintenance page:** a browser on the same IP saw the normal listing on 11-17 and
+    11-19. SEC's maintenance answers in that period came from `capital.sec.or.th` (via
+    `maintenance.sec.or.th`, or an Azure fallback), a different host.
+  - **It is intermittent:** on 2026-11-19 a settfex listing passed at 09:05 ICT, and three bare
+    GETs from the same IP were challenged at 09:10-09:11.
+  - **Keeping the `ak_bmsc` cookie does not clear it** (tested, two GETs on one session): it waits
+    for the script's proof of work. That is why SET-style cookie warming cannot help here. Until now the listing surfaced it as
   `FetchError("SEC search page returned no __VIEWSTATE token — the page structure may have
   changed…")` with no status, so a challenge was indistinguishable from a site redesign. A download
   with no `Content-Type` would have accepted it as the document.

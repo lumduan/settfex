@@ -129,10 +129,13 @@ class BlockedError(ResponseParseError, UnexpectedPageError):
 class BotChallengeError(BlockedError):
     """The server answered with a bot-management CHALLENGE page instead of the content (0.28.0).
 
-    Observed on ``market.sec.or.th`` every night from 2026-11-11 (reported by a downstream
-    archive): the iDisc listing GET answers **HTTP 200** ``text/html`` with Akamai Bot Manager's
-    interstitial. It is a page whose ``<meta refresh>`` carries a ``bm-verify`` token and whose
-    script POSTs that token, with a proof of work, to ``/_sec/verify?provider=interstitial``. A
+    Observed on ``market.sec.or.th`` from 2026-11-11, after an SEC infrastructure change
+    (Akamai's ``ak_bmsc`` cookie replaced F5's on the listing). The iDisc listing GET SOMETIMES
+    answers a client that runs no JavaScript with **HTTP 200** ``text/html``: Akamai Bot
+    Manager's interstitial. Browsers pass it, so it is not a maintenance page. It is a page whose
+    ``<meta refresh>`` carries a ``bm-verify`` token and whose script POSTs that token, with a
+    proof of work, to ``/_sec/verify?provider=interstitial``. Keeping its ``ak_bmsc`` cookie does
+    not clear it (tested 2026-11-19); only the proof of work does. A
     browser solves it in about 5 s; settfex **never** does. It recognises the page and stops.
     It never follows the refresh, runs the script or sends the token.
 
