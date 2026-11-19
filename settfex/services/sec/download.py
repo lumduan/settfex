@@ -4,6 +4,12 @@ Downloads are plain GETs that return the original file package (e.g. a zip conta
 ``FINANCIAL_STATEMENTS.XLSX``). The SEC host answers a dead link with an HTML "file not found"
 page under **HTTP 200**, so every download is validated (content-type / soft-404 marker) and a
 clear :class:`FetchError` is raised instead of returning a garbage payload.
+
+**SET's copy (0.29.0).** SET's ``weblink.set.or.th`` serves the same files at the same path as
+``Download?FILEID=<path>`` for the verified prefixes in
+:data:`~settfex.services.sec.constants.SET_WEBLINK_FILEID_PREFIXES`. When SEC's answer fails, the
+download fetches SET's copy once instead, and says so on the result (``source``,
+``fallback_reason``). ``set_fallback=False`` turns this off.
 """
 
 from __future__ import annotations
@@ -12,8 +18,8 @@ import asyncio
 import re
 from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import Any, overload
-from urllib.parse import unquote, urljoin, urlparse
+from typing import Any, Literal, overload
+from urllib.parse import parse_qs, unquote, urljoin, urlparse
 
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
@@ -30,6 +36,9 @@ from settfex.services.sec.constants import (
     SEC_DOWNLOAD_ENDPOINT,
     SEC_FILE_NOT_FOUND_MARKER,
     SEC_REFERER,
+    SET_WEBLINK_BASE_URL,
+    SET_WEBLINK_FILEID_PREFIXES,
+    SET_WEBLINK_REFERER,
     SOFT_404_MARKERS,
     SOFT_404_WINDOW_BYTES,
 )
@@ -68,6 +77,28 @@ class DownloadedFile(BaseModel):
             "How long the answering request took, as the fetcher measured it (the final request "
             "only). A slow success is worth seeing: the same host has served false 'not found' "
             "pages at ~38 s against a usual ~3 s."
+        ),
+    )
+    source: Literal["sec", "set_weblink"] = Field(
+        default="sec",
+        description=(
+            "Which host served the bytes (0.29.0). 'set_weblink' means SEC's answer failed and "
+            "SET's copy at the same path was downloaded instead; `file_url` is then the SET URL "
+            "and `fallback_reason` says what SEC answered."
+        ),
+    )
+    fallback_reason: str | None = Field(
+        default=None,
+        description=(
+            "Why SET's copy was used: SEC's error, as '<ErrorType>: <message>' (0.29.0). None "
+            "when SEC served the file."
+        ),
+    )
+    requested_url: str | None = Field(
+        default=None,
+        description=(
+            "The SEC URL the download was asked for (0.29.0). It differs from `file_url` when SET "
+            "served the file, or when an old-format indirection was resolved."
         ),
     )
 
@@ -251,6 +282,43 @@ def _fallback_filename(file_url: str, document: SecDocument | None) -> str:
 
 # SEC documents are large binaries (56-1/56-2 One Reports run 15-25 MB), so downloads default
 # to a much longer per-file timeout than the 30 s used for JSON/listing calls.
+def _set_weblink_url(url: str) -> str | None:
+    """SET's copy of an SEC ``Download?FILEID=<path>`` file, or ``None`` when there is none known.
+
+    Only SEC's own download endpoint is mapped, and only for a path with a verified prefix
+    (:data:`~settfex.services.sec.constants.SET_WEBLINK_FILEID_PREFIXES`). The IPOS,
+    ``FinancialStatementDownload``, ``viewdoc`` and ``capital.sec.or.th`` shapes live in other
+    stores, so they get ``None``. A path that tries to climb out of the store is refused.
+    """
+    parsed = urlparse(url)
+    if parsed.hostname != urlparse(SEC_BASE_URL).hostname:
+        return None
+    if parsed.path.rstrip("/").lower() != SEC_DOWNLOAD_ENDPOINT.lower():
+        return None
+    query = {key.lower(): values for key, values in parse_qs(parsed.query).items()}
+    fileid = (query.get("fileid") or [""])[0]
+    path = unquote(fileid).strip().lstrip("/")
+    if ".." in path.split("/") or "\\" in path:
+        return None
+    if not path.lower().startswith(SET_WEBLINK_FILEID_PREFIXES):
+        return None
+    return f"{SET_WEBLINK_BASE_URL}/{path}"
+
+
+class _SetFallbackState:
+    """One batch's memory of SET's answers: after SET blocks once, the batch stops asking SET."""
+
+    __slots__ = ("blocked",)
+
+    def __init__(self) -> None:
+        self.blocked: BlockedError | None = None
+
+
+def _describe(exc: BaseException) -> str:
+    """``"<ErrorType>: <message>"``, the form ``fallback_reason`` and the notes use."""
+    return f"{type(exc).__name__}: {exc}"
+
+
 DEFAULT_DOWNLOAD_TIMEOUT = 180
 
 
@@ -316,13 +384,26 @@ def _capital_redirect_target(body: bytes, url: str) -> str:
 
 
 class DocumentDownloadService:
-    """Download SEC documents to bytes (and optionally disk). Stateless host — no SessionManager."""
+    """Download SEC documents to bytes (and optionally disk). Stateless host — no SessionManager.
 
-    def __init__(self, config: FetcherConfig | None = None, *, timeout: int | None = None) -> None:
+    ``set_fallback`` (default ``True``, 0.29.0): when SEC's answer for a ``Download?FILEID=`` file
+    fails, fetch SET's copy at the same path, once (see :func:`_set_weblink_url` for which paths).
+    The result then says ``source="set_weblink"``. Pass ``False`` when the bytes must come from
+    SEC itself.
+    """
+
+    def __init__(
+        self,
+        config: FetcherConfig | None = None,
+        *,
+        timeout: int | None = None,
+        set_fallback: bool = True,
+    ) -> None:
         self.config = _effective_download_config(config, timeout)
+        self.set_fallback = set_fallback
         logger.info(
             f"DocumentDownloadService initialized (host=market.sec.or.th, "
-            f"timeout={self.config.timeout}s)"
+            f"timeout={self.config.timeout}s, set_fallback={set_fallback})"
         )
 
     @staticmethod
@@ -364,9 +445,30 @@ class DocumentDownloadService:
                 HTML error page under a non-200 status.
             FetchError: Any other non-200 answer, or a transport failure.
 
-            The three page errors are ``FetchError`` subclasses carrying the answer (status,
-            headers, the first 8 KB of the body, the elapsed time); their messages are the ones
-            0.25.0 raised as plain ``FetchError``.
+            The page errors are ``FetchError`` subclasses carrying the answer (status, headers,
+            the cookie names, the first 8 KB of the body, the elapsed time); their messages are
+            the ones 0.25.0 raised as plain ``FetchError``.
+
+            **With the SET fallback (0.29.0)** these are raised only when SET's copy failed too,
+            or the path has none. The raised error is SEC's, and a note
+            (``exc.__notes__``) says what SET answered. A SET 404 next to a SEC "file not
+            found" is the strongest sign the file is really gone.
+        """
+        downloaded, _ = await self._download(target, fetcher=fetcher, referer=referer)
+        return downloaded
+
+    async def _download(
+        self,
+        target: SecDocument | str,
+        *,
+        fetcher: AsyncDataFetcher | None,
+        referer: str,
+        set_state: _SetFallbackState | None = None,
+    ) -> tuple[DownloadedFile, FetchError | None]:
+        """:meth:`download`, plus SEC's error when SET's copy stood in for it.
+
+        A batch needs that error even when the download succeeded: a block page from SEC must
+        stop the batch sending to SEC, whoever then served the file.
         """
         url, document = self._resolve_url(target)
         headers = build_sec_headers(referer=referer)
@@ -374,38 +476,99 @@ class DocumentDownloadService:
         owns_fetcher = fetcher is None
         fetcher = fetcher or AsyncDataFetcher(config=self.config)
         try:
-            resp = await fetcher.fetch(url, headers=headers, decode_text=False)
-            if resp.status_code == 200 and _CAPITAL_HOST in (urlparse(url).hostname or ""):
-                # The old-format shape is an indirection, so this costs one extra request. It is
-                # done HERE, inside the fetcher's lifetime, rather than on the listing: the target
-                # is minted per request and would be stale by the time anyone used it.
-                url = _capital_redirect_target(resp.content, url)
-                logger.debug(f"Resolved the old-format indirection to {url}")
-                # Not a plain fetch since 0.28.0: an off-host 302 here used to be followed, and
-                # its other host's status reported under this host's name (see _fetch_on_host).
-                resp = await _fetch_on_host(fetcher, url, headers)
+            try:
+                resp, answered_url = await self._fetch_from_sec(fetcher, url, headers)
+                _raise_for_non_document(resp, answered_url)
+            except FetchError as sec_error:
+                set_url = _set_weblink_url(url) if self.set_fallback else None
+                if set_url is None:
+                    raise
+                downloaded = await self._download_set_copy(
+                    fetcher,
+                    set_url,
+                    requested_url=url,
+                    document=document,
+                    reason=sec_error,
+                    set_state=set_state,
+                )
+                return downloaded, sec_error
         finally:
             if owns_fetcher:
                 await fetcher.__aexit__(None, None, None)
 
-        _raise_for_non_document(resp, url)
+        logger.info(f"Downloaded {len(resp.content)} bytes from {answered_url}")
+        return _to_downloaded_file(resp, answered_url, document, requested_url=url), None
 
-        content_type = resp.headers.get("Content-Type") or resp.headers.get("content-type") or ""
+    @staticmethod
+    async def _fetch_from_sec(
+        fetcher: AsyncDataFetcher, url: str, headers: dict[str, str]
+    ) -> tuple[FetchResponse, str]:
+        """SEC's answer for ``url``, and the URL that answered (an indirection may move it)."""
+        resp = await fetcher.fetch(url, headers=headers, decode_text=False)
+        if resp.status_code == 200 and _CAPITAL_HOST in (urlparse(url).hostname or ""):
+            # The old-format shape is an indirection, so this costs one extra request. It is
+            # done HERE, inside the fetcher's lifetime, rather than on the listing: the target
+            # is minted per request and would be stale by the time anyone used it.
+            url = _capital_redirect_target(resp.content, url)
+            logger.debug(f"Resolved the old-format indirection to {url}")
+            # Not a plain fetch since 0.28.0: an off-host 302 here used to be followed, and
+            # its other host's status reported under this host's name (see _fetch_on_host).
+            resp = await _fetch_on_host(fetcher, url, headers)
+        return resp, url
 
-        disposition = (
-            resp.headers.get("Content-Disposition") or resp.headers.get("content-disposition") or ""
+    async def _download_set_copy(
+        self,
+        fetcher: AsyncDataFetcher,
+        set_url: str,
+        *,
+        requested_url: str,
+        document: SecDocument | None,
+        reason: FetchError,
+        set_state: _SetFallbackState | None = None,
+    ) -> DownloadedFile:
+        """Fetch SET's copy of a file whose SEC answer failed; re-raise ``reason`` if it fails too.
+
+        The SET answer goes through the same page checks as SEC's, so a block, challenge or
+        "not found" page from SET is never returned as a document. Within a batch
+        (``set_state``), a block page from SET stops the batch asking SET too.
+        """
+        if set_state is not None and set_state.blocked is not None:
+            reason.add_note(
+                f"SET's copy ({set_url}) was not requested: SET answered "
+                f"{type(set_state.blocked).__name__} earlier in this batch"
+            )
+            raise reason
+        logger.warning(
+            f"SEC could not serve {requested_url} ({type(reason).__name__}); fetching SET's copy "
+            f"of the same file: {set_url}"
         )
-        filename = _filename_from_disposition(disposition, _fallback_filename(url, document))
-
-        logger.info(f"Downloaded {len(resp.content)} bytes ({content_type}) from {url}")
-        return DownloadedFile(
-            filename=filename,
-            content=resp.content,
-            content_type=content_type,
-            size=len(resp.content),
-            file_url=url,
-            document=document,
-            elapsed_seconds=resp.elapsed,
+        try:
+            resp = await fetcher.fetch(
+                set_url, headers={"Referer": SET_WEBLINK_REFERER}, decode_text=False
+            )
+            _raise_for_non_document(resp, set_url)
+        except FetchError as set_error:
+            if set_state is not None and isinstance(set_error, BlockedError):
+                set_state.blocked = set_error
+            status = getattr(set_error, "status_code", None)
+            reason.add_note(
+                f"settfex also tried SET's copy of this file ({set_url}): "
+                f"{_describe(set_error)}"
+                + (" (HTTP 404: SET has no file at this path either)" if status == 404 else "")
+            )
+            logger.warning(f"SET's copy failed too ({set_url}): {_describe(set_error)}")
+            raise reason from None
+        logger.warning(
+            f"Downloaded {len(resp.content)} bytes from SET's copy {set_url}; SEC had answered "
+            f"{type(reason).__name__}"
+        )
+        return _to_downloaded_file(
+            resp,
+            set_url,
+            document,
+            requested_url=requested_url,
+            source="set_weblink",
+            fallback_reason=_describe(reason),
         )
 
     async def download_all(
@@ -463,10 +626,12 @@ class DocumentDownloadService:
         failures: list[FailedDownload] = []
         bar = _make_progress_bar(len(unique)) if progress else None
 
-        # The first block page stops the batch from sending anything more: every further request
-        # to a host that is blocking us deepens the block. Items still queued are recorded as
+        # The first block page stops the batch from sending anything more TO SEC: every further
+        # request to a host that is blocking us deepens the block. Items still queued are fetched
+        # from SET's copy when they have one (0.29.0; no SEC request), and otherwise recorded as
         # failures WITHOUT being requested, so the result keeps its shape and says why.
         blocked: BlockedError | None = None
+        set_state = _SetFallbackState()
 
         async with AsyncDataFetcher(config=self.config) as fetcher:
 
@@ -475,6 +640,31 @@ class DocumentDownloadService:
                 async with semaphore:
                     if blocked is not None:
                         url, document = self._resolve_url(target)
+                        set_url = _set_weblink_url(url) if self.set_fallback else None
+                        if set_url is not None:
+                            try:
+                                dl = await self._download_set_copy(
+                                    fetcher,
+                                    set_url,
+                                    requested_url=url,
+                                    document=document,
+                                    reason=FetchError(
+                                        f"not requested from SEC: {blocked.url} answered with a "
+                                        f"bot-protection page earlier in this batch "
+                                        f"({type(blocked).__name__})"
+                                    ),
+                                    set_state=set_state,
+                                )
+                            except FetchError as exc:
+                                if not continue_on_error:
+                                    raise
+                                return FailedDownload(
+                                    target=url,
+                                    document=document,
+                                    error=str(exc),
+                                    error_type=type(blocked).__name__,
+                                )
+                            return self._finish(dl, dest_dir, keep)
                         return FailedDownload(
                             target=url,
                             document=document,
@@ -485,7 +675,12 @@ class DocumentDownloadService:
                             error_type=type(blocked).__name__,
                         )
                     try:
-                        dl = await self.download(target, fetcher=fetcher)
+                        dl, sec_error = await self._download(
+                            target, fetcher=fetcher, referer=SEC_REFERER, set_state=set_state
+                        )
+                        if isinstance(sec_error, BlockedError) and blocked is None:
+                            # SET's copy served this one, but SEC is refusing: stop asking SEC.
+                            blocked = sec_error
                     except Exception as exc:  # noqa: BLE001 - tolerant batch download
                         if isinstance(exc, BlockedError) and blocked is None:
                             blocked = exc
@@ -500,11 +695,7 @@ class DocumentDownloadService:
                             error_type=type(exc).__name__,
                             status_code=getattr(exc, "status_code", None),
                         )
-                    if dest_dir is not None:
-                        dl.save(dest_dir)
-                    if not keep:
-                        dl.content = b""  # bytes are on disk (or unwanted); free the memory
-                    return dl
+                    return self._finish(dl, dest_dir, keep)
 
             tasks = [asyncio.create_task(one(t)) for t in unique]
             for coro in asyncio.as_completed(tasks):
@@ -527,7 +718,50 @@ class DocumentDownloadService:
             )
         else:
             logger.info(f"Downloaded {len(results)}/{len(unique)} document(s)")
+        from_set = sum(1 for f in results if f.source == "set_weblink")
+        if from_set:
+            logger.warning(
+                f"{from_set} of {len(results)} file(s) came from SET's copy because SEC could not "
+                f"serve them (see each file's `source` / `fallback_reason`)"
+            )
         return DownloadResult(files=results, failed=failures, requested=len(unique))
+
+    @staticmethod
+    def _finish(dl: DownloadedFile, dest_dir: str | Path | None, keep: bool) -> DownloadedFile:
+        """Save a batch item if asked, and drop its bytes unless they are wanted."""
+        if dest_dir is not None:
+            dl.save(dest_dir)
+        if not keep:
+            dl.content = b""  # bytes are on disk (or unwanted); free the memory
+        return dl
+
+
+def _to_downloaded_file(
+    resp: FetchResponse,
+    url: str,
+    document: SecDocument | None,
+    *,
+    requested_url: str,
+    source: Literal["sec", "set_weblink"] = "sec",
+    fallback_reason: str | None = None,
+) -> DownloadedFile:
+    """A :class:`DownloadedFile` for an answer that passed the page checks."""
+    content_type = resp.headers.get("Content-Type") or resp.headers.get("content-type") or ""
+    disposition = (
+        resp.headers.get("Content-Disposition") or resp.headers.get("content-disposition") or ""
+    )
+    return DownloadedFile(
+        filename=_filename_from_disposition(disposition, _fallback_filename(url, document)),
+        content=resp.content,
+        content_type=content_type,
+        size=len(resp.content),
+        file_url=url,
+        document=document,
+        elapsed_seconds=resp.elapsed,
+        source=source,
+        fallback_reason=fallback_reason,
+        requested_url=requested_url,
+    )
 
 
 def _looks_like_html(content: bytes, content_type: str) -> bool:
@@ -686,6 +920,7 @@ async def download_sec_document(
     dest_dir: str | Path | None = None,
     timeout: int | None = None,
     config: FetcherConfig | None = None,
+    set_fallback: bool = True,
 ) -> DownloadedFile:
     """
     Convenience: download one SEC document (optionally saving it to ``dest_dir``).
@@ -696,8 +931,10 @@ async def download_sec_document(
         timeout: Per-file timeout in seconds (default 180 — documents are large). Bump for very
             large files on a slow link (max 300).
         config: Optional fetcher configuration.
+        set_fallback: When SEC's answer fails, fetch SET's copy of the same file (default True,
+            0.29.0). The result's ``source`` says which host served it.
     """
-    service = DocumentDownloadService(config=config, timeout=timeout)
+    service = DocumentDownloadService(config=config, timeout=timeout, set_fallback=set_fallback)
     dl = await service.download(target)
     if dest_dir is not None:
         dl.save(dest_dir)
@@ -714,15 +951,17 @@ async def download_sec_documents(
     timeout: int | None = None,
     progress: bool = False,
     config: FetcherConfig | None = None,
+    set_fallback: bool = True,
 ) -> DownloadResult:
     """
     Convenience: download many SEC documents concurrently (optionally saving to ``dest_dir``).
 
     Duplicate targets sharing a URL are downloaded once. ``timeout`` sets the per-file timeout
     (default 180s). Returns a :class:`DownloadResult` — still a list of the successes, and also
-    carrying ``.failed``. See :meth:`DocumentDownloadService.download_all` for the rest.
+    carrying ``.failed``. ``set_fallback`` (default True, 0.29.0) fetches SET's copy of a file SEC
+    could not serve. See :meth:`DocumentDownloadService.download_all` for the rest.
     """
-    service = DocumentDownloadService(config=config, timeout=timeout)
+    service = DocumentDownloadService(config=config, timeout=timeout, set_fallback=set_fallback)
     return await service.download_all(
         targets,
         dest_dir=dest_dir,

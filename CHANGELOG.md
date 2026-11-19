@@ -79,8 +79,70 @@ use and compare the fields you read. That is how the verification above was done
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-20
+
+SEC downloads keep working when SEC cannot serve a file: SET's identical copy at the same path is
+fetched instead, and the result says so. Page errors also carry the cookie NAMES that identify
+which layer answered. Both were decided by the operator on 2026-11-20 ("ให้ทำ ผู้ใช้งานจะได้ใช้งานได้
+ต่อเนื่อง", "do it, so users can keep working without interruption").
+
+### Added
+
+- **The SET fallback for SEC downloads.**
+  - **What it does:** when SEC's answer for a `Download?FILEID=<path>` file fails, `download()` /
+    `download_all()` fetch SET's copy at `https://weblink.set.or.th/<path>` once.
+  - **The trigger:** any `FetchError`, i.e. a "file not found" page, a block or challenge page,
+    another page, a non-200, or a transport error.
+  - **Why:** on 2026-11-19 at 21:44 ICT SEC answered a known-good file with its "file not found"
+    page. SET's copy at 22:07 was the very bytes SEC had served at 20:00.
+  - **The paths:** `SET_WEBLINK_FILEID_PREFIXES` (`dat/news/`, `dat/f56/`), the prefixes verified
+    byte-identical live: two statement zips, an MD&A pdf and a 42 MB One Report.
+    - `dat/annual/` is excluded (unverified).
+    - IPOS, `FinancialStatementDownload`, `viewdoc` and `capital.sec.or.th` live elsewhere and are
+      never mapped.
+  - **Checks:** SET's answer goes through the same page detectors. When it fails too, SEC's error
+    is raised, with a PEP 678 note saying what SET answered; a SET 404 there is the strongest
+    "really gone" signal.
+  - **In a batch:**
+    - after SEC's first block page, nothing more goes to SEC, and the remaining files with a SET
+      copy come from SET;
+    - after SET's first block page, nothing more goes to SET.
+- **`DownloadedFile.source`** (`"sec"` / `"set_weblink"`), **`.fallback_reason`** (SEC's error as
+  `"<ErrorType>: <message>"`) and **`.requested_url`** (the SEC URL asked for).
+- **`set_fallback: bool = True`** on `DocumentDownloadService`, `download_sec_document` and
+  `download_sec_documents`. `False` restores the 0.28 behaviour exactly.
+- **`set_cookie_names`** on every page error (`UnexpectedPageError` and its subclasses,
+  `BlockedError`, `BotChallengeError`), plus the helper `settfex.utils.parsing.set_cookie_names()`.
+  - **What it is:** the NAMES of the cookies the answer set, in order. The values are credentials
+    and are still never kept; `headers` still drops `Set-Cookie`.
+  - **Why:** on 2026-11-19 the name was the clue. Akamai's `ak_bmsc` appeared on a download
+    answer, against F5's `TS01…`, and only a downstream archive's raw capture could show it.
+  - **Not proof on its own:** `ak_bmsc` also arrives on SEC's genuine "file not found" page
+    (observed 2026-11-20 06:25 on a `dat/annual/` path SET also 404s).
+- `settfex.services.sec.constants`: `SET_WEBLINK_BASE_URL`, `SET_WEBLINK_REFERER`,
+  `SET_WEBLINK_FILEID_PREFIXES`.
+
+### Changed
+
+- **A failing SEC download of a `dat/news/` or `dat/f56/` file now returns SET's copy by default.**
+  - **The change:** where 0.28 raised `SoftNotFoundError`, `BlockedError`, `BotChallengeError`,
+    `UnexpectedPageError` or `FetchError`, it now returns the same file from SET, marked
+    `source="set_weblink"`. A batch blocked by SEC now finishes from SET's copies, where it
+    recorded the rest as "not requested".
+  - **Why there is no warning period:**
+    - no `except` stops catching anything. The same errors are raised when SET cannot serve the
+      file either;
+    - the return type is unchanged;
+    - what is returned is the identical file.
+    The deprecation policy does not name "raise less often" explicitly. It is applied here on the
+    operator's decision that uninterrupted downloads outweigh a warning period.
+  - **Who should opt out:** a caller whose rules require SEC-served bytes passes
+    `set_fallback=False`, or checks `DownloadedFile.source`.
+
 ### Documentation
 
+- **`ak_bmsc` on a "file not found" page is not proof of refusal:** SEC's genuine not-found page
+  carries it too (2026-11-20 06:25). SEC doc gotcha 5 now says so.
 - **The 0.28.0 note that SEC downloads were "unaffected" by the Akamai layer was too strong.**
   - **What happened:** at 2026-11-19 21:45 ICT a downstream consumer's known-good
     `Download?FILEID=` URL answered SEC's 118-byte "file not found" page under HTTP 200, and that

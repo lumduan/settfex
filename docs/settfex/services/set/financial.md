@@ -581,7 +581,9 @@ latest.download_url
   suffix, a different sequence number). The balance sheet, income statement and cash flow of one
   period share a URL.
 - **The same file as SEC's.** The SET path `dat/news/<YYYYMM>/<name>.zip` is the SEC IDISC
-  `FILEID`, and the bytes are identical (same sha256).
+  `FILEID`, and the bytes are identical (same sha256). Since 0.29.0 the SEC download service
+  falls back to this host by itself when SEC cannot serve a file (`DownloadedFile.source ==
+  "set_weblink"`).
 - **Only the five periods the API lists:** the latest interim periods plus three full years. For
   full history, other filing types, and a completeness check, use the
   [SEC document service](../sec/financial_report.md#financial-statements-download-from-sec-or-from-sets-link).

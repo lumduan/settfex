@@ -306,6 +306,11 @@ class UnexpectedPageError(FetchError):
         body_truncated: Whether the answer was longer than ``body``.
         elapsed_seconds: How long the answering request took, as the fetcher measured it (the
             final attempt only — not earlier failed attempts or a session warm-up).
+        set_cookie_names: The NAMES of the cookies the answer set, in order (0.29.0); the values
+            are credentials and are never kept, and ``headers`` still drops ``Set-Cookie``. The
+            names say which layer answered. On SEC, F5 sets ``TS01…`` and Akamai sets
+            ``ak_bmsc``. ``ak_bmsc`` also arrives on SEC's genuine "file not found" page, so it is
+            not proof of a refusal on its own.
     """
 
     def __init__(
@@ -320,6 +325,7 @@ class UnexpectedPageError(FetchError):
         body: bytes = b"",
         body_truncated: bool = False,
         elapsed_seconds: float | None = None,
+        set_cookie_names: list[str] | None = None,
     ) -> None:
         # Every argument but the message is optional on purpose: inside BlockedError this
         # __init__ is reached through ParseError's cooperative super().__init__(message), and
@@ -332,6 +338,7 @@ class UnexpectedPageError(FetchError):
         self.body = body
         self.body_truncated = body_truncated
         self.elapsed_seconds = elapsed_seconds
+        self.set_cookie_names = list(set_cookie_names or [])
 
 
 class SoftNotFoundError(UnexpectedPageError):
@@ -363,6 +370,7 @@ class SoftNotFoundError(UnexpectedPageError):
         body: bytes = b"",
         body_truncated: bool = False,
         elapsed_seconds: float | None = None,
+        set_cookie_names: list[str] | None = None,
     ) -> None:
         super().__init__(
             message,
@@ -374,6 +382,7 @@ class SoftNotFoundError(UnexpectedPageError):
             body=body,
             body_truncated=body_truncated,
             elapsed_seconds=elapsed_seconds,
+            set_cookie_names=set_cookie_names,
         )
         self.matched_marker = matched_marker
 

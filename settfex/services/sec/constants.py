@@ -113,3 +113,13 @@ SEC_R59_MAX_WINDOW_DAYS = 366
 SEC_R59_MAX_DETAIL_BATCHES = 100
 # The text a revoked row carries under its struck-through quantity -- in English on BOTH pages.
 SEC_R59_REVOKED_MARKER = "Revoked by Reporter"
+
+# SET's copy of SEC filings (0.29.0). SET's `weblink.set.or.th` serves the SAME files at the SAME
+# path as SEC's `Download?FILEID=<path>`: byte-identical in every comparison made, which were
+# 2026-11-19/20 live: two `dat/news/` statement zips (one compared three times), one `dat/news/`
+# MD&A pdf, one 42 MB `dat/f56/` One Report zip. A download whose SEC answer fails is retried
+# here, once, when its path has one of these prefixes. `dat/annual/` is deliberately absent: its
+# only sample was a dead path on both hosts, so SET carrying it is unverified.
+SET_WEBLINK_BASE_URL = "https://weblink.set.or.th"
+SET_WEBLINK_REFERER = "https://www.set.or.th/"
+SET_WEBLINK_FILEID_PREFIXES: tuple[str, ...] = ("dat/news/", "dat/f56/")

@@ -181,11 +181,17 @@ class TestBatchesStopAtTheFirstBlock:
 
     @pytest.mark.asyncio
     async def test_download_all_requests_nothing_after_a_block(self, tmp_path: Path) -> None:
+        """Nothing more goes to the blocking host. Since 0.29.0 SET's copy is tried instead; here
+        SET answers the block page too, so after ITS first block nothing goes to SET either."""
         calls = 0
+        set_calls = 0
 
         async def request(self: Any, url: str, *args: Any, **kwargs: Any) -> Mock:
-            nonlocal calls
-            calls += 1
+            nonlocal calls, set_calls
+            if "weblink.set.or.th" in url:
+                set_calls += 1
+            else:
+                calls += 1
             return _curl_response(BLOCK_PAGE)
 
         targets = [
@@ -198,6 +204,7 @@ class TestBatchesStopAtTheFirstBlock:
             )
 
         assert calls == 1, f"{calls} requests were sent to a host that had already blocked us"
+        assert set_calls == 1, f"{set_calls} requests were sent to SET after SET blocked us"
         assert result.requested == 5 and not result.is_complete
         assert len(result.failed) == 5
         assert {f.error_type for f in result.failed} == {"BlockedError"}

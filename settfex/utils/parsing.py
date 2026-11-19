@@ -32,6 +32,7 @@ __all__ = [
     "decode_json",
     "looks_like_block_page",
     "looks_like_bot_challenge",
+    "set_cookie_names",
     "validate_list_or_raise",
     "validate_or_raise",
 ]
@@ -96,6 +97,9 @@ class BlockedError(ResponseParseError, UnexpectedPageError):
             byte-exact fixture; it is never part of ``str(exc)``.
         body_truncated: Always ``False`` here: a page over the cap is never classified as a block.
         elapsed_seconds: How long the answering request took (the final attempt only).
+        set_cookie_names: The NAMES of the cookies the answer set, in order (0.29.0). The values
+            are credentials and are never kept. See
+            :attr:`settfex.exceptions.UnexpectedPageError.set_cookie_names`.
 
     Only the BIG-IP ASM page observed on SEC is recognised (see :func:`looks_like_block_page`).
     No SET/Incapsula block page has been captured, so none is classified.
@@ -113,6 +117,7 @@ class BlockedError(ResponseParseError, UnexpectedPageError):
         final_url: str | None = None,
         body_truncated: bool = False,
         elapsed_seconds: float | None = None,
+        set_cookie_names: list[str] | None = None,
     ) -> None:
         # ParseError takes `url`; its cooperative super().__init__(message) then reaches
         # UnexpectedPageError, which sets empty evidence. The real evidence is set here, after.
@@ -124,6 +129,7 @@ class BlockedError(ResponseParseError, UnexpectedPageError):
         self.final_url = final_url
         self.body_truncated = body_truncated
         self.elapsed_seconds = elapsed_seconds
+        self.set_cookie_names = list(set_cookie_names or [])
 
 
 class BotChallengeError(BlockedError):
@@ -211,6 +217,30 @@ def _screen_support_id(content: bytes) -> bytes:
 #: Response headers that can carry a credential or a session, and so never ride on an exception.
 _CREDENTIAL_HEADERS = frozenset({"set-cookie", "cookie", "authorization", "proxy-authorization"})
 
+#: A cookie name at the start of a ``Set-Cookie`` value, or after the ``", "`` that joins several
+#: of them into one header (curl_cffi's ``dict(headers)`` does that). An ``Expires=Thu, 20 Nov``
+#: date also contains ``", "``, but what follows it (``20 Nov``) is never a token followed by
+#: ``=``, so it cannot be mistaken for a name.
+_SET_COOKIE_NAME = re.compile(r"(?:^|,\s*)([!#$%&'*+\-.^_`|~0-9A-Za-z]+)=")
+
+
+def set_cookie_names(headers: Mapping[str, str]) -> list[str]:
+    """The names of the cookies a response set, in order and without repeats; never a value.
+
+    Cookie names say which layer answered, and the values are credentials. The two are separated
+    here so evidence can keep the first and never the second. Example: on SEC, F5 BIG-IP sets
+    ``TS01…`` and Akamai sets ``ak_bmsc``. A downstream archive told the hosts' bot layers apart
+    by exactly this, in 2026-11.
+    """
+    names: list[str] = []
+    for key, value in headers.items():
+        if key.lower() != "set-cookie":
+            continue
+        for name in _SET_COOKIE_NAME.findall(value):
+            if name not in names:
+                names.append(name)
+    return names
+
 
 class _AnsweredResponse(Protocol):
     """The parts of a fetched response the evidence is built from (``FetchResponse`` has them)."""
@@ -238,6 +268,7 @@ def _page_evidence(response: _AnsweredResponse) -> dict[str, Any]:
         "body": _screen_support_id(content[:_MAX_BLOCK_PAGE_BYTES]),
         "body_truncated": len(content) > _MAX_BLOCK_PAGE_BYTES,
         "elapsed_seconds": response.elapsed,
+        "set_cookie_names": set_cookie_names(headers),
     }
 
 

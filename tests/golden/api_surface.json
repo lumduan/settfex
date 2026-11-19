@@ -713,6 +713,12 @@
                   "default": "None",
                   "name": "elapsed_seconds",
                   "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "list[str] | None",
+                  "default": "None",
+                  "name": "set_cookie_names",
+                  "param_kind": "KEYWORD_ONLY"
                 }
               ],
               "returns": "None"
@@ -877,6 +883,12 @@
                   "annotation": "float | None",
                   "default": "None",
                   "name": "elapsed_seconds",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "list[str] | None",
+                  "default": "None",
+                  "name": "set_cookie_names",
                   "param_kind": "KEYWORD_ONLY"
                 }
               ],
@@ -1306,6 +1318,17 @@
         "SEC_VIEWMORE_SLUGS": {
           "type": "dict"
         },
+        "SET_WEBLINK_BASE_URL": {
+          "type": "str",
+          "value": "https://weblink.set.or.th"
+        },
+        "SET_WEBLINK_FILEID_PREFIXES": {
+          "type": "tuple"
+        },
+        "SET_WEBLINK_REFERER": {
+          "type": "str",
+          "value": "https://www.set.or.th/"
+        },
         "SOFT_404_MARKERS": {
           "type": "dict"
         },
@@ -1349,6 +1372,9 @@
         "SEC_VIEWMORE_DATE_FORMAT",
         "SEC_VIEWMORE_ENDPOINT",
         "SEC_VIEWMORE_SLUGS",
+        "SET_WEBLINK_BASE_URL",
+        "SET_WEBLINK_FILEID_PREFIXES",
+        "SET_WEBLINK_REFERER",
         "SOFT_404_MARKERS",
         "SOFT_404_WINDOW_BYTES"
       ],
@@ -1376,6 +1402,12 @@
                   "annotation": "int | None",
                   "default": "None",
                   "name": "timeout",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "bool",
+                  "default": "True",
+                  "name": "set_fallback",
                   "param_kind": "KEYWORD_ONLY"
                 }
               ],
@@ -1526,6 +1558,12 @@
               "default": "None",
               "required": false
             },
+            "fallback_reason": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
             "file_url": {
               "alias": null,
               "annotation": "str",
@@ -1542,10 +1580,22 @@
               "default": "None",
               "required": false
             },
+            "requested_url": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
             "size": {
               "alias": null,
               "annotation": "int",
               "required": true
+            },
+            "source": {
+              "alias": null,
+              "annotation": "Literal['sec', 'set_weblink']",
+              "default": "'sec'",
+              "required": false
             }
           },
           "kind": "pydantic_model",
@@ -1644,6 +1694,17 @@
           "type": "str",
           "value": "https://market.sec.or.th/public/idisc/en/FinancialReport/ALL"
         },
+        "SET_WEBLINK_BASE_URL": {
+          "type": "str",
+          "value": "https://weblink.set.or.th"
+        },
+        "SET_WEBLINK_FILEID_PREFIXES": {
+          "type": "tuple"
+        },
+        "SET_WEBLINK_REFERER": {
+          "type": "str",
+          "value": "https://www.set.or.th/"
+        },
         "SOFT_404_MARKERS": {
           "type": "dict"
         },
@@ -1665,12 +1726,16 @@
         "FetchError",
         "FetchResponse",
         "FetcherConfig",
+        "Literal",
         "OffHostRedirectError",
         "ParseError",
         "SEC_BASE_URL",
         "SEC_DOWNLOAD_ENDPOINT",
         "SEC_FILE_NOT_FOUND_MARKER",
         "SEC_REFERER",
+        "SET_WEBLINK_BASE_URL",
+        "SET_WEBLINK_FILEID_PREFIXES",
+        "SET_WEBLINK_REFERER",
         "SOFT_404_MARKERS",
         "SOFT_404_WINDOW_BYTES",
         "SecDocument",
@@ -1708,6 +1773,12 @@
               "annotation": "FetcherConfig | None",
               "default": "None",
               "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "bool",
+              "default": "True",
+              "name": "set_fallback",
               "param_kind": "KEYWORD_ONLY"
             }
           ],
@@ -1761,6 +1832,12 @@
               "annotation": "FetcherConfig | None",
               "default": "None",
               "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "bool",
+              "default": "True",
+              "name": "set_fallback",
               "param_kind": "KEYWORD_ONLY"
             }
           ],
@@ -17148,6 +17225,7 @@
         "decode_json",
         "looks_like_block_page",
         "looks_like_bot_challenge",
+        "set_cookie_names",
         "validate_list_or_raise",
         "validate_or_raise"
       ],
@@ -17213,6 +17291,12 @@
                   "annotation": "float | None",
                   "default": "None",
                   "name": "elapsed_seconds",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "list[str] | None",
+                  "default": "None",
+                  "name": "set_cookie_names",
                   "param_kind": "KEYWORD_ONLY"
                 }
               ],
@@ -17291,6 +17375,12 @@
                   "annotation": "float | None",
                   "default": "None",
                   "name": "elapsed_seconds",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "list[str] | None",
+                  "default": "None",
+                  "name": "set_cookie_names",
                   "param_kind": "KEYWORD_ONLY"
                 }
               ],
@@ -17372,6 +17462,7 @@
         "decode_json",
         "looks_like_block_page",
         "looks_like_bot_challenge",
+        "set_cookie_names",
         "validate_list_or_raise",
         "validate_or_raise"
       ],
@@ -17413,6 +17504,17 @@
             }
           ],
           "returns": "bool"
+        },
+        "set_cookie_names": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "Mapping[str, str]",
+              "name": "headers",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "list[str]"
         },
         "validate_list_or_raise": {
           "kind": "function",
