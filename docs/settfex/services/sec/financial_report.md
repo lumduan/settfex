@@ -10,9 +10,11 @@ market data), this returns the **original source files** companies file — e.g.
 Covers **five document categories**: financial statements, Form 56-1 (Annual Registration
 Statement), Form 56-2 (Annual Report / "One Report"), Key Financial Ratio, and MD&A.
 
-Modules: `settfex/services/sec/` · Host: `https://market.sec.or.th` (an ASP.NET WebForms app —
-stateless, no login; `curl_cffi` browser impersonation passes its bot wall). Three tiers, as
-everywhere in settfex:
+Modules: `settfex/services/sec/` · Host: `https://market.sec.or.th` (an ASP.NET WebForms app:
+stateless, no login). Until 2026-11-10, `curl_cffi` browser impersonation was enough to pass the
+host's bot wall. Since 2026-11-11 the **listing** sits behind Akamai Bot Manager, which sometimes
+answers with a challenge that impersonation cannot pass (gotcha 5). Three tiers, as everywhere in
+settfex:
 
 - `get_sec_documents()` / `download_sec_document(s)()` — flat convenience (LLM entry points).
 - `FinancialReportService.fetch_documents()` / `DocumentDownloadService.download()` — validated
@@ -36,6 +38,21 @@ Also available as a facade: `SecCompany("CPALL")`.
 >    "What a failed download raises" below. A soft-404 **can be wrong** under load.
 > 4. **Large sections truncate** inline and expose a "display all results" ViewMore link; the
 >    listing follows it (default `follow_view_more=True`) so results are complete.
+> 5. **The listing is sometimes an Akamai challenge (since 2026-11-11) → `BotChallengeError`.**
+>    - **What it is:** an SEC infrastructure change on the night of 2026-11-10/11. The listing's F5
+>      cookies became Akamai's `ak_bmsc`, and HTTP/3, HSTS and a CSP appeared.
+>    - **What a client sees:** since then the listing GET **sometimes** answers a client that runs
+>      no JavaScript with HTTP 200: a `bm-verify` token, a proof-of-work script and a SEC-branded
+>      loading animation.
+>    - **It is not maintenance:** browsers on the same IP see the normal page.
+>    - **It is intermittent:** on 2026-11-19 a listing passed at 09:05 ICT, and three bare GETs were
+>      challenged at 09:10-09:11.
+>    - **Keeping the `ak_bmsc` cookie does not clear it** (tested), so SET-style cookie warming
+>      cannot help.
+>    - **What settfex does:** it recognises the page, raises `BotChallengeError` (a `BlockedError`)
+>      and **never** solves it. Stop and back off.
+>    - **Downloads are unaffected so far**, from both `Download?FILEID=` and SET's copy of the same
+>      file (see "Financial statements: download from SEC, or from SET's link?").
 
 ## Quick Start
 
@@ -348,6 +365,70 @@ the file is written (bytes live on disk; `size` and `path` remain) so a big batc
 RAM. Pass `keep_bytes=True` to keep the bytes in memory too; omit `dest_dir` and the bytes are
 returned (the only way to get them).
 
+## Financial statements: download from SEC, or from SET's link?
+
+A financial-statement zip is published on **two hosts with the same path**, and the bytes are the
+same file. The SET factsheet API's `download_url`
+([`get_balance_sheet` and friends](../set/financial.md#downloading-the-statement-files-download_url))
+points at `https://weblink.set.or.th/dat/news/<YYYYMM>/<name>.zip`, and this service downloads
+`https://market.sec.or.th/public/idisc/Download?FILEID=dat/news/<YYYYMM>/<name>.zip`. Verified on
+2026-11-19 at 09:20 ICT, on CPALL's Q3/2569 Thai statements (`0737FIN111120261328030954T.zip`):
+
+| | SET `weblink.set.or.th` | SEC `Download?FILEID=` |
+|---|---|---|
+| HTTP | 200 `application/zip` | 200 `application/zip; charset=UTF8` |
+| Size | 665,602 bytes | 665,602 bytes |
+| sha256 | `d61e0115…f67f6e` | `d61e0115…f67f6e` (**identical**) |
+| Members | `AUDITOR_REPORT.DOCX`, `FINANCIAL_STATEMENTS.XLSX`, `NOTES.DOCX` | the same |
+| Needs a session / cookie | no (a plain stateless request) | no |
+
+### Why this service downloads from SEC
+
+1. **History.** The SEC listing reaches back years: CPALL 2015-2026 returns 177 documents. SET's
+   factsheet API returns **five periods** for a statement type. On 2026-11-19 those were 9M 2026,
+   9M 2025, and full-year 2025, 2024 and 2023. Anything older has no SET link.
+2. **Categories.** SEC serves five document categories: financial statements, 56-1, 56-2, Key
+   Financial Ratio and MD&A. SET's `download_url` covers financial statements only.
+3. **Completeness you can check.** The SEC listing states how many filings each section holds, and
+   settfex reports any shortfall (`completeness()`, `accounting`). SET gives one URL per period and
+   says nothing about what is missing.
+4. **SEC is the regulator's filing system**, the record SET's copy mirrors. The SET path, the SEC
+   `FILEID` and the zip's own member timestamps all carry the same filing instant.
+
+### When SET's link is the better route
+
+- **For the latest statements while the SEC listing is challenged** (gotcha 5). Neither the SET
+  factsheet API nor `weblink.set.or.th` is behind the Akamai challenge, and the file is the same.
+  settfex has no SET downloader. The stateless fetcher works, and it is what was tested:
+
+  ```python
+  from settfex.services.set import get_balance_sheet
+  from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
+
+  latest = (await get_balance_sheet("CPALL", lang="th"))[0]   # newest period first
+  async with AsyncDataFetcher(FetcherConfig(use_session=False)) as fetcher:
+      response = await fetcher.fetch(latest.download_url, decode_text=False)
+  # Check response.status_code == 200 and that the bytes are a zip before keeping them.
+  ```
+
+### Timing: SET's copy is not earlier
+
+The timeline for one filing, CPALL Q3/2569 (all times ICT):
+
+| When | What | Source |
+|---|---|---|
+| 2026-11-11 13:28:02-03 | the file's own stamp: `FIN11112026132803…`, and every zip member's timestamp | file name, zip |
+| 2026-11-11 17:00 | SET's news item `งบการเงิน ไตรมาสที่ 3/2569 (สอบทานแล้ว)` (Q3/2569 financial statements, reviewed), tagged `financial-statement`, links the **same** `weblink` zip | `get_news`, news page |
+| 2026-11-12 01:00:35 | `Last-Modified` of the `weblink.set.or.th` copy | HTTP header |
+
+- **A downstream consumer measured the factsheet side** over 99 Q3/2026 statements. SEC's file was
+  stamped before the SET factsheet listed the statement in 99 of 99 cases, with a median of roughly
+  12 to 36 hours (its sweep is nightly, so it gives a range).
+- **SET's news feed is the earliest SET signal seen:** about 3.5 h after the stamp in this one
+  example.
+- **Caveat:** the stamp is the **filing** time. It does not prove when the SEC listing first showed
+  the filing, which nobody has measured.
+
 ## Models
 
 ### `SecDocument`
@@ -410,16 +491,21 @@ slices like a `list[DownloadedFile]`; `isinstance(result, list)` is `False`.
 
 #### What a failed download raises (0.26.0)
 
-A download that gets a **page instead of a file** says which page it was, and carries the answer
-— because the answer decides what to do next. All three are `UnexpectedPageError`s, which are
-`FetchError`s; their messages are the ones 0.25.0 raised as plain `FetchError`:
+A download that gets a **page instead of a file** says which page it was, and carries the answer,
+because the answer decides what to do next. All of them are `UnexpectedPageError`s, which are
+`FetchError`s. The 0.26.0 ones raise the messages 0.25.0 raised as plain `FetchError`:
 
 | Raised | When | What to do |
 |---|---|---|
+| `BotChallengeError` (0.28.0) | a bot-management **challenge** page (Akamai: `bm-verify` + `/_sec/verify`), under **any** status. A `BlockedError` subclass | stop; back off. settfex never solves it |
 | `BlockedError` | the answer is the WAF's block page, under **any** status | stop; back off for a long time |
+| `OffHostRedirectError` (0.28.0) | an old-format `capital.sec.or.th` download redirected to **another host** (seen: BigIP → an Azure maintenance host). Not followed; `.location` and `.target_host` carry the target | the archive is unavailable for now; retry another day |
 | `SoftNotFoundError` | `text/html` with a "not found" marker in the first `SOFT_404_WINDOW_BYTES` (400) bytes — `.matched_marker` is `"sec-thai"` (the SEC's own page) or `"generic-not-found"` | probably gone, **but it has been wrong**: sixty in a row, each ~38 s instead of ~3 s, for files that existed. Deliberately **not** a `NotFoundError` |
 | `UnexpectedPageError` | any other `text/html` answer, or an HTML page under a non-200 status | the source is degraded; retry later |
 | `FetchError` | a non-200 that is not a page, or a transport failure | as before |
+
+When a followed redirect left the requested host, the message ends with `(answered by <host>)`
+(0.28.0), so another host's error is no longer reported under the requested host's name.
 
 Each page error carries `url`, `final_url`, `status_code`, `content_type`, `headers` (without
 `Set-Cookie`, `Cookie`, `Authorization`, `Proxy-Authorization`), `body` (the first 8,192 bytes,
@@ -484,6 +570,8 @@ GET  /public/idisc/views/viewdoc?...&TransId=<id>&FileSeq=<n>    -> TIFF bytes (
 
 ## Related services
 
-- [Financial Statements (SET factsheet)](../set/financial.md) — *modeled* balance sheet / income
-  / cash flow from SET (vs. the raw XLSX package here).
+- [Financial Statements (SET factsheet)](../set/financial.md): the *modeled* balance sheet, income
+  statement and cash flow from SET. Its `download_url` is the **same zip** this service downloads,
+  for the five periods it lists (see "Financial statements: download from SEC, or from SET's
+  link?").
 - [News](../set/news.md) — SET company news/disclosures.

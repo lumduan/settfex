@@ -329,6 +329,7 @@ being wrong, so none of them will announce itself.
 | **`market_status` says `'Closed'` for every symbol after hours** — it is not a suspension flag | use `.is_suspended`, which reads the per-symbol sign |
 | **A suspended symbol returns HTTP 200 with `last`/OHLC/volume all `null`** and an empty book | that is data, not an error; quote `.prior` as its last known price |
 | **A market-wide sign scan via index compositions sees COMMON STOCKS only** (929 of 3,954 symbols) | suspended warrants/DWs/DRs are invisible to it — check those with `get_stock_info()` |
+| **A SET financial statement's `download_url` is the same zip as SEC's `Download?FILEID=`** (identical bytes), but the SET API lists only **five periods** | for older periods or other filing types use `get_sec_documents()`. While the SEC listing raises `BotChallengeError`, the SET link still serves the latest statements |
 
 ---
 

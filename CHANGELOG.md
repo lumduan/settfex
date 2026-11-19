@@ -133,6 +133,23 @@ Two SEC answers a caller could not tell apart, from a downstream archive's repor
 
 ### Documentation
 
+- **Where to download a financial statement: SEC or SET's link, and why settfex uses SEC.**
+  Verified live 2026-11-19 (`docs/settfex/services/sec/financial_report.md`, and the
+  `download_url` section of `docs/settfex/services/set/financial.md`).
+  - **The SET factsheet's `download_url` is the same zip.** It is on `weblink.set.or.th`, at the
+    same `dat/news/…` path as SEC's `Download?FILEID=`, with **identical bytes** (CPALL Q3/2569,
+    sha256 `d61e0115…`). It is also the link behind the "งบการเงินล่าสุด" (latest financial
+    statements) button on SET's quote page.
+  - **Why settfex downloads from SEC:**
+    - full history (SET's API lists five periods);
+    - five filing categories (SET: statements only);
+    - the completeness checks;
+    - it is the record SET mirrors.
+  - **When SET's link is the better route:** the latest statements while the SEC listing is
+    challenged, because the SET host is not behind Akamai.
+  - **SET's copy is not earlier:** the SET news item came about 3.5 h after the file's stamp, and
+    the factsheet lags further.
+  - The `9M` quarter code is now documented.
 - **How unreliable `get_holidays()` is, measured.** A downstream consumer polled it once every
   30 minutes for 72 h on 0.26.3 (2026-11-04 19:20 → 11-07 19:33 ICT): **13 of 145 calls succeeded
   (9.0%)**, every typed failure was a 401, at least two calls succeeded on every day, and the

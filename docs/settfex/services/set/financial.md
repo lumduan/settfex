@@ -143,7 +143,9 @@ Base model for all financial statements.
 - `end_date: datetime` - Statement period end date
 - `fs_type: str` - Financial statement type (C=Consolidated)
 - `account_form_id: str` - Account form identifier
-- `download_url: str` - URL to download full statement
+- `download_url: str` - URL of the full statement zip on `weblink.set.or.th`: one file per language
+  (`…T.zip` Thai, `…E.zip` English). The **same bytes** as SEC's `Download?FILEID=` (see
+  [Downloading the statement files](#downloading-the-statement-files-download_url))
 - `fs_type_description: str` - Financial statement type description
 - `status: str` - Statement status (Audited/Reviewed/Unaudited)
 - `is_fs_comp: bool` - Is comparison financial statement
@@ -523,6 +525,8 @@ asyncio.run(safe_fetch_financials(""))  # Will raise ValueError
 The service uses specific quarter codes to identify reporting periods:
 
 - **`6M`** - Half year report (6 months)
+- **`9M`** - Nine-month report, shown on SET's page as "ไตรมาส 3" (quarter 3). Observed live on
+  2026-11-19 (CPALL 9M 2026 and 9M 2025)
 - **`Q9`** - Full year report (12 months)
 
 These codes are returned in the `quarter` field of each financial statement.
@@ -554,6 +558,37 @@ The `format` field provides display hints:
 - **`"BU"`** - Bold and underlined (usually for totals)
 - **`""`** - Normal display
 
+## Downloading the statement files (`download_url`)
+
+Every statement carries `download_url`, the link behind the "งบการเงินล่าสุด : ไตรมาส 3/2569"
+(latest financial statements: quarter 3/2569) download button on SET's quote page. The page
+renders that link server-side, and it is byte-for-byte the URL this service returns for the newest
+period. Verified 2026-11-19, CPALL:
+
+```python
+latest = (await get_balance_sheet("CPALL", lang="th"))[0]   # newest period first
+latest.quarter, latest.year   # ('9M', 2026)
+latest.download_url
+# 'https://weblink.set.or.th/dat/news/202611/0737FIN111120261328030954T.zip'
+```
+
+- **Downloadable** with a plain stateless request: HTTP 200 `application/zip`, no cookie needed.
+  - Thai `…T.zip`: 665,602 bytes. English `…E.zip`: 461,814 bytes.
+  - Each holds `AUDITOR_REPORT.DOCX`, `FINANCIAL_STATEMENTS.XLSX` and `NOTES.DOCX`.
+  - settfex has no SET downloader. `AsyncDataFetcher(FetcherConfig(use_session=False)).fetch(url,
+    decode_text=False)` is what was tested.
+- **One file per language, and they are different files.** `lang` changes the URL (`T` / `E`
+  suffix, a different sequence number). The balance sheet, income statement and cash flow of one
+  period share a URL.
+- **The same file as SEC's.** The SET path `dat/news/<YYYYMM>/<name>.zip` is the SEC IDISC
+  `FILEID`, and the bytes are identical (same sha256).
+- **Only the five periods the API lists:** the latest interim periods plus three full years. For
+  full history, other filing types, and a completeness check, use the
+  [SEC document service](../sec/financial_report.md#financial-statements-download-from-sec-or-from-sets-link).
+  That section also says why settfex downloads statements from SEC, and when this link is the
+  better route (the SEC listing has been intermittently behind an Akamai challenge since
+  2026-11-11, and this host is not).
+
 ## Performance Tips
 
 1. **Batch Requests**: Fetch multiple statement types concurrently:
@@ -582,5 +617,6 @@ Always wrap calls in try-except blocks for production use.
 
 - [Stock Highlight Data Service](highlight_data.md) - Market metrics and valuations
 - [Trading Statistics Service](trading_stat.md) - Historical trading performance
+- [SEC Document Service](../sec/financial_report.md) - The raw filings, full history; the same zip as `download_url`
 - [AsyncDataFetcher](../../utils/data_fetcher.md) - Low-level HTTP client
 - [Stock Class](stock.md) - Unified stock data interface
