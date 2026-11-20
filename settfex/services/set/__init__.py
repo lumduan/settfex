@@ -85,10 +85,12 @@ from settfex.services.set.list import (
     suggest_symbol,
 )
 from settfex.services.set.news import (
+    NewsDetail,
     NewsItem,
     NewsSearchResponse,
     NewsService,
     get_news,
+    get_news_detail,
 )
 from settfex.services.set.stock import (
     Account,
@@ -247,9 +249,11 @@ __all__ = [
     "fetch_youtube_transcript",
     # News Service
     "NewsService",
+    "NewsDetail",
     "NewsItem",
     "NewsSearchResponse",
     "get_news",
+    "get_news_detail",
     # Holiday Service
     "HolidayService",
     "Holiday",

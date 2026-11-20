@@ -79,6 +79,28 @@ use and compare the fields you read. That is how the verification above was done
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-20
+
+### Added
+
+- **`get_news_detail()` / `NewsService.fetch_news_detail()` / `fetch_news_detail_raw()` → the new
+  `NewsDetail`: one news item's record, attachment included.**
+  - **What it returns:** `download_url` (verbatim), `file_type`, `tag`, `news_datetime`,
+    `headline`, `content` (HTML), and the computed **`file_path`**, the attachment's path on
+    `weblink.set.or.th`. For a filing, `file_path` is the same string as SEC's
+    `Download?FILEID=` (byte-identical files).
+  - **What it takes:** a `NewsItem` from `get_news()`, whose id, symbol and language are used, or
+    a numeric id.
+  - **The endpoint:** `GET /api/set/news/{id}/detail?symbol=&lang=`, found in the site's own
+    JavaScript (no index lists it) and live-verified 2026-11-20.
+  - **Thai and English are separate items with separate ids,** each linking its own language's
+    file. Pass the item's own `lang`.
+  - Asked for by a downstream archive, approved by the operator: to tie a statement's
+    news-publication time to its exact file when a search window holds 0 or 2+ candidate items.
+- **`NewsNotFoundError`** (`settfex.exceptions`), a `FetchError` and a `NotFoundError`. The detail
+  endpoint answers an unknown id with HTTP 404 `{"message": "Invalid News [<id>] "}`. A
+  non-numeric id raises `ValueError` before any request.
+
 ## [0.29.1] - 2026-11-20
 
 ### Fixed

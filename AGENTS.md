@@ -84,6 +84,7 @@ accepts `english`/`thai`; `config: FetcherConfig | None` tunes timeout/retries.
 | last completed session OHLCV | `get_latest_historical_trading(symbol)` | `LatestHistoricalTrading` |
 | **is it suspended? trading signs** (SP/NC/NP/CB/XD…), live quote block, best bid/offer | `get_stock_info(symbol)` | `StockInfo` — `.signs`, `.is_suspended`, `.has_sign()` |
 | company news & disclosures | `get_news(lang, symbol, from_date, to_date, keyword)` | `NewsSearchResponse` |
+| one news item's attachment (0.30.0) | `get_news_detail(item_or_id, symbol=, lang=)` | `NewsDetail` (`.download_url`, `.file_path`) |
 | market-closure calendar | `get_holidays(year, lang)` | `HolidayCalendar` |
 | earnings calls (OPPDAY) + YouTube | `get_earnings_calls(...)`, `get_all_earnings_calls(...)`, `get_earnings_call_detail(id)`, `get_earnings_call_transcript(id)` | calendar entries, Thai transcripts |
 | **analyst target prices & research PDFs** | `get_analyst_consensus(symbol)` | `AnalystConsensus` |
@@ -346,6 +347,7 @@ from settfex.exceptions import (
     FetchError,              # HTTP/transport failure; carries .status_code and .symbol
     HTTPStatusError,         # a non-2xx, with .url and .report_code as data
     SeriesNotFoundError,     # TFEX 404: unknown series (0.27.0); an HTTPStatusError, never retry
+    NewsNotFoundError,       # SET news detail 404: unknown news id (0.30.0); never retry
     UnexpectedPageError,     # a PAGE where a document was expected (0.26.0); carries the answer
     SoftNotFoundError,       # its "file not found" page — can be FALSE; NOT a NotFoundError
     OffHostRedirectError,    # an old-format download redirected to ANOTHER host (0.28.0); not followed

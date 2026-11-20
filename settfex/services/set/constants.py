@@ -38,6 +38,13 @@ SET_DR_PROFILE_ENDPOINT = "/api/set/dr/{symbol}/profile"
 # dd/MM/yyyy ONLY (ISO dates -> HTTP 400).
 SET_NEWS_SEARCH_ENDPOINT = "/api/set/news/search"
 
+# One news item's detail record (0.30.0): the JSON the newsdetails page is built from, including
+# the attachment's `downloadUrl`. Not linked from any index. Found in the site's own bundle
+# (`getNewsDetail`: `"/api/set/news/".concat(t.id, "/detail")`, params symbol + lang) and
+# live-verified 2026-11-20. `symbol` is optional; an unknown id answers HTTP 404
+# `{"message": "Invalid News [<id>] "}`.
+SET_NEWS_DETAIL_ENDPOINT = "/api/set/news/{news_id}/detail"
+
 # Market holiday calendar. NOTE: this is the ONLY endpoint on the /api/cms/v1/ prefix — every other
 # www.set.or.th endpoint here lives under /api/set/. It takes ?lang= (like the stock and news
 # endpoints), NOT ?language= (the index endpoints). The API answers anything it does not like —

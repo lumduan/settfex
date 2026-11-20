@@ -29,6 +29,7 @@ __all__ = [
     "IncompleteListingError",
     "HTTPStatusError",
     "SeriesNotFoundError",
+    "NewsNotFoundError",
     "UnexpectedPageError",
     "SoftNotFoundError",
     "OffHostRedirectError",
@@ -274,6 +275,31 @@ class SeriesNotFoundError(HTTPStatusError, NotFoundError):
     The series LIST endpoint does not raise this: it takes no symbol, so a 404 there means a wrong
     route, not an unknown series, and stays an :class:`HTTPStatusError`.
     """
+
+
+class NewsNotFoundError(FetchError, NotFoundError):
+    """The SET news-detail endpoint answered HTTP 404: no news item has this id (0.30.0).
+
+    The endpoint's own words are ``{"message": "Invalid News [<id>] "}``. A
+    :class:`FetchError` (like :class:`SymbolNotFoundError`, the 404 of every other SET endpoint)
+    and a :class:`NotFoundError`, so ``except NotFoundError`` means "do not retry" here too. It is
+    not a ``SymbolNotFoundError``: the symbol may be fine, and the stock-symbol suggester would
+    have nothing sensible to suggest for a news id.
+
+    Attributes:
+        news_id: The id that was asked for.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        news_id: str | None = None,
+        symbol: str | None = None,
+    ) -> None:
+        super().__init__(message, status_code=status_code, symbol=symbol)
+        self.news_id = news_id
 
 
 class UnexpectedPageError(FetchError):

@@ -690,6 +690,11 @@ cpall = await get_news(symbol="CPALL", lang="th", from_date="01/07/2026", to_dat
 # Helpers: today's items, financial statements only
 today = news.filter_today()
 fin = news.filter_by_tag("financial-statement")
+
+# An item's attachment (0.30.0): the statement zip on weblink.set.or.th
+from settfex.services.set import get_news_detail
+detail = await get_news_detail(cpall.filter_by_tag("financial-statement")[0])
+print(detail.download_url, detail.file_path)
 ```
 
 **👉 [Learn more about the News Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/set/news.md)**

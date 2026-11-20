@@ -153,6 +153,7 @@ ENTRY_POINTS: list[tuple[str, str, tuple[Any, ...]]] = [
     # -- SET ------------------------------------------------------------------------------------
     ("settfex.services.set.list", "get_stock_list", ()),
     ("settfex.services.set.news", "get_news", ()),
+    ("settfex.services.set.news", "get_news_detail", ("17943525757510",)),
     ("settfex.services.set.holiday", "get_holidays", ()),
     ("settfex.services.set.index.list", "get_index_list", ()),
     ("settfex.services.set.index.info", "get_index_info_list", ()),
