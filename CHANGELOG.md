@@ -79,6 +79,17 @@ use and compare the fields you read. That is how the verification above was done
 
 ## [Unreleased]
 
+## [0.29.1] - 2026-11-20
+
+### Fixed
+
+- **`SecCompany` can turn the SET fallback off.** 0.29.0 added `set_fallback` to
+  `DocumentDownloadService`, `download_sec_document` and `download_sec_documents`, but the facade
+  built its download service with the default. So `SecCompany.download()` and `.download_all()`
+  always fell back to SET's copy, with no way to stop them. `SecCompany(..., set_fallback=False)`
+  now reaches the service. The default is unchanged (`True`). Found while listing upgrade traps
+  for a downstream consumer that must keep SEC-served bytes.
+
 ## [0.29.0] - 2026-11-20
 
 SEC downloads keep working when SEC cannot serve a file: SET's identical copy at the same path is
