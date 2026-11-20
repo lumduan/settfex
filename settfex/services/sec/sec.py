@@ -36,6 +36,12 @@ class SecCompany:
 
     The company is resolved lazily (and cached) on first use; the listing and download services
     are lazy-initialized. All methods are async.
+
+    ``set_fallback`` (default ``True``) is passed to the download service: when SEC cannot serve a
+    file, SET's identical copy is fetched (see
+    :class:`~settfex.services.sec.download.DocumentDownloadService`). Pass ``False`` when the
+    bytes must come from SEC itself. The facade had no way to turn it off in 0.29.0 (fixed in
+    0.29.1).
     """
 
     def __init__(
@@ -45,10 +51,12 @@ class SecCompany:
         lang: Language = "en",
         config: FetcherConfig | None = None,
         allow_name_match: bool = False,
+        set_fallback: bool = True,
     ) -> None:
         self.query = symbol_or_name.strip()
         self.lang: Language = normalize_language(lang)
         self.config = config
+        self.set_fallback = set_fallback
         self.allow_name_match = allow_name_match
         """Accept a single unflagged candidate -- pass True when querying by company name.
 
@@ -98,7 +106,9 @@ class SecCompany:
     def download_service(self) -> DocumentDownloadService:
         """Lazily-constructed download service."""
         if self._download_service is None:
-            self._download_service = DocumentDownloadService(config=self.config)
+            self._download_service = DocumentDownloadService(
+                config=self.config, set_fallback=self.set_fallback
+            )
         return self._download_service
 
     async def list_documents(

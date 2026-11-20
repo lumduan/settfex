@@ -3503,6 +3503,12 @@
                   "default": "False",
                   "name": "allow_name_match",
                   "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "bool",
+                  "default": "True",
+                  "name": "set_fallback",
+                  "param_kind": "KEYWORD_ONLY"
                 }
               ],
               "returns": "None"

@@ -460,8 +460,9 @@ SET's copy at `https://weblink.set.or.th/<path>` once, and return it if it is a 
   - The rest are recorded as "not requested", as before.
   - After SET's own first block page, nothing more is sent to SET either.
 - **Turn it off with `set_fallback=False`** on `DocumentDownloadService(...)`,
-  `download_sec_document(...)` or `download_sec_documents(...)`, when the bytes must come from SEC
-  itself.
+  `download_sec_document(...)`, `download_sec_documents(...)` or `SecCompany(...)`, when the bytes
+  must come from SEC itself. `SecCompany` accepts it since 0.29.1. In 0.29.0 the facade always
+  fell back, with no way to turn it off.
 
 ```python
 dl = await download_sec_document("dat/news/202608/0646FIN130820261551150876T.zip")
@@ -603,7 +604,7 @@ download_sec_documents(targets, *, dest_dir=None, max_concurrency=3, continue_on
 ```python
 from settfex.services.sec import SecCompany
 
-sec = SecCompany("CPALL")
+sec = SecCompany("CPALL")                            # set_fallback=False: SEC-served bytes only
 company = await sec.resolve()                       # CompanyMatch (cached)
 docs = await sec.list_documents(types="financial_statement", from_date="01/01/2025")
 file = await sec.download(docs[0], dest_dir="./out")

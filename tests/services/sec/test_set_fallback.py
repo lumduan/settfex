@@ -23,6 +23,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from settfex.exceptions import FetchError, SoftNotFoundError, UnexpectedPageError
+from settfex.services.sec import SecCompany
 from settfex.services.sec.download import (
     DocumentDownloadService,
     _set_weblink_url,
@@ -300,3 +301,26 @@ class TestCookieNames:
         for exc in (UnexpectedPageError("x"), BlockedError("x"), SoftNotFoundError("x")):
             assert exc.set_cookie_names == []
         assert isinstance(SoftNotFoundError("x"), FetchError)
+
+
+class TestTheFacadeHonoursTheSwitch:
+    """0.29.0 shipped `set_fallback` on the service and both functions, but not on `SecCompany`,
+    so `SecCompany.download*` always fell back with no way to turn it off (fixed in 0.29.1)."""
+
+    def test_default_is_on_and_false_reaches_the_service(self) -> None:
+        assert SecCompany("CPALL").download_service.set_fallback is True
+        assert SecCompany("CPALL", set_fallback=False).download_service.set_fallback is False
+
+    @pytest.mark.asyncio
+    async def test_facade_download_with_false_asks_sec_only(self) -> None:
+        seen: list[tuple[str, Any]] = []
+        sec = _answer(NOT_FOUND, ctype="text/html; charset=utf-8")
+        facade = SecCompany("CPALL", config=NO_RETRY, set_fallback=False)
+        with (
+            patch.object(
+                AsyncDataFetcher, "_make_request", _router(sec, AssertionError("SET"), seen)
+            ),
+            pytest.raises(SoftNotFoundError),
+        ):
+            await facade.download(SEC + STATEMENT)
+        assert len(seen) == 1
