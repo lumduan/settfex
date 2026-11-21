@@ -39,6 +39,7 @@ REGISTRY: dict[str, str] = {
     "highlight_data": "settfex.services.set.stock.highlight_data.StockHighlightData",
     "holiday_calendar": "settfex.services.set.holiday.HolidayCalendar",
     "index_list_response": "settfex.services.set.index.list.IndexListResponse",
+    "news_detail": "settfex.services.set.news.NewsDetail",
     "news_search_response": "settfex.services.set.news.NewsSearchResponse",
     "sec_company_match": "settfex.services.sec.company.CompanyMatch",
     "sec_executive_trade": "settfex.services.sec.executive_trades.ExecutiveTrade",

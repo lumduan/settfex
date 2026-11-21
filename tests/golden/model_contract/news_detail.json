@@ -1,0 +1,26 @@
+{
+  "expected_dump": {
+    "content": "<strong style=\"text-decoration: underline;\">Disclaimer</strong>\nThis announcement…",
+    "download_url": "https://weblink.set.or.th/dat/news/202611/0737FIN111120261328040207E.zip",
+    "file_path": "dat/news/202611/0737FIN111120261328040207E.zip",
+    "file_type": "ZIP",
+    "headline": "Financial Statement Quarter 3/2026 (Reviewed)",
+    "id": "17943525757510",
+    "news_datetime": "2026-11-11T17:00:00+07:00",
+    "source": "CPALL",
+    "symbol": "CPALL",
+    "tag": "financial-statement"
+  },
+  "input": {
+    "content": "<strong style=\"text-decoration: underline;\">Disclaimer</strong>\nThis announcement…",
+    "datetime": "2026-11-11T17:00:00+07:00",
+    "downloadUrl": "https://weblink.set.or.th/dat/news/202611/0737FIN111120261328040207E.zip",
+    "fileType": "ZIP",
+    "headline": "Financial Statement Quarter 3/2026 (Reviewed)",
+    "id": "17943525757510",
+    "source": "CPALL",
+    "symbol": "CPALL",
+    "tag": "financial-statement"
+  },
+  "model": "settfex.services.set.news.NewsDetail"
+}

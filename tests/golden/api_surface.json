@@ -18,6 +18,7 @@
         "get_index_info",
         "get_index_composition",
         "get_news",
+        "get_news_detail",
         "get_holidays",
         "get_dr_profile",
         "get_dr_indicative_price",
@@ -141,6 +142,7 @@
         "get_index_info",
         "get_index_list",
         "get_news",
+        "get_news_detail",
         "get_profile",
         "get_sec_documents",
         "get_stock_info",
@@ -247,6 +249,7 @@
         "IncompleteListingError",
         "HTTPStatusError",
         "SeriesNotFoundError",
+        "NewsNotFoundError",
         "UnexpectedPageError",
         "SoftNotFoundError",
         "OffHostRedirectError",
@@ -487,6 +490,52 @@
           "mro": [
             "settfex.exceptions.InvalidSymbolError",
             "builtins.ValueError",
+            "builtins.Exception",
+            "builtins.BaseException",
+            "builtins.object"
+          ]
+        },
+        "NewsNotFoundError": {
+          "bases": [
+            "settfex.exceptions.FetchError",
+            "settfex.exceptions.NotFoundError"
+          ],
+          "kind": "exception",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "message",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "int | None",
+                  "default": "None",
+                  "name": "status_code",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "news_id",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "symbol",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            }
+          },
+          "mro": [
+            "settfex.exceptions.NewsNotFoundError",
+            "settfex.exceptions.FetchError",
+            "settfex.exceptions.NotFoundError",
             "builtins.Exception",
             "builtins.BaseException",
             "builtins.object"
@@ -915,6 +964,7 @@
         "InvalidDateError",
         "InvalidLanguageError",
         "InvalidSymbolError",
+        "NewsNotFoundError",
         "NoReturn",
         "NotFoundError",
         "OffHostRedirectError",
@@ -3878,9 +3928,11 @@
         "get_earnings_call_transcript",
         "fetch_youtube_transcript",
         "NewsService",
+        "NewsDetail",
         "NewsItem",
         "NewsSearchResponse",
         "get_news",
+        "get_news_detail",
         "HolidayService",
         "Holiday",
         "HolidayCalendar",
@@ -4149,6 +4201,7 @@
         "LatestHistoricalTradingService",
         "NVDRHolderData",
         "NVDRHolderService",
+        "NewsDetail",
         "NewsItem",
         "NewsSearchResponse",
         "NewsService",
@@ -4234,6 +4287,7 @@
         "get_latest_historical_trading",
         "get_latest_price",
         "get_news",
+        "get_news_detail",
         "get_nvdr_holder_data",
         "get_price_performance",
         "get_profile",
@@ -4403,6 +4457,10 @@
           "type": "str",
           "value": "https://api.lcp.setgroup.or.th/api/v1"
         },
+        "SET_NEWS_DETAIL_ENDPOINT": {
+          "type": "str",
+          "value": "/api/set/news/{news_id}/detail"
+        },
         "SET_NEWS_SEARCH_ENDPOINT": {
           "type": "str",
           "value": "/api/set/news/search"
@@ -4496,6 +4554,7 @@
         "SET_INDEX_INFO_LIST_ENDPOINT",
         "SET_INDEX_LIST_ENDPOINT",
         "SET_LCP_BASE_URL",
+        "SET_NEWS_DETAIL_ENDPOINT",
         "SET_NEWS_SEARCH_ENDPOINT",
         "SET_NVDR_HOLDER_ENDPOINT",
         "SET_OPPDAY_ORIGIN",
@@ -7653,6 +7712,82 @@
     "settfex.services.set.news": {
       "all": null,
       "classes": {
+        "NewsDetail": {
+          "bases": [
+            "pydantic.main.BaseModel"
+          ],
+          "computed_fields": {
+            "file_path": {
+              "annotation": "str | None"
+            }
+          },
+          "fields": {
+            "content": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "download_url": {
+              "alias": "downloadUrl",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "file_type": {
+              "alias": "fileType",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "headline": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "id": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "news_datetime": {
+              "alias": "datetime",
+              "annotation": "datetime.datetime",
+              "required": true
+            },
+            "source": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "symbol": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "tag": {
+              "alias": null,
+              "annotation": "str",
+              "default": "''",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.set.news.NewsDetail",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
         "NewsItem": {
           "bases": [
             "pydantic.main.BaseModel"
@@ -7867,6 +8002,52 @@
               ],
               "returns": "settfex.services.set.news.NewsSearchResponse"
             },
+            "fetch_news_detail": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str | settfex.services.set.news.NewsItem",
+                  "name": "news",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "symbol",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "Optional[Literal['en', 'th']]",
+                  "default": "None",
+                  "name": "lang",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "settfex.services.set.news.NewsDetail"
+            },
+            "fetch_news_detail_raw": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str | settfex.services.set.news.NewsItem",
+                  "name": "news",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "symbol",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "Optional[Literal['en', 'th']]",
+                  "default": "None",
+                  "name": "lang",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "dict[str, Any]"
+            },
             "fetch_news_raw": {
               "kind": "coroutine",
               "params": [
@@ -7918,6 +8099,10 @@
         }
       },
       "constants": {
+        "NEWS_ATTACHMENT_HOST": {
+          "type": "str",
+          "value": "weblink.set.or.th"
+        },
         "NEWS_DATE_FORMAT": {
           "type": "str",
           "value": "%d/%m/%Y"
@@ -7929,6 +8114,10 @@
         "SET_BASE_URL": {
           "type": "str",
           "value": "https://www.set.or.th"
+        },
+        "SET_NEWS_DETAIL_ENDPOINT": {
+          "type": "str",
+          "value": "/api/set/news/{news_id}/detail"
         },
         "SET_NEWS_SEARCH_ENDPOINT": {
           "type": "str",
@@ -7942,15 +8131,21 @@
         "InvalidDateError",
         "InvalidSymbolError",
         "Language",
+        "NEWS_ATTACHMENT_HOST",
         "NEWS_DATE_FORMAT",
         "NEWS_REFERER",
+        "NewsDetail",
         "NewsItem",
+        "NewsNotFoundError",
         "NewsSearchResponse",
         "NewsService",
+        "ResponseParseError",
         "SET_BASE_URL",
+        "SET_NEWS_DETAIL_ENDPOINT",
         "SET_NEWS_SEARCH_ENDPOINT",
         "decode_json",
         "get_news",
+        "get_news_detail",
         "normalize_language",
         "normalize_symbol",
         "raise_for_status",
@@ -8004,6 +8199,35 @@
             }
           ],
           "returns": "settfex.services.set.news.NewsSearchResponse"
+        },
+        "get_news_detail": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "str | settfex.services.set.news.NewsItem",
+              "name": "news",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "symbol",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "Optional[Literal['en', 'th']]",
+              "default": "None",
+              "name": "lang",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "settfex.utils.data_fetcher.FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "settfex.services.set.news.NewsDetail"
         }
       }
     },

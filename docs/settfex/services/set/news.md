@@ -99,6 +99,45 @@ are typed permissively so a future non-null value cannot break parsing.
 | `filter_today()` | Items with `is_today_news=True` |
 | `filter_by_tag(tag)` | Case-insensitive exact tag match |
 
+### `NewsDetail` (0.30.0)
+
+One item's detail record, from `get_news_detail()`:
+- `id`, `news_datetime` (alias `datetime`), `symbol`, `source`, `headline`, `tag`;
+- `download_url`: the attachment's URL, verbatim, or `None`;
+- `file_type`: `'ZIP'`, `'PDF'`;
+- `content`: the item's HTML body, verbatim;
+- the computed field **`file_path`**: the attachment's path on `weblink.set.or.th`, e.g.
+  `dat/news/202611/0737FIN111120261328030954T.zip`. It survives `model_dump()`.
+
+## News detail and attachments (0.30.0)
+
+The search says a disclosure exists. `get_news_detail()` says what was attached to it.
+
+```python
+from settfex.services.set import get_news, get_news_detail
+
+news = await get_news(lang="th", symbol="CPALL", from_date="11/11/2026", to_date="14/11/2026")
+[item] = news.filter_by_tag("financial-statement")
+detail = await get_news_detail(item)          # the item's own id, symbol and language
+detail.download_url   # 'https://weblink.set.or.th/dat/news/202611/0737FIN111120261328030954T.zip'
+detail.file_path      # 'dat/news/202611/0737FIN111120261328030954T.zip'
+await get_news_detail("17943525757510")       # or a bare id (lang defaults to 'en')
+```
+
+Live-verified 2026-11-20 on CPALL's Q3/2569 items:
+- **A statement's attachment is the SEC filing.** `file_path` is the same string as SEC's
+  `Download?FILEID=` for that filing, and the files are byte-identical (see the
+  [SEC document service](../sec/financial_report.md#financial-statements-download-from-sec-or-from-sets-link)).
+- **Thai and English are separate items with separate ids.** Each links its own language's file:
+  Thai `…T.zip` (id `17943525757301`), English `…E.zip` (id `17943525757510`). Pass a `NewsItem`
+  and its language is used; with a bare id, pass the item's own `lang`.
+- **Not only statements.** The MD&A item carries its PDF (`file_type='PDF'`, tag `''`).
+- **The endpoint is `GET /api/set/news/{id}/detail?symbol=&lang=`.** It appears in no index, and
+  was found in the site's own JavaScript (`getNewsDetail`). `symbol` is optional.
+- **An unknown id answers HTTP 404** `{"message": "Invalid News [<id>] "}`, raised as
+  **`NewsNotFoundError`**: a `FetchError` and a `NotFoundError`, so do not retry it. A non-numeric
+  id raises `ValueError` before any request, because the id goes into the URL path.
+
 ## Service Class
 
 ### `NewsService(config: FetcherConfig | None = None)`
@@ -214,13 +253,18 @@ except FetchError as exc:
 > historical windows.
 
 `ResponseParseError` (a `ValueError`) is raised for malformed/non-finite JSON, and
-`SymbolNotFoundError` for an HTTP 404.
+`SymbolNotFoundError` for an HTTP 404. On `get_news_detail()` a 404 is `NewsNotFoundError` (an
+unknown news id) instead.
 
 ## API Endpoint
 
 ```
 GET https://www.set.or.th/api/set/news/search?sourceId=company&lang={en|th}
     [&symbol={SYMBOL}] [&fromDate=dd/MM/yyyy] [&toDate=dd/MM/yyyy] [&keyword={TEXT}]
+```
+
+```
+GET https://www.set.or.th/api/set/news/{id}/detail?lang={en|th}[&symbol={SYMBOL}]   (0.30.0)
 ```
 
 `fromDate` must fall within the last **1826 days** (rolling ~5-year window); an older value

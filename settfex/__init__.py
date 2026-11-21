@@ -64,7 +64,7 @@ Usage:
     >>> asyncio.run(main())
 """
 
-__version__ = "0.29.1"
+__version__ = "0.30.0"
 __author__ = "batt"
 __license__ = "MIT"
 
@@ -131,6 +131,7 @@ from settfex.services.set import (
     get_index_info,
     get_index_list,
     get_news,
+    get_news_detail,
     get_profile,
     get_stock_info,
     get_stock_list,
@@ -186,6 +187,7 @@ __all__ = [
     "get_index_info",
     "get_index_composition",
     "get_news",
+    "get_news_detail",
     "get_holidays",
     "get_dr_profile",
     "get_dr_indicative_price",
