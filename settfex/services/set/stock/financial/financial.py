@@ -39,7 +39,12 @@ class FinancialStatement(BaseModel):
     """Base model for financial statement data."""
 
     symbol: str = Field(description="Stock symbol/ticker")
-    quarter: str = Field(description="Quarter code (e.g., '6M' for half year, 'Q9' for full year)")
+    quarter: str = Field(
+        description=(
+            "Quarter code (e.g. '6M' half year, '9M' nine months, 'Q9' full year). Not localized: "
+            "the same code in 'th' and 'en'"
+        )
+    )
     year: int = Field(description="Fiscal year")
     begin_date: datetime = Field(alias="beginDate", description="Statement period begin date")
     end_date: datetime = Field(alias="endDate", description="Statement period end date")
@@ -47,9 +52,17 @@ class FinancialStatement(BaseModel):
     account_form_id: str = Field(alias="accountFormId", description="Account form identifier")
     download_url: str = Field(alias="downloadUrl", description="URL to download full statement")
     fs_type_description: str = Field(
-        alias="fsTypeDescription", description="Financial statement type description"
+        alias="fsTypeDescription",
+        description="Statement type label, localized: 'Consolidate' (en, sic) / 'งบรวม' (th)",
     )
-    status: str = Field(description="Statement status (Audited/Reviewed/Unaudited)")
+    status: str = Field(
+        description=(
+            "Statement status, LOCALIZED by `lang`: 'Audited' / 'Reviewed' in English, "
+            "'ตรวจสอบ' / 'สอบทาน' in Thai (observed 2026-11-19/23). 'Unaudited' has never been "
+            "observed in either language. Join on (year, quarter, fs_type) across languages "
+            "rather than translating labels"
+        )
+    )
     is_fs_comp: bool = Field(alias="isFSComp", description="Is comparison financial statement")
     has_adjusted_account: bool = Field(
         alias="hasAdjustedAccount", description="Whether statement has adjusted accounts"
