@@ -132,6 +132,14 @@ Live-verified 2026-11-20 on CPALL's Q3/2569 items:
   Thai `…T.zip` (id `17943525757301`), English `…E.zip` (id `17943525757510`). Pass a `NewsItem`
   and its language is used; with a bare id, pass the item's own `lang`.
 - **Not only statements.** The MD&A item carries its PDF (`file_type='PDF'`, tag `''`).
+- **One statement can be posted twice, so `filter_by_tag("financial-statement")` can return two
+  items for one company and language.** SET re-posts the statement, and the second post's
+  headline ends `(Revised Notes)` or `(Edited …)`. Only one post's attachment is the filing you
+  are looking for: compare `get_news_detail(item).file_path` with the file's path, and do not
+  pick by position or time.
+  - A downstream archive saw this on 8 of 8 ambiguous lookups (2026-11-20/21). For example, AIE's
+    `1167FIN131120261256497720E.zip` is the attachment of item `17945213222160`, posted at 13:01
+    with "(Revised Notes)".
 - **The endpoint is `GET /api/set/news/{id}/detail?symbol=&lang=`.** It appears in no index, and
   was found in the site's own JavaScript (`getNewsDetail`). `symbol` is optional.
 - **An unknown id answers HTTP 404** `{"message": "Invalid News [<id>] "}`, raised as

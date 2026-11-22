@@ -84,7 +84,7 @@ accepts `english`/`thai`; `config: FetcherConfig | None` tunes timeout/retries.
 | last completed session OHLCV | `get_latest_historical_trading(symbol)` | `LatestHistoricalTrading` |
 | **is it suspended? trading signs** (SP/NC/NP/CB/XD…), live quote block, best bid/offer | `get_stock_info(symbol)` | `StockInfo` — `.signs`, `.is_suspended`, `.has_sign()` |
 | company news & disclosures | `get_news(lang, symbol, from_date, to_date, keyword)` | `NewsSearchResponse` |
-| one news item's attachment (0.30.0) | `get_news_detail(item_or_id, symbol=, lang=)` | `NewsDetail` (`.download_url`, `.file_path`) |
+| one news item's attachment (0.30.0) | `get_news_detail(item_or_id, symbol=, lang=)` | `NewsDetail` (`.download_url`, `.file_path`) — when two `financial-statement` items fit (a re-post headed "(Revised Notes)"/"(Edited …)"), match `.file_path`; never pick by position |
 | market-closure calendar | `get_holidays(year, lang)` | `HolidayCalendar` |
 | earnings calls (OPPDAY) + YouTube | `get_earnings_calls(...)`, `get_all_earnings_calls(...)`, `get_earnings_call_detail(id)`, `get_earnings_call_transcript(id)` | calendar entries, Thai transcripts |
 | **analyst target prices & research PDFs** | `get_analyst_consensus(symbol)` | `AnalystConsensus` |
