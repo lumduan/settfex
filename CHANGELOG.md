@@ -79,6 +79,17 @@ use and compare the fields you read. That is how the verification above was done
 
 ## [Unreleased]
 
+### Documentation
+
+- **One statement can be posted to SET's news twice.**
+  - **The case:** the re-post's headline ends `(Revised Notes)` or `(Edited …)`. Both posts carry
+    the `financial-statement` tag, so `filter_by_tag("financial-statement")` can return two items
+    for one company and language.
+  - **Which post holds the filing:** only one attachment is it. Compare
+    `get_news_detail(item).file_path` with the file's path, and do not pick by position.
+  - **Evidence:** reported by a downstream archive from live use of 0.30.0, which resolved 8 of 8
+    such lookups this way (2026-11-22).
+
 ## [0.30.0] - 2026-11-20
 
 ### Added
