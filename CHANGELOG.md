@@ -81,6 +81,16 @@ use and compare the fields you read. That is how the verification above was done
 
 ### Documentation
 
+- **`FinancialStatement.status` is localized by `lang`; the quarter code is not.** The field
+  described itself as "Audited/Reviewed/Unaudited", as if English-only.
+  - **Thai:** `lang="th"` returns `'ตรวจสอบ'` (audited) / `'สอบทาน'` (reviewed). English returns
+    `'Audited'` / `'Reviewed'`.
+  - **`fs_type_description`:** `'งบรวม'` / `'Consolidate'` (sic).
+  - **`quarter`:** `'9M'` / `'Q9'` are identical in both languages.
+  - **`'Unaudited'`** has never been observed in either language, and the docs now say so.
+  - **Evidence:** raw payloads, CPALL, 2026-11-19 and 2026-11-23. Asked by a downstream archive
+    whose label map had rejected every Thai statement as unmapped.
+
 - **One statement can be posted to SET's news twice.**
   - **The case:** the re-post's headline ends `(Revised Notes)` or `(Edited …)`. Both posts carry
     the `financial-statement` tag, so `filter_by_tag("financial-statement")` can return two items

@@ -137,7 +137,7 @@ Base model for all financial statements.
 
 **Fields:**
 - `symbol: str` - Stock symbol/ticker
-- `quarter: str` - Quarter code ('6M' for half year, 'Q9' for full year)
+- `quarter: str` - Quarter code ('6M' half year, '9M' nine months, 'Q9' full year); **not** localized
 - `year: int` - Fiscal year
 - `begin_date: datetime` - Statement period begin date
 - `end_date: datetime` - Statement period end date
@@ -146,8 +146,14 @@ Base model for all financial statements.
 - `download_url: str` - URL of the full statement zip on `weblink.set.or.th`: one file per language
   (`…T.zip` Thai, `…E.zip` English). The **same bytes** as SEC's `Download?FILEID=` (see
   [Downloading the statement files](#downloading-the-statement-files-download_url))
-- `fs_type_description: str` - Financial statement type description
-- `status: str` - Statement status (Audited/Reviewed/Unaudited)
+- `fs_type_description: str` - Statement type label, **localized**: `'Consolidate'` (en, sic) /
+  `'งบรวม'` (th)
+- `status: str` - Statement status, **localized by `lang`**:
+  - English: `'Audited'` / `'Reviewed'`;
+  - Thai: `'ตรวจสอบ'` (audited) / `'สอบทาน'` (reviewed).
+  Observed live on 2026-11-19/23, CPALL. `'Unaudited'` was listed here before but has never been
+  observed in either language. To compare Thai and English rows, join on
+  `(year, quarter, fs_type)`, which are language-independent, rather than translating the label.
 - `is_fs_comp: bool` - Is comparison financial statement
 - `has_adjusted_account: bool` - Whether statement has adjusted accounts
 - `accounts: list[Account]` - List of financial account line items
