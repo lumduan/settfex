@@ -1,8 +1,9 @@
 # AGENTS.md — calling settfex from an AI agent
 
 **settfex** fetches real-time and historical data from the **Stock Exchange of Thailand (SET)**,
-the **Thailand Futures Exchange (TFEX)**, the **Thai SEC** filing system, and the **Thai Bond
-Market Association (ThaiBMA)**.
+the **Thailand Futures Exchange (TFEX)**, the **Thai SEC** filing system, and the **Bank of
+Thailand (BOT) API** (1.0.0; each user brings their own free tokens). The ThaiBMA service was
+removed in 1.0.0: that website forbids automated access.
 
 This file is for an agent **calling** the library. If you are **changing** the library, read
 [`CLAUDE.md`](CLAUDE.md) instead — it carries the architecture, service-design rules and the full
@@ -45,7 +46,7 @@ top level and will raise `ImportError` if you guess:
 `get_latest_historical_trading`, `get_index_*`, and the whole earnings-call family.
 
 **Always import from the service package** — `settfex.services.set`, `.tfex`, `.sec`,
-`.thaibma`. It is a superset of the top level in every case.
+`.bot`. It is a superset of the top level in every case.
 
 ### The three tiers
 
@@ -251,35 +252,43 @@ As JSON (`result.model_dump(mode="json")`), the completeness fields travel with 
 `reported_count`, `revoked_count`, `duplicate_count`, `unknown_labels`, `detail_unmatched` and
 `detail_failures`.
 
-### ThaiBMA bonds — `from settfex.services.thaibma import ...`
+### Bank of Thailand — `from settfex.services.bot import ...` (1.0.0)
 
-> 🔴 **Not usable since about 2026-11-21:** `www.thaibma.or.th` forbids automated access (HTTP 403,
-> "Automated access is not permitted", pointing at https://apiportal.thaibma.or.th). Every call
-> raises `BlockedError` since 0.30.1. **Do not retry and do not work around it.** Tell the user
-> that the data needs ThaiBMA's official API or another lawful source.
+**Needs the user's own tokens.** Each user registers free at https://portal.api.bot.or.th and gets
+ONE token per product. settfex reads it from `token=`, then `BANK_OF_THAILAND_TOKEN_<PRODUCT>`,
+then `BANK_OF_THAILAND_TOKEN`, then the same names in `.env`. With none, the call raises
+`BotTokenMissingError` before any request; tell the user how to get one (README "Bank of
+Thailand"). Never print a token.
 
 | I want… | Call |
 |---|---|
-| the government yield curve on a date | `get_government_yield_curve(curve_date=None)` |
-| constant-maturity history | `get_yield_curve_history(start_date, end_date)` |
-| per-bond history | `get_bond_yield_history(start_date, end_date)` |
-| what dates exist (back to 1999-09-15) | `get_yield_curve_availability()` |
+| the policy rate | `get_policy_rate()` → `.rate` (percent) |
+| BIBOR (average, or per bank) | `get_bibor(start_date, end_date, average=True)` |
+| deposit / loan rates | `get_deposit_rates(...)`, `get_loan_rates(...)` |
+| interbank rates (O/N...) | `get_interbank_rates(start_date, end_date, term=)` |
+| any statistics series (THOR, government yields...) | `get_stat_observations(series_code, start_date)`; codes in `KNOWN_SERIES`; `search_stat_series(keyword)` |
+| THB exchange rates | `get_exchange_rates(frequency, start, end, currency=)`, `get_reference_rates(...)` |
+| debt securities auctions | `get_bond_auction_results(start_date, end_date)` |
+| bank holidays (NOT the SET calendar) | `get_financial_institution_holidays(year)` |
+| is a firm licensed by BOT? | `search_licensed_entities(keyword)`, `get_licensed_entity(id)` |
 
-History is **one request per calendar year** — never loop day by day.
+Results are `BotReport` objects. Read `.rows`, and check `.has_values`: some tables answer 200 with
+empty rows. Values are numbers, or `None` where BOT sent `""`.
 
 ### Facades, when you need several things about one subject
 
 ```python
 from settfex.services.set import Stock, SetIndex
 from settfex.services.sec import SecCompany
-from settfex.services.thaibma import ThaiBMA
+from settfex.services.bot import BankOfThailand
 
 stock = Stock("CPALL")           # .get_highlight_data() .get_profile() .get_latest_price()
                                  # .get_news() .get_asset_type() .get_analyst_consensus()
                                  # .get_info() .get_signs() .is_suspended() ...
 index = SetIndex("SET50")        # .get_info() .get_constituents() .get_latest_price()
 sec = SecCompany("CPALL")        # .list_documents() .download_all()
-tbma = ThaiBMA()                 # .get_yield_curve() .get_history() .get_availability()
+bot = BankOfThailand()           # .interest_rates .statistics .exchange_rates .debt_securities
+                                 # .holidays .licenses  (each user's own tokens)
 ```
 
 Not every service has a `Stock` accessor — financials, trading stats, price performance,
@@ -307,15 +316,12 @@ being wrong, so none of them will announce itself.
 | Behaviour | What you must do |
 |---|---|
 | **A listed stock nobody covers returns `0.0` for every consensus aggregate**, not `null` | check `AnalystConsensus.has_coverage` first. Never report a `0.0` target price as an estimate |
-| **`ThaiBMA` never 404s on a date — it silently rolls back** to the previous business day, and a *future* date returns today | check `is_rolled_back` / `rollback_days` before quoting an "as of" date |
-| **ThaiBMA classification flags were never backfilled**: `is_benchmark` is all-false before 2013 | filtering history on it yields an empty set, not an error |
 | **A missing value in a `to_dataframe()` string column is `NaN` on pandas 3, `None` on pandas 2** — settfex supports both, so this depends on the installed pandas | test with `pd.isna(value)`, never `value is None`. Serialise with `df.to_json()` — `json.dumps(df.to_dict("records"))` emits a bare `NaN`, which is not valid JSON |
 
 ### Units and formats
 
 | Behaviour | What you must do |
 |---|---|
-| **ThaiBMA rows mix units**: `yield_percent` is a percent, `change_bps` is **basis points** | never add them; use `change_percent` if you need the same unit |
 | **Analyst-consensus net profit is in MILLION baht**; `*_div` is a dividend **yield in percent**, not baht per share | label your output accordingly |
 | **News dates are `dd/MM/yyyy` ONLY** — an ISO date returns HTTP 400 | pass a `datetime.date`, which the service converts for you |
 | **News history is a rolling 1826 days (~5 years)** | a `from_date` older than that fails the whole request; it does not clip |
@@ -336,6 +342,8 @@ being wrong, so none of them will announce itself.
 | **A suspended symbol returns HTTP 200 with `last`/OHLC/volume all `null`** and an empty book | that is data, not an error; quote `.prior` as its last known price |
 | **A market-wide sign scan via index compositions sees COMMON STOCKS only** (929 of 3,954 symbols) | suspended warrants/DWs/DRs are invisible to it — check those with `get_stock_info()` |
 | **A SET financial statement's `download_url` is the same zip as SEC's `Download?FILEID=`** (identical bytes), but the SET API lists only **five periods** | for older periods or other filing types use `get_sec_documents()`. While the SEC listing raises `BotChallengeError`, the SET link still serves the latest statements |
+| **A BOT table can answer 200 with rows but no data**: external rates, spot rate, swap points and THB implied rates have been empty since 2024-12-27 | check `report.has_values`, not `len(report)` |
+| **BOT government T-bill/bond yields are MONTHLY averages**, and `search_stat_series` lists discontinued codes first | for a daily short rate use THOR (`KNOWN_SERIES["thor"]`) or BIBOR; check a code's `observation_end` |
 | **An SEC download can come from SET (0.29.0):** when SEC cannot serve a `dat/news/` or `dat/f56/` file, SET's identical copy is fetched and `DownloadedFile.source == "set_weblink"` | quote `source` / `fallback_reason` when provenance matters; pass `set_fallback=False` if the bytes must come from SEC |
 
 ---
@@ -357,7 +365,9 @@ from settfex.exceptions import (
     SoftNotFoundError,       # its "file not found" page — can be FALSE; NOT a NotFoundError
     OffHostRedirectError,    # an old-format download redirected to ANOTHER host (0.28.0); not followed
     SymbolNotFoundError,     # SET 404, or an unlisted analyst-consensus symbol; .suggestion
-    StaleDataError,          # ThaiBMA rolled back and you asked it to raise
+    BotAccessDeniedError,    # BOT refused the token for THIS product (each token is per product)
+    BotApiError,             # BOT answered HTTP 200 with an error list (e.g. missing periods)
+    BotSeriesNotFoundError,  # BOT Statistics: unknown series code (HTTP 200, all null); never retry
     ParseError,              # a response arrived intact and could not be mapped
     IncompleteListingError,  # a ParseError: rows classified, then every one was lost
     # --- INPUT errors: ValueErrors, NOT caught by `except FetchError` ---
@@ -366,6 +376,7 @@ from settfex.exceptions import (
     InvalidSymbolError,      # empty symbol — raised before any request
     InvalidLanguageError,    # unrecognized lang
     InvalidDateError,        # malformed date string — raised before any request
+    BotTokenMissingError,    # no BOT token for that product — tell the user how to get one
 )
 from settfex.utils.parsing import (
     ResponseParseError,      # also a ParseError since 0.24.0
@@ -484,7 +495,7 @@ CI runs all four. `ruff` also formats `.ipynb`, so example notebooks must satisf
 (`.md` files are deliberately excluded from ruff — do not remove `extend-exclude` from
 `pyproject.toml`). Live-endpoint smoke probes exist as opt-in integration tests:
 `uv run pytest -m integration --no-cov` (excluded from the default run; they hit the real
-SET/TFEX/ThaiBMA hosts — see the Dependency policy in `CLAUDE.md` for when they are mandatory).
+SET/TFEX/SEC hosts, and BOT when tokens are set — see the Dependency policy in `CLAUDE.md` for when they are mandatory).
 
 Deeper context lives in [`CLAUDE.md`](CLAUDE.md) (architecture, service-design patterns, the
 complete Known Gotchas list) and in per-service pages under
