@@ -1,0 +1,32 @@
+{
+ "result": {
+  "api": "Observations",
+  "timestamp": "2026-11-23 11:57:55",
+  "series": [
+   {
+    "series_code": "FMRTINTM00286",
+    "series_name_th": "อัตราผลตอบแทนตั๋วเงินคลังและพันธบัตรรัฐบาล 6 เดือน",
+    "series_name_eng": "T-Bill & Government Bond Yield : 6 months",
+    "unit_th": "ร้อยละ",
+    "unit_eng": "Percent",
+    "series_type": "Rate",
+    "frequency": "Monthly",
+    "last_update_date": "2026-11-10",
+    "observations": [
+     {
+      "period_start": "2026-08",
+      "value": "0.91541"
+     },
+     {
+      "period_start": "2026-09",
+      "value": "0.98501"
+     },
+     {
+      "period_start": "2026-10",
+      "value": "0.97372"
+     }
+    ]
+   }
+  ]
+ }
+}

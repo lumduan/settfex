@@ -1,0 +1,57 @@
+{
+ "ResultSet": [
+  {
+   "Id": "55",
+   "AuthorizedName": "ธนาคาร เจพีมอร์แกน เชส",
+   "BranchName": "ธนาคาร เจพีมอร์แกน เชส",
+   "TypeId": "สาขาธนาคารต่างประเทศ",
+   "TypeName": "สาขาธนาคารต่างประเทศ",
+   "LastUpdate": "",
+   "Address": "20  อาคารบุปผจิต ชั้น 3  ถนนสาทรเหนือ แขวงสีลม เขตบางรัก กรุงเทพมหานคร 10500",
+   "Telephone": "",
+   "DepositFlag": "T",
+   "HPLSFlag": "",
+   "LoanFlag": "T"
+  },
+  {
+   "Id": "56",
+   "AuthorizedName": "ธนาคาร ซิตี้แบงก์ เอ็น. เอ.",
+   "BranchName": "ธนาคาร ซิตี้แบงก์ เอ็น. เอ.",
+   "TypeId": "สาขาธนาคารต่างประเทศ",
+   "TypeName": "สาขาธนาคารต่างประเทศ",
+   "LastUpdate": "",
+   "Address": "399  อาคารอินเตอร์เชนจ์ 21  ถนนสุขุมวิท แขวงคลองเตยเหนือ เขตวัฒนา กรุงเทพมหานคร 10110",
+   "Telephone": "",
+   "DepositFlag": "T",
+   "HPLSFlag": "",
+   "LoanFlag": "T"
+  }
+ ],
+ "ResultSetInfo": {
+  "QueryRecordPerPage": 3,
+  "QueryTotalRecord": 40,
+  "QueryCurrentPage": 1
+ },
+ "GroupInfo": [
+  {
+   "TypeCode": "",
+   "TypeNameTH": "ทั้งหมด",
+   "Count": 40
+  },
+  {
+   "TypeCode": "j",
+   "TypeNameTH": "นิติบุคคล",
+   "Count": 40
+  },
+  {
+   "TypeCode": "i",
+   "TypeNameTH": "บุคคล",
+   "Count": 0
+  },
+  {
+   "TypeCode": "b",
+   "TypeNameTH": "สถานประกอบการ",
+   "Count": 0
+  }
+ ]
+}

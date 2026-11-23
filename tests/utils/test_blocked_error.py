@@ -22,8 +22,6 @@ import pytest
 
 from settfex.exceptions import FetchError, ParseError
 from settfex.services.sec.download import DocumentDownloadService
-from settfex.services.thaibma.history import YieldCurveHistoryService
-from settfex.services.thaibma.yield_curve import YieldCurveService
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
 from settfex.utils.parsing import (
     _MAX_BLOCK_PAGE_BYTES,
@@ -223,35 +221,3 @@ class TestBatchesStopAtTheFirstBlock:
             await DocumentDownloadService().download(
                 "https://market.sec.or.th/public/idisc/Download?FILEID=dat/news/f.zip"
             )
-
-    @pytest.mark.asyncio
-    async def test_fetch_curves_requests_nothing_after_a_block(self) -> None:
-        calls = 0
-
-        async def request(self: Any, url: str, *args: Any, **kwargs: Any) -> Mock:
-            nonlocal calls
-            calls += 1
-            return _curl_response(BLOCK_PAGE)
-
-        with patch.object(AsyncDataFetcher, "_make_request", request):
-            curves = await YieldCurveService().fetch_curves(
-                ["2026-08-06", "2026-08-07", "2026-08-10"], max_concurrency=1
-            )
-        assert curves == []
-        assert calls == 1
-
-    @pytest.mark.asyncio
-    async def test_history_records_unrequested_years_as_missing(self) -> None:
-        calls = 0
-
-        async def request(self: Any, url: str, *args: Any, **kwargs: Any) -> Mock:
-            nonlocal calls
-            calls += 1
-            return _curl_response(BLOCK_PAGE)
-
-        with patch.object(AsyncDataFetcher, "_make_request", request):
-            history = await YieldCurveHistoryService().fetch_history(
-                "2020-01-01", "2023-12-31", check_availability=False, max_concurrency=1
-            )
-        assert calls == 1
-        assert history.missing_years == [2020, 2021, 2022, 2023]

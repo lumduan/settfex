@@ -103,8 +103,8 @@ class BlockedError(ResponseParseError, UnexpectedPageError):
 
     Only the BIG-IP ASM page observed on SEC is recognised here (see
     :func:`looks_like_block_page`). No SET/Incapsula block page has been captured, so none is
-    classified. Since 0.30.1 the ThaiBMA service also raises this for ThaiBMA's "automated access
-    is not permitted" page (``settfex.services.thaibma.utils.looks_like_thaibma_refusal``).
+    classified. (0.30.1 also raised it for ThaiBMA's "automated access is not permitted" page; the
+    ThaiBMA service was removed in 1.0.0.)
     """
 
     def __init__(

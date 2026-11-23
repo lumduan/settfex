@@ -1,0 +1,23 @@
+{
+ "result": {
+  "api": "CategoryList",
+  "timestamp": "2026-11-23 11:56:35",
+  "category": [
+   {
+    "category": "FM_RT_013",
+    "description_th": "อัตราดอกเบี้ยอ้างอิง THOR และอัตราดอกเบี้ย THOR Average",
+    "description_eng": "Thai Overnight Repurchase Rate (THOR) and THOR Average"
+   },
+   {
+    "category": "EC_MB_011_S2",
+    "description_th": "สินทรัพย์และหนี้สินของสถาบันรับฝากเงินอื่น",
+    "description_eng": "Other Depository Corporations Sectoral Balance Sheet"
+   },
+   {
+    "category": "EC_MB_012_S3",
+    "description_th": "สินทรัพย์และหนี้สินของธนาคารพาณิชย์",
+    "description_eng": "Commercial Banks Sectoral Balance Sheet"
+   }
+  ]
+ }
+}

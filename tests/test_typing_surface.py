@@ -72,6 +72,18 @@ def the_fields_are_reachable(docs: SecDocumentList, files: DownloadResult) -> No
     ordered: list[SecDocument] = sorted(docs.documents, key=lambda d: d.year or 0)
     failures: int = len(files.failed)
     print(first, ordered, failures)
+
+
+async def bot_reports_keep_their_row_type() -> None:
+    # 1.0.0: a BotReport is generic, so `.rows` must type as the product's row model, not Any.
+    from settfex.services.bot import BiborRate, ExchangeRate, get_bibor, get_exchange_rates
+
+    bibor = await get_bibor("2026-11-20")
+    assert_type(bibor.rows[0], BiborRate)
+    fx = await get_exchange_rates("daily", "2026-11-20")
+    assert_type(fx.rows[0], ExchangeRate)
+    three_months: float | None = bibor.rows[0].three_months
+    print(three_months)
 """
 
 

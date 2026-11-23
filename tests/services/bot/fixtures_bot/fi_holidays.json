@@ -1,0 +1,32 @@
+{
+ "result": {
+  "api": "API_V2.FIHolidays",
+  "timestamp": "2026-11-23 11:56:33",
+  "data": [
+   {
+    "HolidayWeekDay": "Thursday",
+    "HolidayWeekDayThai": "วันพฤหัสบดี",
+    "Date": "2026-01-01",
+    "DateThai": "01/01/2569",
+    "HolidayDescription": "New Year’s Day",
+    "HolidayDescriptionThai": "วันขึ้นปีใหม่"
+   },
+   {
+    "HolidayWeekDay": "Friday",
+    "HolidayWeekDayThai": "วันศุกร์",
+    "Date": "2026-01-02",
+    "DateThai": "02/01/2569",
+    "HolidayDescription": "Additional special holiday",
+    "HolidayDescriptionThai": "วันหยุดทำการเพิ่มเป็นกรณีพิเศษ"
+   },
+   {
+    "HolidayWeekDay": "Tuesday",
+    "HolidayWeekDayThai": "วันอังคาร",
+    "Date": "2026-03-03",
+    "DateThai": "03/03/2569",
+    "HolidayDescription": "Makha Bucha Day",
+    "HolidayDescriptionThai": "วันมาฆบูชา"
+   }
+  ]
+ }
+}

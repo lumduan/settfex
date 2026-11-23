@@ -1,0 +1,27 @@
+{
+  "expected_dump": {
+    "bank_name_eng": null,
+    "bank_name_th": null,
+    "nine_months": null,
+    "one_month": 1.05,
+    "one_week": 1.02,
+    "one_year": 1.31008,
+    "overnight": 1.0,
+    "period": "2026-11-16",
+    "six_months": 1.20994,
+    "three_months": 1.15,
+    "two_months": 1.1
+  },
+  "input": {
+    "bibor_1_month": "1.05000",
+    "bibor_1_week": "1.02000",
+    "bibor_1_year": "1.31008",
+    "bibor_2_month": "1.10000",
+    "bibor_3_month": "1.15000",
+    "bibor_6_month": "1.20994",
+    "bibor_9_month": "",
+    "bibor_o_n": "1.00000",
+    "period": "2026-11-16"
+  },
+  "model": "settfex.services.bot.models.BiborRate"
+}

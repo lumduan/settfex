@@ -1,0 +1,51 @@
+{
+ "result": {
+  "timestamp": "2026-11-23 11:56:17",
+  "api": "Interbank Transaction Rates (Percent per annum)",
+  "data": {
+   "data_header": {
+    "report_name_eng": "Interbank Transactions",
+    "report_name_th": "ปริมาณธุรกรรม อัตราดอกเบี้ย และยอดคงค้าง การกู้ยืมระหว่างธนาคาร",
+    "report_uoq_name_eng": "",
+    "report_uoq_name_th": "",
+    "report_source_of_data": [],
+    "report_remark": [
+     {
+      "report_remark_eng": "Overnight Forward Start transaction data start on August,1 2016 onward",
+      "report_remark_th": "ธุรกรรม Overnight Forward Start เริ่มรายงานข้อมูลตั้งแต่วันที่ 1 สิงหาคม 2559 เป็นต้นไป "
+     }
+    ],
+    "last_updated": "2026-11-23"
+   },
+   "data_detail": [
+    {
+     "period": "2026-11-20",
+     "term_type_name_th": "O/N",
+     "term_type_name_eng": "O/N",
+     "min_interest_rate": "0.90000",
+     "max_interest_rate": "1.00000",
+     "mode_interest_rate": "0.90000",
+     "weighted_average_interest_rate": "0.95682"
+    },
+    {
+     "period": "2026-11-20",
+     "term_type_name_th": "T/N",
+     "term_type_name_eng": "T/N",
+     "min_interest_rate": "",
+     "max_interest_rate": "",
+     "mode_interest_rate": "",
+     "weighted_average_interest_rate": ""
+    },
+    {
+     "period": "2026-11-20",
+     "term_type_name_th": "Overnight Forward Start",
+     "term_type_name_eng": "Overnight Forward Start",
+     "min_interest_rate": "",
+     "max_interest_rate": "",
+     "mode_interest_rate": "",
+     "weighted_average_interest_rate": ""
+    }
+   ]
+  }
+ }
+}

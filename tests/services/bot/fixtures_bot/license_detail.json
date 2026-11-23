@@ -1,0 +1,62 @@
+{
+ "AuthorizationInfo": {
+  "Id": "55",
+  "AuthorizedName": "ธนาคาร เจพีมอร์แกน เชส",
+  "BranchName": "",
+  "TypeId": "สาขาธนาคารต่างประเทศ",
+  "TypeName": "สาขาธนาคารต่างประเทศ",
+  "LastUpdate": "23/11/2026 10:00:15",
+  "Address": "20  อาคารบุปผจิต ชั้น 3  ถนนสาทรเหนือ แขวงสีลม เขตบางรัก กรุงเทพมหานคร 10500",
+  "Telephone": "",
+  "DepositFlag": "T",
+  "HPLSFlag": "",
+  "LoanFlag": "T"
+ },
+ "LicenseInformations": [
+  {
+   "PermitDate": "5 สิงหาคม 2492",
+   "StartDate": "5 สิงหาคม 2492",
+   "EndDate": "",
+   "Id": "1",
+   "Code": "",
+   "Name": "การธนาคารพาณิชย์",
+   "StatusCode": "1",
+   "StatusName": "คงอยู่",
+   "LcnNo": ""
+  },
+  {
+   "PermitDate": "29 มิถุนายน 2539",
+   "StartDate": "29 มิถุนายน 2539",
+   "EndDate": "",
+   "Id": "24",
+   "Code": "",
+   "Name": "นิติบุคคลรับอนุญาต",
+   "StatusCode": "1",
+   "StatusName": "คงอยู่",
+   "LcnNo": ""
+  },
+  {
+   "PermitDate": "10 กันยายน 2561",
+   "StartDate": "10 กันยายน 2561",
+   "EndDate": "",
+   "Id": "21",
+   "Code": "",
+   "Name": "การให้บริการรับชำระเงินแทน",
+   "StatusCode": "1",
+   "StatusName": "คงอยู่",
+   "LcnNo": ""
+  },
+  {
+   "PermitDate": "10 กันยายน 2561",
+   "StartDate": "10 กันยายน 2561",
+   "EndDate": "",
+   "Id": "22",
+   "Code": "",
+   "Name": "การให้บริการโอนเงินด้วยวิธีการทางอิเล็กทรอนิกส์",
+   "StatusCode": "1",
+   "StatusName": "คงอยู่",
+   "LcnNo": ""
+  }
+ ],
+ "Branches": null
+}

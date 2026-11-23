@@ -1,0 +1,36 @@
+{
+ "result": {
+  "timestamp": "2026-11-23 11:56:27",
+  "api": "Monthly Weighted-average Interbank Exchange Rate - THB / USD",
+  "data": {
+   "data_header": {
+    "report_name_eng": "Rates of Exchange of Commercial Banks in Bangkok Metropolis (2002-present)",
+    "report_name_th": "อัตราแลกเปลี่ยนเฉลี่ยของธนาคารพาณิชย์ในกรุงเทพมหานคร (2545-ปัจจุบัน)",
+    "report_uoq_name_eng": "(Unit: Baht / 1 Unit of Foreign Currency)",
+    "report_uoq_name_th": "(หน่วย: บาท ต่อ 1 หน่วยเงินตราต่างประเทศ)",
+    "report_source_of_data": [
+     {
+      "source_of_data_eng": "Bank of Thailand",
+      "source_of_data_th": "ธนาคารแห่งประเทศไทย"
+     }
+    ],
+    "report_remark": [],
+    "last_updated": "2026-11-20"
+   },
+   "data_detail": [
+    {
+     "period": "2026-10",
+     "rate": "33.6447000"
+    },
+    {
+     "period": "2026-09",
+     "rate": "33.2216000"
+    },
+    {
+     "period": "2026-08",
+     "rate": "33.0149000"
+    }
+   ]
+  }
+ }
+}

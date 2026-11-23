@@ -42,7 +42,7 @@ that endpoint misbehaving, not a curl_cffi regression — re-run it alone before
 import json
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -66,7 +66,6 @@ from settfex.services.tfex import (
     get_trading_statistics,
     get_underlying_price,
 )
-from settfex.services.thaibma import get_government_yield_curve
 from settfex.utils.data_fetcher import FetcherConfig
 from settfex.utils.session_cache import SessionCache
 from settfex.utils.session_manager import SessionManager
@@ -273,18 +272,59 @@ async def test_live_sec_executive_trade_report():
     _record("sec_executive_trade_report", report, elapsed)
 
 
-@pytest.mark.skip(
-    reason=(
-        "www.thaibma.or.th forbids automated access since ~2026-11-21 (HTTP 403, 'Automated access "
-        "is not permitted'); running this probe would be a violation, not a check (0.30.1)"
-    )
-)
+# --- Bank of Thailand (1.0.0): runs only with the user's own tokens -----------------------------
+# Read at import, before the suite's autouse fixture replaces BANK_OF_THAILAND_TOKEN* with a dummy:
+# the environment first, then a .env in the repo root (gitignored). No token, no request.
+def _real_bot_tokens() -> dict[str, str]:
+    import os
+    from pathlib import Path
+
+    from settfex.services.bot import BotProduct, read_env_file
+
+    file_values = read_env_file(Path(__file__).resolve().parents[2] / ".env")
+    tokens: dict[str, str] = {}
+    for product in BotProduct:
+        for key in (product.env_key, "BANK_OF_THAILAND_TOKEN"):
+            value = (os.environ.get(key) or file_values.get(key) or "").strip()
+            if value:
+                tokens[product.value] = value
+                break
+    return tokens
+
+
+_BOT_TOKENS = _real_bot_tokens()
+BANGKOK = ZoneInfo("Asia/Bangkok")
+
+
+def _bot_token(product: str) -> str:
+    token = _BOT_TOKENS.get(product)
+    if not token:
+        pytest.skip(f"no BANK_OF_THAILAND_TOKEN for {product} (each user brings their own)")
+    return token
+
+
 @pytest.mark.asyncio
-async def test_live_thaibma_yield_curve():
+async def test_live_bot_policy_rate_and_bibor():
+    from settfex.services.bot import get_bibor, get_policy_rate
+
+    token = _bot_token("interest_rates")
     t0 = time.perf_counter()
-    curve = await get_government_yield_curve()
+    rate = await get_policy_rate(token=token)
+    bibor = await get_bibor(token=token)  # the last 7 days
     elapsed = time.perf_counter() - t0
-    assert len(curve.points) > 10
-    ten_year = curve.yield_at(10.0)
-    assert ten_year is not None and 0.0 < ten_year < 15.0
-    _record("thaibma_yield_curve", curve, elapsed, as_of=str(curve.as_of))
+    assert rate.rate is not None and 0.0 <= rate.rate < 20.0
+    assert bibor.has_values and bibor.rows[0].three_months is not None
+    _record("bot_policy_rate", rate, elapsed)
+
+
+@pytest.mark.asyncio
+async def test_live_bot_statistics_thor():
+    from settfex.services.bot import KNOWN_SERIES, get_stat_observations
+
+    token = _bot_token("statistics")
+    t0 = time.perf_counter()
+    start = (datetime.now(BANGKOK).date() - timedelta(days=14)).isoformat()
+    thor = await get_stat_observations(KNOWN_SERIES["thor"], start, token=token)
+    elapsed = time.perf_counter() - t0
+    assert thor.frequency == "Daily" and thor.latest is not None
+    _record("bot_thor", thor, elapsed)

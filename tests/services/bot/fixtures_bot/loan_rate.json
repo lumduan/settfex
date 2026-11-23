@@ -1,0 +1,52 @@
+{
+ "result": {
+  "timestamp": "2026-11-23 11:56:13",
+  "api": "Loan Interest Rates of Commercial Banks (Percent per annum)",
+  "data": {
+   "data_detail": [
+    {
+     "period": "2026-11-16",
+     "bank_type_name_th": "ธนาคารพาณิชย์จดทะเบียนในประเทศ",
+     "bank_type_name_eng": "Commercial Banks registered in Thailand",
+     "bank_name_th": "กรุงเทพ",
+     "bank_name_eng": "Bangkok Bank",
+     "mor": "6.5000",
+     "mlr": "6.3500",
+     "mrr": "6.5000",
+     "ceiling_rate": "18.0000",
+     "default_rate": "21.5000",
+     "creditcard_min": "16.0000",
+     "creditcard_max": "16.0000"
+    },
+    {
+     "period": "2026-11-16",
+     "bank_type_name_th": "ธนาคารพาณิชย์จดทะเบียนในประเทศ",
+     "bank_type_name_eng": "Commercial Banks registered in Thailand",
+     "bank_name_th": "กรุงไทย",
+     "bank_name_eng": "Krung Thai Bank",
+     "mor": "6.2700",
+     "mlr": "6.3000",
+     "mrr": "6.8450",
+     "ceiling_rate": "16.8450",
+     "default_rate": "28.0000",
+     "creditcard_min": "",
+     "creditcard_max": ""
+    },
+    {
+     "period": "2026-11-16",
+     "bank_type_name_th": "ธนาคารพาณิชย์จดทะเบียนในประเทศ",
+     "bank_type_name_eng": "Commercial Banks registered in Thailand",
+     "bank_name_th": "กสิกรไทย",
+     "bank_name_eng": "Kasikornbank",
+     "mor": "6.3400",
+     "mlr": "6.5200",
+     "mrr": "6.5800",
+     "ceiling_rate": "20.9700",
+     "default_rate": "23.9700",
+     "creditcard_min": "16.0000",
+     "creditcard_max": "16.0000"
+    }
+   ]
+  }
+ }
+}

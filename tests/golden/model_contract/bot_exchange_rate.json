@@ -1,0 +1,23 @@
+{
+  "expected_dump": {
+    "buying_sight": 33.7376,
+    "buying_transfer": 33.8065,
+    "currency_id": "USD",
+    "currency_name_eng": "USA : DOLLAR (USD)",
+    "currency_name_th": "สหรัฐอเมริกา : ดอลลาร์ (USD)",
+    "mid_rate": 33.9659,
+    "period": "2026-11-20",
+    "selling": 34.1252
+  },
+  "input": {
+    "buying_sight": "33.7376000",
+    "buying_transfer": "33.8065000",
+    "currency_id": "USD",
+    "currency_name_eng": "USA : DOLLAR (USD) ",
+    "currency_name_th": "สหรัฐอเมริกา : ดอลลาร์ (USD)",
+    "mid_rate": "33.9659000",
+    "period": "2026-11-20",
+    "selling": "34.1252000"
+  },
+  "model": "settfex.services.bot.models.ExchangeRate"
+}

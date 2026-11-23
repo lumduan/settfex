@@ -1,0 +1,61 @@
+{
+ "result": {
+  "timestamp": "2026-11-23 11:56:11",
+  "api": "Deposit Interest Rates for Individuals of Commercial Banks (Percent per annum)",
+  "data": {
+   "data_detail": [
+    {
+     "period": "2026-11-16",
+     "bank_type_name_th": "ธนาคารพาณิชย์จดทะเบียนในประเทศ",
+     "bank_type_name_eng": "Commercial Banks registered in Thailand",
+     "bank_name_th": "กรุงเทพ",
+     "bank_name_eng": "Bangkok Bank",
+     "saving_min": "0.2500",
+     "saving_max": "0.2500",
+     "fix_3_mths_min": "0.6500",
+     "fix_3_mths_max": "0.6500",
+     "fix_6_mths_min": "0.6500",
+     "fix_6_mths_max": "0.6500",
+     "fix_12_mths_min": "0.7500",
+     "fix_12_mths_max": "0.7500",
+     "fix_24_mths_min": "0.9000",
+     "fix_24_mths_max": "0.9000"
+    },
+    {
+     "period": "2026-11-16",
+     "bank_type_name_th": "ธนาคารพาณิชย์จดทะเบียนในประเทศ",
+     "bank_type_name_eng": "Commercial Banks registered in Thailand",
+     "bank_name_th": "กรุงไทย",
+     "bank_name_eng": "Krung Thai Bank",
+     "saving_min": "0.2500",
+     "saving_max": "0.2500",
+     "fix_3_mths_min": "0.6000",
+     "fix_3_mths_max": "0.6000",
+     "fix_6_mths_min": "0.6500",
+     "fix_6_mths_max": "0.6500",
+     "fix_12_mths_min": "0.7500",
+     "fix_12_mths_max": "0.7500",
+     "fix_24_mths_min": "0.9000",
+     "fix_24_mths_max": "0.9000"
+    },
+    {
+     "period": "2026-11-16",
+     "bank_type_name_th": "ธนาคารพาณิชย์จดทะเบียนในประเทศ",
+     "bank_type_name_eng": "Commercial Banks registered in Thailand",
+     "bank_name_th": "กสิกรไทย",
+     "bank_name_eng": "Kasikornbank",
+     "saving_min": "0.2500",
+     "saving_max": "0.2500",
+     "fix_3_mths_min": "0.5500",
+     "fix_3_mths_max": "0.6000",
+     "fix_6_mths_min": "0.6000",
+     "fix_6_mths_max": "0.6500",
+     "fix_12_mths_min": "0.7500",
+     "fix_12_mths_max": "0.7500",
+     "fix_24_mths_min": "0.9000",
+     "fix_24_mths_max": "0.9000"
+    }
+   ]
+  }
+ }
+}

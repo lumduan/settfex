@@ -1,0 +1,47 @@
+{
+ "result": {
+  "timestamp": "2026-11-23 11:56:22",
+  "api": "Thai Baht Implied Interest Rates (Percent per annum)",
+  "data": {
+   "data_header": {
+    "report_name_eng": "Thai Baht Implied Interest Rates",
+    "report_name_th": "Thai Baht Implied Interest Rates",
+    "report_uoq_name_eng": "(Percent per annum)",
+    "report_uoq_name_th": "(อัตราร้อยละต่อปี)",
+    "report_source_of_data": [
+     {
+      "source_of_data_eng": "Bank of Thailand",
+      "source_of_data_th": "ธนาคารแห่งประเทศไทย"
+     }
+    ],
+    "report_remark": [
+     {
+      "report_remark_eng": "Calculated from THB premium in various tenors from outside source (Reuters) at market closing.",
+      "report_remark_th": "คำนวณ Thai Baht Implied Interest Rates จาก Swap Point ตามระยะเวลาต่าง ๆ ของราคาปิดในแต่ละตลาด จากแหล่งข้อมูล Reuters"
+     }
+    ],
+    "last_updated": "2024-12-27"
+   },
+   "data_detail": [
+    {
+     "period": "",
+     "rate_type_name_th": "ONSHORE : T/N",
+     "rate_type_name_eng": "ONSHORE : T/N",
+     "interest_rate": ""
+    },
+    {
+     "period": "",
+     "rate_type_name_th": "ONSHORE : 1 WK",
+     "rate_type_name_eng": "ONSHORE : 1 WK",
+     "interest_rate": ""
+    },
+    {
+     "period": "",
+     "rate_type_name_th": "ONSHORE : 1 M",
+     "rate_type_name_eng": "ONSHORE : 1 M",
+     "interest_rate": ""
+    }
+   ]
+  }
+ }
+}

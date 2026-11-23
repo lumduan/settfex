@@ -153,6 +153,16 @@ ENTRY_POINTS: list[tuple[str, str, tuple[Any, ...]]] = [
     # -- SET ------------------------------------------------------------------------------------
     ("settfex.services.set.list", "get_stock_list", ()),
     ("settfex.services.set.news", "get_news", ()),
+    # -- Bank of Thailand (1.0.0; the token comes from the autouse fixture in tests/conftest.py) ---
+    ("settfex.services.bot.interest_rates", "get_policy_rate", ()),
+    ("settfex.services.bot.interest_rates", "get_bibor", ("2026-11-20",)),
+    ("settfex.services.bot.interest_rates", "get_interbank_rates", ("2026-11-20",)),
+    ("settfex.services.bot.statistics", "get_stat_categories", ()),
+    ("settfex.services.bot.statistics", "get_stat_observations", ("FMRTTHORD00003", "2026-11-01")),
+    ("settfex.services.bot.exchange_rates", "get_exchange_rates", ("daily", "2026-11-20")),
+    ("settfex.services.bot.debt_securities", "get_bond_auction_results", ("2026-11-01",)),
+    ("settfex.services.bot.holidays", "get_financial_institution_holidays", (2026,)),
+    ("settfex.services.bot.license_check", "search_licensed_entities", ("ธนาคาร",)),
     ("settfex.services.set.news", "get_news_detail", ("17943525757510",)),
     ("settfex.services.set.holiday", "get_holidays", ()),
     ("settfex.services.set.index.list", "get_index_list", ()),
@@ -191,9 +201,6 @@ ENTRY_POINTS: list[tuple[str, str, tuple[Any, ...]]] = [
     ("settfex.services.sec.financial_report", "get_sec_documents", ("CPALL",)),
     ("settfex.services.sec.executive_trades", "get_executive_trades", ()),
     ("settfex.services.sec.executive_trades", "get_executive_trade_report", ("592001352610",)),
-    # -- ThaiBMA --------------------------------------------------------------------------------
-    ("settfex.services.thaibma.yield_curve", "get_government_yield_curve", ()),
-    ("settfex.services.thaibma.availability", "get_yield_curve_availability", ()),
 ]
 
 #: Deliberately excluded, with the reason — each needs a second response of a different shape, so
@@ -202,8 +209,6 @@ ENTRY_POINTS: list[tuple[str, str, tuple[Any, ...]]] = [
 #:   get_dr_indicative_price                    - POSTs a foreign host (TradingView)
 #:   get_all_earnings_calls, get_earnings_call_detail / _transcript, *_dataframe
 #:                                              - fan-out or optional extras (pandas/tqdm)
-#:   get_yield_curve_history / get_bond_yield_history
-#:                                              - one request per year; covered in the ThaiBMA suite
 
 
 CASES = [

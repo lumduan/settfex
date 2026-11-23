@@ -1,0 +1,43 @@
+{
+ "result": {
+  "timestamp": "2026-11-23 11:56:09",
+  "api": "Average Bangkok Interbank Offered Rate (BIBOR) (Percent per annum)",
+  "data": {
+   "data_detail": [
+    {
+     "period": "2026-11-16",
+     "bibor_o_n": "1.00000",
+     "bibor_1_week": "1.02000",
+     "bibor_1_month": "1.05000",
+     "bibor_2_month": "1.10000",
+     "bibor_3_month": "1.15000",
+     "bibor_6_month": "1.20994",
+     "bibor_9_month": "",
+     "bibor_1_year": "1.31008"
+    },
+    {
+     "period": "2026-11-17",
+     "bibor_o_n": "1.00078",
+     "bibor_1_week": "1.01944",
+     "bibor_1_month": "1.05000",
+     "bibor_2_month": "1.10000",
+     "bibor_3_month": "1.15000",
+     "bibor_6_month": "1.20990",
+     "bibor_9_month": "",
+     "bibor_1_year": "1.31017"
+    },
+    {
+     "period": "2026-11-18",
+     "bibor_o_n": "1.00078",
+     "bibor_1_week": "1.01933",
+     "bibor_1_month": "1.05000",
+     "bibor_2_month": "1.10000",
+     "bibor_3_month": "1.15000",
+     "bibor_6_month": "1.20989",
+     "bibor_9_month": "",
+     "bibor_1_year": "1.31028"
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,49 @@
+{
+ "result": {
+  "timestamp": "2026-11-23 11:56:08",
+  "api": "Bangkok Interbank Offered Rate (BIBOR) by Banks (Percent per annum)",
+  "data": {
+   "data_detail": [
+    {
+     "period": "2026-11-16",
+     "bankname_th": "ธนาคารกรุงเทพ จำกัด (มหาชน)",
+     "bankname_eng": "Bangkok Bank",
+     "bibor_o_n": "1.00000",
+     "bibor_1_week": "1.02000",
+     "bibor_1_month": "1.05000",
+     "bibor_2_month": "1.10000",
+     "bibor_3_month": "1.15000",
+     "bibor_6_month": "1.22000",
+     "bibor_9_month": "",
+     "bibor_1_year": "1.32000"
+    },
+    {
+     "period": "2026-11-16",
+     "bankname_th": "ธนาคารเพื่อการเกษตรและสหกรณ์การเกษตร",
+     "bankname_eng": "Bank For Agriculture and Agricultural Cooperatives",
+     "bibor_o_n": "1.00000",
+     "bibor_1_week": "1.02000",
+     "bibor_1_month": "1.05000",
+     "bibor_2_month": "1.10000",
+     "bibor_3_month": "1.15000",
+     "bibor_6_month": "1.21000",
+     "bibor_9_month": "",
+     "bibor_1_year": "1.31000"
+    },
+    {
+     "period": "2026-11-16",
+     "bankname_th": "ธนาคารกรุงศรีอยุธยา จำกัด (มหาชน)",
+     "bankname_eng": "Bank of Ayudhya",
+     "bibor_o_n": "1.00000",
+     "bibor_1_week": "1.02000",
+     "bibor_1_month": "1.05000",
+     "bibor_2_month": "1.10000",
+     "bibor_3_month": "1.15000",
+     "bibor_6_month": "1.20000",
+     "bibor_9_month": "",
+     "bibor_1_year": "1.30000"
+    }
+   ]
+  }
+ }
+}

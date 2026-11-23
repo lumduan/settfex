@@ -1,0 +1,44 @@
+{
+ "result": {
+  "api": "SeriesInCategory",
+  "timestamp": "2026-11-23 11:56:36",
+  "series": [
+   {
+    "category": "FM_RT_013",
+    "series_code": "FMRTTHORAVG1MD00004",
+    "series_name_th": "อัตราดอกเบี้ย THOR Average : 1 Month",
+    "series_name_eng": "THOR Average : 1 Month",
+    "observation_start": "2020-04-01",
+    "observation_end": "2026-11-23",
+    "last_update_date": "2026-11-23"
+   },
+   {
+    "category": "FM_RT_013",
+    "series_code": "FMRTTHORAVG3MD00005",
+    "series_name_th": "อัตราดอกเบี้ย THOR Average : 3 Months",
+    "series_name_eng": "THOR Average : 3 Months",
+    "observation_start": "2020-04-01",
+    "observation_end": "2026-11-23",
+    "last_update_date": "2026-11-23"
+   },
+   {
+    "category": "FM_RT_013",
+    "series_code": "FMRTTHORAVG6MD00006",
+    "series_name_th": "อัตราดอกเบี้ย THOR Average : 6 Months",
+    "series_name_eng": "THOR Average : 6 Months",
+    "observation_start": "2020-04-01",
+    "observation_end": "2026-11-23",
+    "last_update_date": "2026-11-23"
+   },
+   {
+    "category": "FM_RT_013",
+    "series_code": "FMRTTHORD00003",
+    "series_name_th": "อัตราดอกเบี้ยอ้างอิง THOR",
+    "series_name_eng": "Thai Overnight Repurchase Rate",
+    "observation_start": "2020-04-01",
+    "observation_end": "2026-11-23",
+    "last_update_date": "2026-11-23"
+   }
+  ]
+ }
+}

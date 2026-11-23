@@ -40,16 +40,11 @@
         "ExecutiveTradeDetail",
         "ExecutiveTradeList",
         "ExecutiveTradeReport",
-        "ThaiBMA",
-        "get_government_yield_curve",
-        "get_yield_curve_history",
-        "get_bond_yield_history",
-        "get_yield_curve_availability",
-        "YieldCurve",
-        "YieldCurveHistory",
-        "YieldCurveAvailability",
-        "CurvePoint",
-        "BondQuote",
+        "BankOfThailand",
+        "get_policy_rate",
+        "get_bibor",
+        "get_stat_observations",
+        "get_exchange_rates",
         "StockListResponse",
         "StockHighlightData",
         "StockInfo",
@@ -72,7 +67,6 @@
         "NotFoundError",
         "SeriesNotFoundError",
         "SymbolNotFoundError",
-        "StaleDataError",
         "InvalidSymbolError",
         "InvalidLanguageError",
         "InvalidDateError",
@@ -84,10 +78,9 @@
         "AnalystConsensus",
         "AssetType",
         "AsyncDataFetcher",
-        "BondQuote",
+        "BankOfThailand",
         "CompanyProfile",
         "ConsensusOverallResponse",
-        "CurvePoint",
         "DocumentCategory",
         "DownloadedFile",
         "DrIndicativePrice",
@@ -113,29 +106,24 @@
         "SecDocumentList",
         "SeriesNotFoundError",
         "SetIndex",
-        "StaleDataError",
         "Stock",
         "StockHighlightData",
         "StockInfo",
         "StockListResponse",
         "StockProfile",
         "SymbolNotFoundError",
-        "ThaiBMA",
-        "YieldCurve",
-        "YieldCurveAvailability",
-        "YieldCurveHistory",
         "download_sec_document",
         "download_sec_documents",
         "get_analyst_consensus",
         "get_analyst_consensus_dataframes",
-        "get_bond_yield_history",
+        "get_bibor",
         "get_company_profile",
         "get_consensus_overall",
         "get_dr_indicative_price",
         "get_dr_profile",
+        "get_exchange_rates",
         "get_executive_trade_report",
         "get_executive_trades",
-        "get_government_yield_curve",
         "get_highlight_data",
         "get_holidays",
         "get_index_composition",
@@ -143,12 +131,12 @@
         "get_index_list",
         "get_news",
         "get_news_detail",
+        "get_policy_rate",
         "get_profile",
         "get_sec_documents",
+        "get_stat_observations",
         "get_stock_info",
         "get_stock_list",
-        "get_yield_curve_availability",
-        "get_yield_curve_history",
         "resolve_company",
         "setup_logger"
       ],
@@ -244,12 +232,15 @@
         "FetchError",
         "NotFoundError",
         "SymbolNotFoundError",
-        "StaleDataError",
         "ParseError",
         "IncompleteListingError",
         "HTTPStatusError",
         "SeriesNotFoundError",
         "NewsNotFoundError",
+        "BotTokenMissingError",
+        "BotAccessDeniedError",
+        "BotApiError",
+        "BotSeriesNotFoundError",
         "UnexpectedPageError",
         "SoftNotFoundError",
         "OffHostRedirectError",
@@ -287,6 +278,153 @@
           },
           "mro": [
             "settfex.exceptions.AmbiguousCompanyError",
+            "builtins.ValueError",
+            "builtins.Exception",
+            "builtins.BaseException",
+            "builtins.object"
+          ]
+        },
+        "BotAccessDeniedError": {
+          "bases": [
+            "settfex.exceptions.HTTPStatusError"
+          ],
+          "kind": "exception",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "message",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "int | None",
+                  "default": "None",
+                  "name": "status_code",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "url",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "product",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            }
+          },
+          "mro": [
+            "settfex.exceptions.BotAccessDeniedError",
+            "settfex.exceptions.HTTPStatusError",
+            "settfex.exceptions.FetchError",
+            "builtins.Exception",
+            "builtins.BaseException",
+            "builtins.object"
+          ]
+        },
+        "BotApiError": {
+          "bases": [
+            "settfex.exceptions.FetchError"
+          ],
+          "kind": "exception",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "message",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "list[dict[str, Any]] | None",
+                  "default": "None",
+                  "name": "errors",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            }
+          },
+          "mro": [
+            "settfex.exceptions.BotApiError",
+            "settfex.exceptions.FetchError",
+            "builtins.Exception",
+            "builtins.BaseException",
+            "builtins.object"
+          ]
+        },
+        "BotSeriesNotFoundError": {
+          "bases": [
+            "settfex.exceptions.FetchError",
+            "settfex.exceptions.NotFoundError"
+          ],
+          "kind": "exception",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "message",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "series_code",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            }
+          },
+          "mro": [
+            "settfex.exceptions.BotSeriesNotFoundError",
+            "settfex.exceptions.FetchError",
+            "settfex.exceptions.NotFoundError",
+            "builtins.Exception",
+            "builtins.BaseException",
+            "builtins.object"
+          ]
+        },
+        "BotTokenMissingError": {
+          "bases": [
+            "builtins.ValueError"
+          ],
+          "kind": "exception",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "message",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str",
+                  "name": "product",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "tuple[str, ...]",
+                  "name": "env_keys",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            }
+          },
+          "mro": [
+            "settfex.exceptions.BotTokenMissingError",
             "builtins.ValueError",
             "builtins.Exception",
             "builtins.BaseException",
@@ -782,50 +920,6 @@
             "builtins.object"
           ]
         },
-        "StaleDataError": {
-          "bases": [
-            "settfex.exceptions.FetchError"
-          ],
-          "kind": "exception",
-          "methods": {
-            "__init__": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "str",
-                  "name": "message",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "date | None",
-                  "default": "None",
-                  "name": "requested_date",
-                  "param_kind": "KEYWORD_ONLY"
-                },
-                {
-                  "annotation": "date | None",
-                  "default": "None",
-                  "name": "as_of",
-                  "param_kind": "KEYWORD_ONLY"
-                },
-                {
-                  "annotation": "int | None",
-                  "default": "None",
-                  "name": "rollback_days",
-                  "param_kind": "KEYWORD_ONLY"
-                }
-              ],
-              "returns": "None"
-            }
-          },
-          "mro": [
-            "settfex.exceptions.StaleDataError",
-            "settfex.exceptions.FetchError",
-            "builtins.Exception",
-            "builtins.BaseException",
-            "builtins.object"
-          ]
-        },
         "SymbolNotFoundError": {
           "bases": [
             "settfex.exceptions.FetchError",
@@ -957,6 +1051,10 @@
       "exports": [
         "AmbiguousCompanyError",
         "Any",
+        "BotAccessDeniedError",
+        "BotApiError",
+        "BotSeriesNotFoundError",
+        "BotTokenMissingError",
         "CompanyNotFoundError",
         "FetchError",
         "HTTPStatusError",
@@ -971,7 +1069,6 @@
         "ParseError",
         "SeriesNotFoundError",
         "SoftNotFoundError",
-        "StaleDataError",
         "SymbolNotFoundError",
         "UnexpectedPageError",
         "raise_for_status",
@@ -1025,6 +1122,4110 @@
       "constants": {},
       "exports": [],
       "functions": {}
+    },
+    "settfex.services.bot": {
+      "all": [
+        "BankOfThailand",
+        "BotClient",
+        "BotProduct",
+        "resolve_bot_token",
+        "read_env_file",
+        "BOT_GATEWAY_URL",
+        "BOT_PORTAL_URL",
+        "BOT_MANUAL_URL",
+        "BOT_TOKEN_ENV",
+        "KNOWN_SERIES",
+        "InterestRatesService",
+        "StatisticsService",
+        "ExchangeRatesService",
+        "DebtSecuritiesAuctionService",
+        "HolidaysService",
+        "LicenseCheckService",
+        "get_policy_rate",
+        "get_bibor",
+        "get_deposit_rates",
+        "get_loan_rates",
+        "get_interbank_rates",
+        "get_stat_categories",
+        "get_stat_series_list",
+        "search_stat_series",
+        "get_stat_observations",
+        "get_exchange_rates",
+        "get_reference_rates",
+        "get_bond_auction_results",
+        "get_financial_institution_holidays",
+        "search_licensed_entities",
+        "get_licensed_entity",
+        "get_license_document",
+        "BotReport",
+        "ReportHeader",
+        "PolicyRate",
+        "BiborRate",
+        "DepositRate",
+        "LoanRate",
+        "InterbankRate",
+        "RateTypeQuote",
+        "SpotRate",
+        "SwapPoint",
+        "ExchangeRate",
+        "ReferenceRate",
+        "BondAuctionResult",
+        "FinancialInstitutionHoliday",
+        "StatCategory",
+        "StatSeriesInfo",
+        "StatSeries",
+        "StatObservation",
+        "LicensedEntity",
+        "LicensedEntityDetail",
+        "License",
+        "LicenseSearchResult",
+        "LicenseDocument"
+      ],
+      "classes": {},
+      "constants": {
+        "BOT_GATEWAY_URL": {
+          "type": "str",
+          "value": "https://gateway.api.bot.or.th"
+        },
+        "BOT_MANUAL_URL": {
+          "type": "str",
+          "value": "https://portal.api.bot.or.th/manual"
+        },
+        "BOT_PORTAL_URL": {
+          "type": "str",
+          "value": "https://portal.api.bot.or.th"
+        },
+        "BOT_TOKEN_ENV": {
+          "type": "str",
+          "value": "BANK_OF_THAILAND_TOKEN"
+        },
+        "KNOWN_SERIES": {
+          "type": "dict"
+        }
+      },
+      "exports": [
+        "BOT_GATEWAY_URL",
+        "BOT_MANUAL_URL",
+        "BOT_PORTAL_URL",
+        "BOT_TOKEN_ENV",
+        "BankOfThailand",
+        "BiborRate",
+        "BondAuctionResult",
+        "BotClient",
+        "BotProduct",
+        "BotReport",
+        "DebtSecuritiesAuctionService",
+        "DepositRate",
+        "ExchangeRate",
+        "ExchangeRatesService",
+        "FinancialInstitutionHoliday",
+        "HolidaysService",
+        "InterbankRate",
+        "InterestRatesService",
+        "KNOWN_SERIES",
+        "License",
+        "LicenseCheckService",
+        "LicenseDocument",
+        "LicenseSearchResult",
+        "LicensedEntity",
+        "LicensedEntityDetail",
+        "LoanRate",
+        "PolicyRate",
+        "RateTypeQuote",
+        "ReferenceRate",
+        "ReportHeader",
+        "SpotRate",
+        "StatCategory",
+        "StatObservation",
+        "StatSeries",
+        "StatSeriesInfo",
+        "StatisticsService",
+        "SwapPoint",
+        "get_bibor",
+        "get_bond_auction_results",
+        "get_deposit_rates",
+        "get_exchange_rates",
+        "get_financial_institution_holidays",
+        "get_interbank_rates",
+        "get_license_document",
+        "get_licensed_entity",
+        "get_loan_rates",
+        "get_policy_rate",
+        "get_reference_rates",
+        "get_stat_categories",
+        "get_stat_observations",
+        "get_stat_series_list",
+        "read_env_file",
+        "resolve_bot_token",
+        "search_licensed_entities",
+        "search_stat_series"
+      ],
+      "functions": {}
+    },
+    "settfex.services.bot.auth": {
+      "all": null,
+      "classes": {},
+      "constants": {
+        "BOT_MANUAL_URL": {
+          "type": "str",
+          "value": "https://portal.api.bot.or.th/manual"
+        },
+        "BOT_TOKEN_ENV": {
+          "type": "str",
+          "value": "BANK_OF_THAILAND_TOKEN"
+        },
+        "DEFAULT_ENV_FILE": {
+          "type": "str",
+          "value": ".env"
+        }
+      },
+      "exports": [
+        "BOT_MANUAL_URL",
+        "BOT_TOKEN_ENV",
+        "BotProduct",
+        "BotTokenMissingError",
+        "DEFAULT_ENV_FILE",
+        "read_env_file",
+        "resolve_bot_token"
+      ],
+      "functions": {
+        "read_env_file": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "str | Path",
+              "name": "path",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "dict[str, str]"
+        },
+        "resolve_bot_token": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "BotProduct | str",
+              "name": "product",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "token",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str | Path | None",
+              "default": "'.env'",
+              "name": "env_file",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "str"
+        }
+      }
+    },
+    "settfex.services.bot.bank_of_thailand": {
+      "all": null,
+      "classes": {
+        "BankOfThailand": {
+          "bases": [
+            "builtins.object"
+          ],
+          "kind": "class",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "dict[str, str] | None",
+                  "default": "None",
+                  "name": "tokens",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | Path | None",
+                  "default": "'.env'",
+                  "name": "env_file",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "FetcherConfig | None",
+                  "default": "None",
+                  "name": "config",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            }
+          },
+          "mro": [
+            "settfex.services.bot.bank_of_thailand.BankOfThailand",
+            "builtins.object"
+          ],
+          "properties": []
+        }
+      },
+      "constants": {
+        "DEFAULT_ENV_FILE": {
+          "type": "str",
+          "value": ".env"
+        }
+      },
+      "exports": [
+        "BankOfThailand",
+        "DEFAULT_ENV_FILE",
+        "DebtSecuritiesAuctionService",
+        "ExchangeRatesService",
+        "FetcherConfig",
+        "HolidaysService",
+        "InterestRatesService",
+        "LicenseCheckService",
+        "StatisticsService"
+      ],
+      "functions": {}
+    },
+    "settfex.services.bot.client": {
+      "all": null,
+      "classes": {
+        "BotClient": {
+          "bases": [
+            "builtins.object"
+          ],
+          "kind": "class",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "BotProduct | str",
+                  "name": "product",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "token",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | Path | None",
+                  "default": "'.env'",
+                  "name": "env_file",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "FetcherConfig | None",
+                  "default": "None",
+                  "name": "config",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            },
+            "fetch_raw": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "path",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "dict[str, str] | None",
+                  "default": "None",
+                  "name": "params",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "Any"
+            },
+            "get": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "path",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "dict[str, str] | None",
+                  "default": "None",
+                  "name": "params",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "bool",
+                  "default": "True",
+                  "name": "decode_text",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "FetchResponse"
+            },
+            "get_json": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "path",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "dict[str, str] | None",
+                  "default": "None",
+                  "name": "params",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "Any"
+            }
+          },
+          "mro": [
+            "settfex.services.bot.client.BotClient",
+            "builtins.object"
+          ],
+          "properties": []
+        }
+      },
+      "constants": {
+        "BANGKOK": {
+          "type": "ZoneInfo"
+        },
+        "BOT_GATEWAY_URL": {
+          "type": "str",
+          "value": "https://gateway.api.bot.or.th"
+        },
+        "BOT_MANUAL_URL": {
+          "type": "str",
+          "value": "https://portal.api.bot.or.th/manual"
+        },
+        "DEFAULT_ENV_FILE": {
+          "type": "str",
+          "value": ".env"
+        }
+      },
+      "exports": [
+        "Any",
+        "AsyncDataFetcher",
+        "BANGKOK",
+        "BOT_GATEWAY_URL",
+        "BOT_MANUAL_URL",
+        "BotAccessDeniedError",
+        "BotApiError",
+        "BotClient",
+        "BotProduct",
+        "DEFAULT_ENV_FILE",
+        "FetchResponse",
+        "FetcherConfig",
+        "HTTPStatusError",
+        "InvalidDateError",
+        "day_param",
+        "decode_json",
+        "default_day_window",
+        "period_param",
+        "resolve_bot_token",
+        "result_of",
+        "stateless_config"
+      ],
+      "functions": {
+        "day_param": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "date | datetime | str",
+              "name": "value",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str",
+              "name": "name",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "str"
+        },
+        "default_day_window": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "date | datetime | str | None",
+              "name": "start",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "date | datetime | str | None",
+              "name": "end",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "int",
+              "default": "7",
+              "name": "days",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "tuple[str, str]"
+        },
+        "period_param": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "date | datetime | str | int",
+              "name": "value",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str",
+              "name": "name",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str",
+              "name": "frequency",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "str"
+        },
+        "result_of": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "Any",
+              "name": "data",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str",
+              "name": "context",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "dict[str, Any]"
+        },
+        "stateless_config": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "FetcherConfig | None",
+              "name": "config",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "FetcherConfig"
+        }
+      }
+    },
+    "settfex.services.bot.constants": {
+      "all": null,
+      "classes": {
+        "BotProduct": {
+          "bases": [
+            "enum.StrEnum"
+          ],
+          "kind": "enum",
+          "members": {
+            "DEBT_SECURITIES_AUCTION": "debt_securities_auction",
+            "EXCHANGE_RATES": "exchange_rates",
+            "INTEREST_RATES": "interest_rates",
+            "LICENSE_CHECK": "license_check",
+            "OTHERS": "others",
+            "STATISTICS": "statistics"
+          },
+          "methods": {},
+          "mro": [
+            "settfex.services.bot.constants.BotProduct",
+            "enum.StrEnum",
+            "builtins.str",
+            "enum.ReprEnum",
+            "enum.Enum",
+            "builtins.object"
+          ]
+        }
+      },
+      "constants": {
+        "BIBOR_AVERAGE_PATH": {
+          "type": "str",
+          "value": "BIBOR/v2/bibor_avg_rate/"
+        },
+        "BIBOR_PATH": {
+          "type": "str",
+          "value": "BIBOR/v2/bibor_rate/"
+        },
+        "BOND_AUCTION_PATH": {
+          "type": "str",
+          "value": "BondAuction/bond_auction_v2/"
+        },
+        "BOT_GATEWAY_URL": {
+          "type": "str",
+          "value": "https://gateway.api.bot.or.th"
+        },
+        "BOT_MANUAL_URL": {
+          "type": "str",
+          "value": "https://portal.api.bot.or.th/manual"
+        },
+        "BOT_PORTAL_URL": {
+          "type": "str",
+          "value": "https://portal.api.bot.or.th"
+        },
+        "BOT_TOKEN_ENV": {
+          "type": "str",
+          "value": "BANK_OF_THAILAND_TOKEN"
+        },
+        "BOT_TOKEN_ENV_PREFIX": {
+          "type": "str",
+          "value": "BANK_OF_THAILAND_TOKEN_"
+        },
+        "DEPOSIT_RATE_PATH": {
+          "type": "str",
+          "value": "DepositRate/v2/deposit_rate/"
+        },
+        "DEPOSIT_RATE_RANGE_PATH": {
+          "type": "str",
+          "value": "DepositRate/v2/avg_deposit_rate/"
+        },
+        "EXCHANGE_RATE_PATH": {
+          "type": "str",
+          "value": "Stat-ExchangeRate/v2/{frequency}_AVG_EXG_RATE/"
+        },
+        "EXTERNAL_RATE_PATH": {
+          "type": "str",
+          "value": "Stat-ExternalInterestRate/v2/EXT_INT_RATE/"
+        },
+        "FI_HOLIDAYS_PATH": {
+          "type": "str",
+          "value": "financial-institutions-holidays/"
+        },
+        "IMPLIED_RATE_PATH": {
+          "type": "str",
+          "value": "Stat-ThaiBahtImpliedInterestRate/v2/THB_IMPL_INT_RATE/"
+        },
+        "INTERBANK_RATE_PATH": {
+          "type": "str",
+          "value": "Stat-InterbankTransactionRate/v2/INTRBNK_TXN_RATE/"
+        },
+        "KNOWN_SERIES": {
+          "type": "dict"
+        },
+        "LICENSE_DETAIL_PATH": {
+          "type": "str",
+          "value": "BotLicenseCheckAPI/AuthorizedDetail"
+        },
+        "LICENSE_DOCUMENT_PATH": {
+          "type": "str",
+          "value": "BotLicenseCheckAPI/License"
+        },
+        "LICENSE_SEARCH_PATH": {
+          "type": "str",
+          "value": "BotLicenseCheckAPI/SearchAuthorized"
+        },
+        "LOAN_RATE_AVERAGE_PATH": {
+          "type": "str",
+          "value": "LoanRate/v2/avg_loan_rate/"
+        },
+        "LOAN_RATE_PATH": {
+          "type": "str",
+          "value": "LoanRate/v2/loan_rate/"
+        },
+        "POLICY_RATE_PATH": {
+          "type": "str",
+          "value": "PolicyRate/v3/policy_rate/"
+        },
+        "REFERENCE_RATE_PATH": {
+          "type": "str",
+          "value": "Stat-ReferenceRate/v2/{frequency}_REF_RATE/"
+        },
+        "SPOT_RATE_PATH": {
+          "type": "str",
+          "value": "Stat-SpotRate/v2/SPOTRATE/"
+        },
+        "STAT_CATEGORY_LIST_PATH": {
+          "type": "str",
+          "value": "categorylist/category_list/"
+        },
+        "STAT_OBSERVATIONS_PATH": {
+          "type": "str",
+          "value": "observations/"
+        },
+        "STAT_SEARCH_PATH": {
+          "type": "str",
+          "value": "search-series/"
+        },
+        "STAT_SERIES_LIST_PATH": {
+          "type": "str",
+          "value": "categorylist/series_list/"
+        },
+        "SWAP_POINT_PATH": {
+          "type": "str",
+          "value": "Stat-SwapPoint/v2/SWAPPOINT/"
+        }
+      },
+      "exports": [
+        "BIBOR_AVERAGE_PATH",
+        "BIBOR_PATH",
+        "BOND_AUCTION_PATH",
+        "BOT_GATEWAY_URL",
+        "BOT_MANUAL_URL",
+        "BOT_PORTAL_URL",
+        "BOT_TOKEN_ENV",
+        "BOT_TOKEN_ENV_PREFIX",
+        "BotProduct",
+        "DEPOSIT_RATE_PATH",
+        "DEPOSIT_RATE_RANGE_PATH",
+        "EXCHANGE_RATE_PATH",
+        "EXTERNAL_RATE_PATH",
+        "FI_HOLIDAYS_PATH",
+        "IMPLIED_RATE_PATH",
+        "INTERBANK_RATE_PATH",
+        "KNOWN_SERIES",
+        "LICENSE_DETAIL_PATH",
+        "LICENSE_DOCUMENT_PATH",
+        "LICENSE_SEARCH_PATH",
+        "LOAN_RATE_AVERAGE_PATH",
+        "LOAN_RATE_PATH",
+        "POLICY_RATE_PATH",
+        "REFERENCE_RATE_PATH",
+        "SPOT_RATE_PATH",
+        "STAT_CATEGORY_LIST_PATH",
+        "STAT_OBSERVATIONS_PATH",
+        "STAT_SEARCH_PATH",
+        "STAT_SERIES_LIST_PATH",
+        "SWAP_POINT_PATH"
+      ],
+      "functions": {}
+    },
+    "settfex.services.bot.debt_securities": {
+      "all": null,
+      "classes": {
+        "DebtSecuritiesAuctionService": {
+          "bases": [
+            "builtins.object"
+          ],
+          "kind": "class",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "token",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | Path | None",
+                  "default": "'.env'",
+                  "name": "env_file",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "FetcherConfig | None",
+                  "default": "None",
+                  "name": "config",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            },
+            "fetch_auction_results": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "start_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "end_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "BotReport[BondAuctionResult]"
+            },
+            "fetch_raw": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "path",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "dict[str, str] | None",
+                  "default": "None",
+                  "name": "params",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "Any"
+            }
+          },
+          "mro": [
+            "settfex.services.bot.debt_securities.DebtSecuritiesAuctionService",
+            "builtins.object"
+          ],
+          "properties": []
+        }
+      },
+      "constants": {
+        "BOND_AUCTION_PATH": {
+          "type": "str",
+          "value": "BondAuction/bond_auction_v2/"
+        },
+        "DEFAULT_ENV_FILE": {
+          "type": "str",
+          "value": ".env"
+        }
+      },
+      "exports": [
+        "Any",
+        "BOND_AUCTION_PATH",
+        "BondAuctionResult",
+        "BotClient",
+        "BotProduct",
+        "BotReport",
+        "DEFAULT_ENV_FILE",
+        "DebtSecuritiesAuctionService",
+        "FetcherConfig",
+        "build_report",
+        "default_day_window",
+        "get_bond_auction_results"
+      ],
+      "functions": {
+        "get_bond_auction_results": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "DayLike",
+              "default": "None",
+              "name": "start_date",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "DayLike",
+              "default": "None",
+              "name": "end_date",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "token",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | Path | None",
+              "default": "'.env'",
+              "name": "env_file",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "BotReport[BondAuctionResult]"
+        }
+      }
+    },
+    "settfex.services.bot.exchange_rates": {
+      "all": null,
+      "classes": {
+        "ExchangeRatesService": {
+          "bases": [
+            "builtins.object"
+          ],
+          "kind": "class",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "token",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | Path | None",
+                  "default": "'.env'",
+                  "name": "env_file",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "FetcherConfig | None",
+                  "default": "None",
+                  "name": "config",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            },
+            "fetch_exchange_rates": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "Frequency",
+                  "default": "'daily'",
+                  "name": "frequency",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "PeriodLike",
+                  "default": "None",
+                  "name": "start_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "PeriodLike",
+                  "default": "None",
+                  "name": "end_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "currency",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "BotReport[ExchangeRate]"
+            },
+            "fetch_raw": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "path",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "dict[str, str] | None",
+                  "default": "None",
+                  "name": "params",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "Any"
+            },
+            "fetch_reference_rates": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "Frequency",
+                  "default": "'daily'",
+                  "name": "frequency",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "PeriodLike",
+                  "default": "None",
+                  "name": "start_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "PeriodLike",
+                  "default": "None",
+                  "name": "end_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "BotReport[ReferenceRate]"
+            }
+          },
+          "mro": [
+            "settfex.services.bot.exchange_rates.ExchangeRatesService",
+            "builtins.object"
+          ],
+          "properties": []
+        }
+      },
+      "constants": {
+        "DEFAULT_ENV_FILE": {
+          "type": "str",
+          "value": ".env"
+        },
+        "EXCHANGE_RATE_PATH": {
+          "type": "str",
+          "value": "Stat-ExchangeRate/v2/{frequency}_AVG_EXG_RATE/"
+        },
+        "REFERENCE_RATE_PATH": {
+          "type": "str",
+          "value": "Stat-ReferenceRate/v2/{frequency}_REF_RATE/"
+        }
+      },
+      "exports": [
+        "Any",
+        "BotClient",
+        "BotProduct",
+        "BotReport",
+        "DEFAULT_ENV_FILE",
+        "EXCHANGE_RATE_PATH",
+        "ExchangeRate",
+        "ExchangeRatesService",
+        "FetcherConfig",
+        "Frequency",
+        "Literal",
+        "REFERENCE_RATE_PATH",
+        "ReferenceRate",
+        "build_report",
+        "default_day_window",
+        "get_exchange_rates",
+        "get_reference_rates",
+        "period_param"
+      ],
+      "functions": {
+        "get_exchange_rates": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "Frequency",
+              "default": "'daily'",
+              "name": "frequency",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "PeriodLike",
+              "default": "None",
+              "name": "start_date",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "PeriodLike",
+              "default": "None",
+              "name": "end_date",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "currency",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "token",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | Path | None",
+              "default": "'.env'",
+              "name": "env_file",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "BotReport[ExchangeRate]"
+        },
+        "get_reference_rates": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "Frequency",
+              "default": "'daily'",
+              "name": "frequency",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "PeriodLike",
+              "default": "None",
+              "name": "start_date",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "PeriodLike",
+              "default": "None",
+              "name": "end_date",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "token",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | Path | None",
+              "default": "'.env'",
+              "name": "env_file",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "BotReport[ReferenceRate]"
+        }
+      }
+    },
+    "settfex.services.bot.holidays": {
+      "all": null,
+      "classes": {
+        "HolidaysService": {
+          "bases": [
+            "builtins.object"
+          ],
+          "kind": "class",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "token",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | Path | None",
+                  "default": "'.env'",
+                  "name": "env_file",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "FetcherConfig | None",
+                  "default": "None",
+                  "name": "config",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            },
+            "fetch_holidays": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "int | str | None",
+                  "default": "None",
+                  "name": "year",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "BotReport[FinancialInstitutionHoliday]"
+            },
+            "fetch_raw": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "path",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "dict[str, str] | None",
+                  "default": "None",
+                  "name": "params",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "Any"
+            }
+          },
+          "mro": [
+            "settfex.services.bot.holidays.HolidaysService",
+            "builtins.object"
+          ],
+          "properties": []
+        }
+      },
+      "constants": {
+        "BANGKOK": {
+          "type": "ZoneInfo"
+        },
+        "DEFAULT_ENV_FILE": {
+          "type": "str",
+          "value": ".env"
+        },
+        "FI_HOLIDAYS_PATH": {
+          "type": "str",
+          "value": "financial-institutions-holidays/"
+        }
+      },
+      "exports": [
+        "Any",
+        "BANGKOK",
+        "BotClient",
+        "BotProduct",
+        "BotReport",
+        "DEFAULT_ENV_FILE",
+        "FI_HOLIDAYS_PATH",
+        "FetcherConfig",
+        "FinancialInstitutionHoliday",
+        "HolidaysService",
+        "build_report",
+        "get_financial_institution_holidays"
+      ],
+      "functions": {
+        "get_financial_institution_holidays": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "int | str | None",
+              "default": "None",
+              "name": "year",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "token",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | Path | None",
+              "default": "'.env'",
+              "name": "env_file",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "BotReport[FinancialInstitutionHoliday]"
+        }
+      }
+    },
+    "settfex.services.bot.interest_rates": {
+      "all": null,
+      "classes": {
+        "InterestRatesService": {
+          "bases": [
+            "builtins.object"
+          ],
+          "kind": "class",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "token",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | Path | None",
+                  "default": "'.env'",
+                  "name": "env_file",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "FetcherConfig | None",
+                  "default": "None",
+                  "name": "config",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            },
+            "fetch_bibor": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "start_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "end_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "bank",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "BotReport[BiborRate]"
+            },
+            "fetch_bibor_average": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "start_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "end_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "BotReport[BiborRate]"
+            },
+            "fetch_deposit_rate_ranges": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "start_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "end_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "BotReport[DepositRate]"
+            },
+            "fetch_deposit_rates": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "start_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "end_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "BotReport[DepositRate]"
+            },
+            "fetch_external_rates": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "start_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "end_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "rate_type",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "BotReport[RateTypeQuote]"
+            },
+            "fetch_implied_rates": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "start_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "end_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "rate_type",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "BotReport[RateTypeQuote]"
+            },
+            "fetch_interbank_rates": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "start_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "end_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "term",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "BotReport[InterbankRate]"
+            },
+            "fetch_loan_rate_averages": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "start_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "end_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "BotReport[LoanRate]"
+            },
+            "fetch_loan_rates": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "start_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "end_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "BotReport[LoanRate]"
+            },
+            "fetch_policy_rate": {
+              "kind": "coroutine",
+              "params": [],
+              "returns": "PolicyRate"
+            },
+            "fetch_raw": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "path",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "dict[str, str] | None",
+                  "default": "None",
+                  "name": "params",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "Any"
+            },
+            "fetch_spot_rates": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "start_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "end_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "BotReport[SpotRate]"
+            },
+            "fetch_swap_points": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "start_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "DayLike",
+                  "default": "None",
+                  "name": "end_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "term",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "BotReport[SwapPoint]"
+            }
+          },
+          "mro": [
+            "settfex.services.bot.interest_rates.InterestRatesService",
+            "builtins.object"
+          ],
+          "properties": []
+        }
+      },
+      "constants": {
+        "BIBOR_AVERAGE_PATH": {
+          "type": "str",
+          "value": "BIBOR/v2/bibor_avg_rate/"
+        },
+        "BIBOR_PATH": {
+          "type": "str",
+          "value": "BIBOR/v2/bibor_rate/"
+        },
+        "DEFAULT_ENV_FILE": {
+          "type": "str",
+          "value": ".env"
+        },
+        "DEPOSIT_RATE_PATH": {
+          "type": "str",
+          "value": "DepositRate/v2/deposit_rate/"
+        },
+        "DEPOSIT_RATE_RANGE_PATH": {
+          "type": "str",
+          "value": "DepositRate/v2/avg_deposit_rate/"
+        },
+        "EXTERNAL_RATE_PATH": {
+          "type": "str",
+          "value": "Stat-ExternalInterestRate/v2/EXT_INT_RATE/"
+        },
+        "IMPLIED_RATE_PATH": {
+          "type": "str",
+          "value": "Stat-ThaiBahtImpliedInterestRate/v2/THB_IMPL_INT_RATE/"
+        },
+        "INTERBANK_RATE_PATH": {
+          "type": "str",
+          "value": "Stat-InterbankTransactionRate/v2/INTRBNK_TXN_RATE/"
+        },
+        "LOAN_RATE_AVERAGE_PATH": {
+          "type": "str",
+          "value": "LoanRate/v2/avg_loan_rate/"
+        },
+        "LOAN_RATE_PATH": {
+          "type": "str",
+          "value": "LoanRate/v2/loan_rate/"
+        },
+        "POLICY_RATE_PATH": {
+          "type": "str",
+          "value": "PolicyRate/v3/policy_rate/"
+        },
+        "SPOT_RATE_PATH": {
+          "type": "str",
+          "value": "Stat-SpotRate/v2/SPOTRATE/"
+        },
+        "SWAP_POINT_PATH": {
+          "type": "str",
+          "value": "Stat-SwapPoint/v2/SWAPPOINT/"
+        }
+      },
+      "exports": [
+        "Any",
+        "BIBOR_AVERAGE_PATH",
+        "BIBOR_PATH",
+        "BiborRate",
+        "BotClient",
+        "BotProduct",
+        "BotReport",
+        "DEFAULT_ENV_FILE",
+        "DEPOSIT_RATE_PATH",
+        "DEPOSIT_RATE_RANGE_PATH",
+        "DepositRate",
+        "EXTERNAL_RATE_PATH",
+        "FetcherConfig",
+        "IMPLIED_RATE_PATH",
+        "INTERBANK_RATE_PATH",
+        "InterbankRate",
+        "InterestRatesService",
+        "LOAN_RATE_AVERAGE_PATH",
+        "LOAN_RATE_PATH",
+        "LoanRate",
+        "POLICY_RATE_PATH",
+        "PolicyRate",
+        "RateTypeQuote",
+        "SPOT_RATE_PATH",
+        "SWAP_POINT_PATH",
+        "SpotRate",
+        "SwapPoint",
+        "build_report",
+        "default_day_window",
+        "get_bibor",
+        "get_deposit_rates",
+        "get_interbank_rates",
+        "get_loan_rates",
+        "get_policy_rate",
+        "result_of",
+        "validate_or_raise"
+      ],
+      "functions": {
+        "get_bibor": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "DayLike",
+              "default": "None",
+              "name": "start_date",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "DayLike",
+              "default": "None",
+              "name": "end_date",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "bool",
+              "default": "True",
+              "name": "average",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "bank",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "token",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | Path | None",
+              "default": "'.env'",
+              "name": "env_file",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "BotReport[BiborRate]"
+        },
+        "get_deposit_rates": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "DayLike",
+              "default": "None",
+              "name": "start_date",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "DayLike",
+              "default": "None",
+              "name": "end_date",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "ranges",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "token",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | Path | None",
+              "default": "'.env'",
+              "name": "env_file",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "BotReport[DepositRate]"
+        },
+        "get_interbank_rates": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "DayLike",
+              "default": "None",
+              "name": "start_date",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "DayLike",
+              "default": "None",
+              "name": "end_date",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "term",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "token",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | Path | None",
+              "default": "'.env'",
+              "name": "env_file",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "BotReport[InterbankRate]"
+        },
+        "get_loan_rates": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "DayLike",
+              "default": "None",
+              "name": "start_date",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "DayLike",
+              "default": "None",
+              "name": "end_date",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "name": "averages",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "token",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | Path | None",
+              "default": "'.env'",
+              "name": "env_file",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "BotReport[LoanRate]"
+        },
+        "get_policy_rate": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "token",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | Path | None",
+              "default": "'.env'",
+              "name": "env_file",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "PolicyRate"
+        }
+      }
+    },
+    "settfex.services.bot.license_check": {
+      "all": null,
+      "classes": {
+        "LicenseCheckService": {
+          "bases": [
+            "builtins.object"
+          ],
+          "kind": "class",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "token",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | Path | None",
+                  "default": "'.env'",
+                  "name": "env_file",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "FetcherConfig | None",
+                  "default": "None",
+                  "name": "config",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            },
+            "fetch_document": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str | int",
+                  "name": "auth_id",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "str | int",
+                  "name": "doc_id",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "LicenseDocument"
+            },
+            "fetch_entity": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str | int",
+                  "name": "entity_id",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "LicensedEntityDetail"
+            },
+            "fetch_raw": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "path",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "dict[str, str] | None",
+                  "default": "None",
+                  "name": "params",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "Any"
+            },
+            "search": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "keyword",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "int",
+                  "default": "1",
+                  "name": "page",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "int",
+                  "default": "20",
+                  "name": "limit",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "LicenseSearchResult"
+            }
+          },
+          "mro": [
+            "settfex.services.bot.license_check.LicenseCheckService",
+            "builtins.object"
+          ],
+          "properties": []
+        }
+      },
+      "constants": {
+        "DEFAULT_ENV_FILE": {
+          "type": "str",
+          "value": ".env"
+        },
+        "LICENSE_DETAIL_PATH": {
+          "type": "str",
+          "value": "BotLicenseCheckAPI/AuthorizedDetail"
+        },
+        "LICENSE_DOCUMENT_PATH": {
+          "type": "str",
+          "value": "BotLicenseCheckAPI/License"
+        },
+        "LICENSE_SEARCH_PATH": {
+          "type": "str",
+          "value": "BotLicenseCheckAPI/SearchAuthorized"
+        }
+      },
+      "exports": [
+        "Any",
+        "BotClient",
+        "BotProduct",
+        "DEFAULT_ENV_FILE",
+        "FetcherConfig",
+        "LICENSE_DETAIL_PATH",
+        "LICENSE_DOCUMENT_PATH",
+        "LICENSE_SEARCH_PATH",
+        "License",
+        "LicenseCheckService",
+        "LicenseDocument",
+        "LicenseSearchResult",
+        "LicensedEntity",
+        "LicensedEntityDetail",
+        "ResponseParseError",
+        "decode_json",
+        "get_license_document",
+        "get_licensed_entity",
+        "search_licensed_entities",
+        "validate_or_raise"
+      ],
+      "functions": {
+        "get_license_document": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "str | int",
+              "name": "auth_id",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str | int",
+              "name": "doc_id",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "token",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | Path | None",
+              "default": "'.env'",
+              "name": "env_file",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "LicenseDocument"
+        },
+        "get_licensed_entity": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "str | int",
+              "name": "entity_id",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "token",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | Path | None",
+              "default": "'.env'",
+              "name": "env_file",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "LicensedEntityDetail"
+        },
+        "search_licensed_entities": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "str",
+              "name": "keyword",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "int",
+              "default": "1",
+              "name": "page",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "int",
+              "default": "20",
+              "name": "limit",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "token",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | Path | None",
+              "default": "'.env'",
+              "name": "env_file",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "LicenseSearchResult"
+        }
+      }
+    },
+    "settfex.services.bot.models": {
+      "all": null,
+      "classes": {
+        "BiborRate": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "bank_name_eng": {
+              "alias": "bankname_eng",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "bank_name_th": {
+              "alias": "bankname_th",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "nine_months": {
+              "alias": "bibor_9_month",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "one_month": {
+              "alias": "bibor_1_month",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "one_week": {
+              "alias": "bibor_1_week",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "one_year": {
+              "alias": "bibor_1_year",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "overnight": {
+              "alias": "bibor_o_n",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "period": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "default": "None",
+              "required": false
+            },
+            "six_months": {
+              "alias": "bibor_6_month",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "three_months": {
+              "alias": "bibor_3_month",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "two_months": {
+              "alias": "bibor_2_month",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.BiborRate",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "BondAuctionResult": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "accepted_amount_cb": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "accepted_amount_ncb": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "accepted_amount_ncb_cb": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "accepted_highest_yield": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "accepted_lowest_yield": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "auction_date": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "default": "None",
+              "required": false
+            },
+            "auction_name_th": {
+              "alias": "auction_nm_th",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "auction_status": {
+              "alias": "auction_st",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "bid_coverage_ratio": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "cfi_code": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "coupon_rate": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "debt_securities_type": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "grand_total_amount": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "greenshoe_option_amount": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "isin_code": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "issue_amount_ncb_cb": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "maturity_date": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "default": "None",
+              "required": false
+            },
+            "over_allotment_amount": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "pao_amount": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "payment_date": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "default": "None",
+              "required": false
+            },
+            "reopen_from_th": {
+              "alias": "re_open_from_th",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "start_date_of_interest_earning_period": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "default": "None",
+              "required": false
+            },
+            "thaibma_symbol": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "time_to_maturity": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "weighted_average_accepted_yield": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.BondAuctionResult",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "BotModel": {
+          "bases": [
+            "pydantic.main.BaseModel"
+          ],
+          "computed_fields": {},
+          "fields": {},
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "BotReport": {
+          "bases": [
+            "settfex.services.bot.models.BotModel",
+            "typing.Generic"
+          ],
+          "computed_fields": {
+            "has_values": {
+              "annotation": "bool"
+            }
+          },
+          "fields": {
+            "api": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "header": {
+              "alias": null,
+              "annotation": "settfex.services.bot.models.ReportHeader | None",
+              "default": "None",
+              "required": false
+            },
+            "rows": {
+              "alias": null,
+              "annotation": "list[~RowT]",
+              "default_factory": "list",
+              "required": false
+            },
+            "timestamp": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.BotReport",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "typing.Generic",
+            "builtins.object"
+          ],
+          "properties": [
+            "count",
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "DepositRate": {
+          "bases": [
+            "settfex.services.bot.models._BankNamed"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "bank_name_eng": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "bank_name_th": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "bank_type_name_eng": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "bank_type_name_th": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "fixed_12m_max": {
+              "alias": "fix_12_mths_max",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "fixed_12m_min": {
+              "alias": "fix_12_mths_min",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "fixed_24m_max": {
+              "alias": "fix_24_mths_max",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "fixed_24m_min": {
+              "alias": "fix_24_mths_min",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "fixed_3m_max": {
+              "alias": "fix_3_mths_max",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "fixed_3m_min": {
+              "alias": "fix_3_mths_min",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "fixed_6m_max": {
+              "alias": "fix_6_mths_max",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "fixed_6m_min": {
+              "alias": "fix_6_mths_min",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "name_eng": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "name_th": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "period": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "default": "None",
+              "required": false
+            },
+            "saving_max": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "saving_min": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.DepositRate",
+            "settfex.services.bot.models._BankNamed",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "ExchangeRate": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "buying_sight": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "buying_transfer": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "currency_id": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "currency_name_eng": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "currency_name_th": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "mid_rate": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "period": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "selling": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.ExchangeRate",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "FinancialInstitutionHoliday": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "date_thai": {
+              "alias": "DateThai",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "description": {
+              "alias": "HolidayDescription",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "description_th": {
+              "alias": "HolidayDescriptionThai",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "holiday_date": {
+              "alias": "Date",
+              "annotation": "datetime.date | None",
+              "default": "None",
+              "required": false
+            },
+            "weekday": {
+              "alias": "HolidayWeekDay",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "weekday_th": {
+              "alias": "HolidayWeekDayThai",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.FinancialInstitutionHoliday",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "InterbankRate": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "max_rate": {
+              "alias": "max_interest_rate",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "min_rate": {
+              "alias": "min_interest_rate",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "mode_rate": {
+              "alias": "mode_interest_rate",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "period": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "default": "None",
+              "required": false
+            },
+            "term": {
+              "alias": "term_type_name_eng",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "term_th": {
+              "alias": "term_type_name_th",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "weighted_average_rate": {
+              "alias": "weighted_average_interest_rate",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.InterbankRate",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "License": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "code": {
+              "alias": "Code",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "end_date": {
+              "alias": "EndDate",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "id": {
+              "alias": "Id",
+              "annotation": "str",
+              "required": true
+            },
+            "license_no": {
+              "alias": "LcnNo",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "name": {
+              "alias": "Name",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "permit_date": {
+              "alias": "PermitDate",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "start_date": {
+              "alias": "StartDate",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "status_code": {
+              "alias": "StatusCode",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "status_name": {
+              "alias": "StatusName",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.License",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "LicenseDocument": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "auth_id": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "content": {
+              "alias": null,
+              "annotation": "bytes",
+              "required": true
+            },
+            "content_type": {
+              "alias": null,
+              "annotation": "str",
+              "default": "''",
+              "required": false
+            },
+            "doc_id": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "size": {
+              "alias": null,
+              "annotation": "int",
+              "required": true
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.LicenseDocument",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "LicenseSearchResult": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "entities": {
+              "alias": null,
+              "annotation": "list[settfex.services.bot.models.LicensedEntity]",
+              "default_factory": "list",
+              "required": false
+            },
+            "groups": {
+              "alias": null,
+              "annotation": "list[dict[str, Any]]",
+              "default_factory": "list",
+              "required": false
+            },
+            "page": {
+              "alias": null,
+              "annotation": "int | None",
+              "default": "None",
+              "required": false
+            },
+            "per_page": {
+              "alias": null,
+              "annotation": "int | None",
+              "default": "None",
+              "required": false
+            },
+            "total": {
+              "alias": null,
+              "annotation": "int | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.LicenseSearchResult",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "LicensedEntity": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "address": {
+              "alias": "Address",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "authorized_name": {
+              "alias": "AuthorizedName",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "branch_name": {
+              "alias": "BranchName",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "hire_purchase_leasing": {
+              "alias": "HPLSFlag",
+              "annotation": "bool | None",
+              "default": "None",
+              "required": false
+            },
+            "id": {
+              "alias": "Id",
+              "annotation": "str",
+              "required": true
+            },
+            "last_update": {
+              "alias": "LastUpdate",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "lends": {
+              "alias": "LoanFlag",
+              "annotation": "bool | None",
+              "default": "None",
+              "required": false
+            },
+            "takes_deposits": {
+              "alias": "DepositFlag",
+              "annotation": "bool | None",
+              "default": "None",
+              "required": false
+            },
+            "telephone": {
+              "alias": "Telephone",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "type_id": {
+              "alias": "TypeId",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "type_name": {
+              "alias": "TypeName",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.LicensedEntity",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "LicensedEntityDetail": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "branches": {
+              "alias": null,
+              "annotation": "list[dict[str, Any]]",
+              "default_factory": "list",
+              "required": false
+            },
+            "entity": {
+              "alias": null,
+              "annotation": "settfex.services.bot.models.LicensedEntity",
+              "required": true
+            },
+            "licenses": {
+              "alias": null,
+              "annotation": "list[settfex.services.bot.models.License]",
+              "default_factory": "list",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.LicensedEntityDetail",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "LoanRate": {
+          "bases": [
+            "settfex.services.bot.models._BankNamed"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "bank_name_eng": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "bank_name_th": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "bank_type_name_eng": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "bank_type_name_th": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "ceiling_rate": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "creditcard_max": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "creditcard_min": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "default_rate": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "mlr": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "mor": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "mrr": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "name_eng": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "name_th": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "period": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.LoanRate",
+            "settfex.services.bot.models._BankNamed",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "PolicyRate": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "announcement_date": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "default": "None",
+              "required": false
+            },
+            "api": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "effective_datetime": {
+              "alias": null,
+              "annotation": "datetime.datetime | None",
+              "default": "None",
+              "required": false
+            },
+            "news_text_en": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "news_text_th": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "rate": {
+              "alias": "data",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "timestamp": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.PolicyRate",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "RateTypeQuote": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "period": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "default": "None",
+              "required": false
+            },
+            "rate": {
+              "alias": "interest_rate",
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "rate_type": {
+              "alias": "rate_type_name_eng",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "rate_type_th": {
+              "alias": "rate_type_name_th",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.RateTypeQuote",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "ReferenceRate": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "period": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "rate": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.ReferenceRate",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "ReportHeader": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {
+            "is_discontinued": {
+              "annotation": "bool"
+            }
+          },
+          "fields": {
+            "last_updated": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "default": "None",
+              "required": false
+            },
+            "remarks": {
+              "alias": "report_remark",
+              "annotation": "list[dict[str, Any]]",
+              "default_factory": "list",
+              "required": false
+            },
+            "report_name_eng": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "report_name_th": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "sources": {
+              "alias": "report_source_of_data",
+              "annotation": "list[dict[str, Any]]",
+              "default_factory": "list",
+              "required": false
+            },
+            "unit_eng": {
+              "alias": "report_uoq_name_eng",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "unit_th": {
+              "alias": "report_uoq_name_th",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.ReportHeader",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "SpotRate": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "bid_rate": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "offer_rate": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "period": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.SpotRate",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "StatCategory": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "category": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "description_eng": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "description_th": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.StatCategory",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "StatObservation": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "period": {
+              "alias": "period_start",
+              "annotation": "str",
+              "required": true
+            },
+            "value": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.StatObservation",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "StatSeries": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "frequency": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "last_update_date": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "default": "None",
+              "required": false
+            },
+            "observations": {
+              "alias": null,
+              "annotation": "list[settfex.services.bot.models.StatObservation]",
+              "default_factory": "list",
+              "required": false
+            },
+            "series_code": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "series_name_eng": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "series_name_th": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "series_type": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "unit_eng": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "unit_th": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.StatSeries",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "latest",
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "StatSeriesInfo": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "categories": {
+              "alias": null,
+              "annotation": "list[str]",
+              "default_factory": "list",
+              "required": false
+            },
+            "category": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "data_type": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "description_eng": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "description_th": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "frequency": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "frequency_short": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "lag_time": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "last_update_date": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "default": "None",
+              "required": false
+            },
+            "observation_end": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "observation_start": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "release_schedule_eng": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "release_schedule_th": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "seasonal_adjustment_flag": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "series_code": {
+              "alias": null,
+              "annotation": "str",
+              "required": true
+            },
+            "series_name_eng": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "series_name_th": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "source_of_data_eng": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "source_of_data_th": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "unit_eng": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "unit_th": {
+              "alias": null,
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.StatSeriesInfo",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        },
+        "SwapPoint": {
+          "bases": [
+            "settfex.services.bot.models.BotModel"
+          ],
+          "computed_fields": {},
+          "fields": {
+            "bid_rate": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "offer_rate": {
+              "alias": null,
+              "annotation": "float | None",
+              "default": "None",
+              "required": false
+            },
+            "period": {
+              "alias": null,
+              "annotation": "datetime.date | None",
+              "default": "None",
+              "required": false
+            },
+            "term": {
+              "alias": "term_type_name_eng",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            },
+            "term_th": {
+              "alias": "term_type_name_th",
+              "annotation": "str | None",
+              "default": "None",
+              "required": false
+            }
+          },
+          "kind": "pydantic_model",
+          "methods": {},
+          "model_config": {
+            "extra": "ignore",
+            "populate_by_name": true,
+            "str_strip_whitespace": true
+          },
+          "mro": [
+            "settfex.services.bot.models.SwapPoint",
+            "settfex.services.bot.models.BotModel",
+            "pydantic.main.BaseModel",
+            "builtins.object"
+          ],
+          "properties": [
+            "model_extra",
+            "model_fields_set"
+          ]
+        }
+      },
+      "constants": {},
+      "exports": [
+        "Annotated",
+        "Any",
+        "BiborRate",
+        "BondAuctionResult",
+        "BotModel",
+        "BotReport",
+        "Day",
+        "DepositRate",
+        "ExchangeRate",
+        "FinancialInstitutionHoliday",
+        "Flag",
+        "Generic",
+        "InterbankRate",
+        "License",
+        "LicenseDocument",
+        "LicenseSearchResult",
+        "LicensedEntity",
+        "LicensedEntityDetail",
+        "LoanRate",
+        "Number",
+        "PolicyRate",
+        "RateTypeQuote",
+        "ReferenceRate",
+        "ReportHeader",
+        "RowT",
+        "SpotRate",
+        "StatCategory",
+        "StatObservation",
+        "StatSeries",
+        "StatSeriesInfo",
+        "SwapPoint",
+        "Text",
+        "TypeVar",
+        "build_report"
+      ],
+      "functions": {
+        "build_report": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "Any",
+              "name": "data",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "type[RowT]",
+              "name": "row_model",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str",
+              "name": "context",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "BotReport[RowT]"
+        }
+      }
+    },
+    "settfex.services.bot.statistics": {
+      "all": null,
+      "classes": {
+        "StatisticsService": {
+          "bases": [
+            "builtins.object"
+          ],
+          "kind": "class",
+          "methods": {
+            "__init__": {
+              "kind": "function",
+              "params": [
+                {
+                  "annotation": "str | None",
+                  "default": "None",
+                  "name": "token",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "str | Path | None",
+                  "default": "'.env'",
+                  "name": "env_file",
+                  "param_kind": "KEYWORD_ONLY"
+                },
+                {
+                  "annotation": "FetcherConfig | None",
+                  "default": "None",
+                  "name": "config",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "None"
+            },
+            "fetch_categories": {
+              "kind": "coroutine",
+              "params": [],
+              "returns": "list[StatCategory]"
+            },
+            "fetch_observations": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "series_code",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "date | datetime | str",
+                  "name": "start_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "date | datetime | str | None",
+                  "default": "None",
+                  "name": "end_date",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "Literal['asc', 'desc'] | None",
+                  "default": "None",
+                  "name": "sort",
+                  "param_kind": "KEYWORD_ONLY"
+                }
+              ],
+              "returns": "StatSeries"
+            },
+            "fetch_raw": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "path",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                },
+                {
+                  "annotation": "dict[str, str] | None",
+                  "default": "None",
+                  "name": "params",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "Any"
+            },
+            "fetch_series_list": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "category",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "list[StatSeriesInfo]"
+            },
+            "search_series": {
+              "kind": "coroutine",
+              "params": [
+                {
+                  "annotation": "str",
+                  "name": "keyword",
+                  "param_kind": "POSITIONAL_OR_KEYWORD"
+                }
+              ],
+              "returns": "list[StatSeriesInfo]"
+            }
+          },
+          "mro": [
+            "settfex.services.bot.statistics.StatisticsService",
+            "builtins.object"
+          ],
+          "properties": []
+        }
+      },
+      "constants": {
+        "DEFAULT_ENV_FILE": {
+          "type": "str",
+          "value": ".env"
+        },
+        "STAT_CATEGORY_LIST_PATH": {
+          "type": "str",
+          "value": "categorylist/category_list/"
+        },
+        "STAT_OBSERVATIONS_PATH": {
+          "type": "str",
+          "value": "observations/"
+        },
+        "STAT_SEARCH_PATH": {
+          "type": "str",
+          "value": "search-series/"
+        },
+        "STAT_SERIES_LIST_PATH": {
+          "type": "str",
+          "value": "categorylist/series_list/"
+        }
+      },
+      "exports": [
+        "Any",
+        "BotClient",
+        "BotProduct",
+        "BotSeriesNotFoundError",
+        "DEFAULT_ENV_FILE",
+        "FetcherConfig",
+        "Literal",
+        "ResponseParseError",
+        "STAT_CATEGORY_LIST_PATH",
+        "STAT_OBSERVATIONS_PATH",
+        "STAT_SEARCH_PATH",
+        "STAT_SERIES_LIST_PATH",
+        "StatCategory",
+        "StatSeries",
+        "StatSeriesInfo",
+        "StatisticsService",
+        "day_param",
+        "get_stat_categories",
+        "get_stat_observations",
+        "get_stat_series_list",
+        "result_of",
+        "search_stat_series",
+        "validate_or_raise"
+      ],
+      "functions": {
+        "get_stat_categories": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "token",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | Path | None",
+              "default": "'.env'",
+              "name": "env_file",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "list[StatCategory]"
+        },
+        "get_stat_observations": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "str",
+              "name": "series_code",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "date | datetime | str",
+              "name": "start_date",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "date | datetime | str | None",
+              "default": "None",
+              "name": "end_date",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "Literal['asc', 'desc'] | None",
+              "default": "None",
+              "name": "sort",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "token",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | Path | None",
+              "default": "'.env'",
+              "name": "env_file",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "StatSeries"
+        },
+        "get_stat_series_list": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "str",
+              "name": "category",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "token",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | Path | None",
+              "default": "'.env'",
+              "name": "env_file",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "list[StatSeriesInfo]"
+        },
+        "search_stat_series": {
+          "kind": "coroutine",
+          "params": [
+            {
+              "annotation": "str",
+              "name": "keyword",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "name": "token",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "str | Path | None",
+              "default": "'.env'",
+              "name": "env_file",
+              "param_kind": "KEYWORD_ONLY"
+            },
+            {
+              "annotation": "FetcherConfig | None",
+              "default": "None",
+              "name": "config",
+              "param_kind": "KEYWORD_ONLY"
+            }
+          ],
+          "returns": "list[StatSeriesInfo]"
+        }
+      }
     },
     "settfex.services.sec": {
       "all": [
@@ -15364,1582 +19565,6 @@
             }
           ],
           "returns": "settfex.services.tfex.underlying_price.UnderlyingPrice"
-        }
-      }
-    },
-    "settfex.services.thaibma": {
-      "all": [
-        "THAIBMA_BASE_URL",
-        "THAIBMA_FIRST_CURVE_DATE",
-        "BondQuote",
-        "CurvePoint",
-        "HistoryKind",
-        "HistoryRow",
-        "RollbackPolicy",
-        "ThaiBMA",
-        "YieldCurve",
-        "YieldCurveAvailability",
-        "YieldCurveAvailabilityService",
-        "YieldCurveHistory",
-        "YieldCurveHistoryService",
-        "YieldCurveService",
-        "get_bond_yield_history",
-        "get_government_yield_curve",
-        "get_yield_curve_availability",
-        "get_yield_curve_history",
-        "parse_tenor",
-        "tenor_label"
-      ],
-      "classes": {},
-      "constants": {
-        "THAIBMA_BASE_URL": {
-          "type": "str",
-          "value": "https://www.thaibma.or.th"
-        },
-        "THAIBMA_FIRST_CURVE_DATE": {
-          "type": "date"
-        }
-      },
-      "exports": [
-        "BondQuote",
-        "CurvePoint",
-        "HistoryKind",
-        "HistoryRow",
-        "RollbackPolicy",
-        "THAIBMA_BASE_URL",
-        "THAIBMA_FIRST_CURVE_DATE",
-        "ThaiBMA",
-        "YieldCurve",
-        "YieldCurveAvailability",
-        "YieldCurveAvailabilityService",
-        "YieldCurveHistory",
-        "YieldCurveHistoryService",
-        "YieldCurveService",
-        "get_bond_yield_history",
-        "get_government_yield_curve",
-        "get_yield_curve_availability",
-        "get_yield_curve_history",
-        "parse_tenor",
-        "tenor_label"
-      ],
-      "functions": {}
-    },
-    "settfex.services.thaibma.availability": {
-      "all": null,
-      "classes": {
-        "YieldCurveAvailability": {
-          "bases": [
-            "pydantic.main.BaseModel"
-          ],
-          "computed_fields": {},
-          "fields": {
-            "first_date": {
-              "alias": null,
-              "annotation": "datetime.date",
-              "required": true
-            },
-            "last_date": {
-              "alias": null,
-              "annotation": "datetime.date",
-              "required": true
-            },
-            "years": {
-              "alias": null,
-              "annotation": "list[int]",
-              "default_factory": "list",
-              "required": false
-            }
-          },
-          "kind": "pydantic_model",
-          "methods": {
-            "clamp": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "date",
-                  "name": "start",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "date",
-                  "name": "end",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                }
-              ],
-              "returns": "tuple[date, date]"
-            },
-            "covers": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "date | datetime | str",
-                  "name": "day",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                }
-              ],
-              "returns": "bool"
-            }
-          },
-          "model_config": {
-            "populate_by_name": true
-          },
-          "mro": [
-            "settfex.services.thaibma.availability.YieldCurveAvailability",
-            "pydantic.main.BaseModel",
-            "builtins.object"
-          ],
-          "properties": [
-            "model_extra",
-            "model_fields_set",
-            "span_days"
-          ]
-        },
-        "YieldCurveAvailabilityService": {
-          "bases": [
-            "builtins.object"
-          ],
-          "kind": "class",
-          "methods": {
-            "__init__": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "FetcherConfig | None",
-                  "default": "None",
-                  "name": "config",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                }
-              ],
-              "returns": "None"
-            },
-            "fetch_availability": {
-              "kind": "coroutine",
-              "params": [
-                {
-                  "annotation": "bool",
-                  "default": "True",
-                  "name": "include_years",
-                  "param_kind": "KEYWORD_ONLY"
-                }
-              ],
-              "returns": "YieldCurveAvailability"
-            },
-            "fetch_availability_raw": {
-              "kind": "coroutine",
-              "params": [],
-              "returns": "dict[str, Any]"
-            }
-          },
-          "mro": [
-            "settfex.services.thaibma.availability.YieldCurveAvailabilityService",
-            "builtins.object"
-          ],
-          "properties": []
-        }
-      },
-      "constants": {
-        "THAIBMA_AVAIL_ENDPOINT": {
-          "type": "str",
-          "value": "/yieldcurve/avail"
-        },
-        "THAIBMA_AVAIL_YEAR_ENDPOINT": {
-          "type": "str",
-          "value": "/yieldcurve/availyear"
-        },
-        "THAIBMA_BASE_URL": {
-          "type": "str",
-          "value": "https://www.thaibma.or.th"
-        }
-      },
-      "exports": [
-        "Any",
-        "AsyncDataFetcher",
-        "FetcherConfig",
-        "ResponseParseError",
-        "THAIBMA_AVAIL_ENDPOINT",
-        "THAIBMA_AVAIL_YEAR_ENDPOINT",
-        "THAIBMA_BASE_URL",
-        "YieldCurveAvailability",
-        "YieldCurveAvailabilityService",
-        "fetch_thaibma_json",
-        "get_yield_curve_availability",
-        "normalize_curve_date",
-        "stateless_config"
-      ],
-      "functions": {
-        "get_yield_curve_availability": {
-          "kind": "coroutine",
-          "params": [
-            {
-              "annotation": "bool",
-              "default": "True",
-              "name": "include_years",
-              "param_kind": "KEYWORD_ONLY"
-            },
-            {
-              "annotation": "FetcherConfig | None",
-              "default": "None",
-              "name": "config",
-              "param_kind": "KEYWORD_ONLY"
-            }
-          ],
-          "returns": "YieldCurveAvailability"
-        }
-      }
-    },
-    "settfex.services.thaibma.constants": {
-      "all": null,
-      "classes": {},
-      "constants": {
-        "BANGKOK_TZ": {
-          "type": "ZoneInfo"
-        },
-        "THAIBMA_AVAIL_ENDPOINT": {
-          "type": "str",
-          "value": "/yieldcurve/avail"
-        },
-        "THAIBMA_AVAIL_YEAR_ENDPOINT": {
-          "type": "str",
-          "value": "/yieldcurve/availyear"
-        },
-        "THAIBMA_BASE_URL": {
-          "type": "str",
-          "value": "https://www.thaibma.or.th"
-        },
-        "THAIBMA_BOND_HISTORY_ENDPOINT": {
-          "type": "str",
-          "value": "/yieldcurve/getbyyear"
-        },
-        "THAIBMA_DATE_FORMAT": {
-          "type": "str",
-          "value": "%Y-%m-%d"
-        },
-        "THAIBMA_FIRST_BENCHMARK_FLAG_YEAR": {
-          "type": "int",
-          "value": 2013
-        },
-        "THAIBMA_FIRST_CURVE_DATE": {
-          "type": "date"
-        },
-        "THAIBMA_FIRST_SYNTHETIC_FLAG_YEAR": {
-          "type": "int",
-          "value": 2014
-        },
-        "THAIBMA_GOV_CURVE_ENDPOINT": {
-          "type": "str",
-          "value": "/yieldcurve/gov"
-        },
-        "THAIBMA_MAX_YEAR": {
-          "type": "int",
-          "value": 2100
-        },
-        "THAIBMA_MIN_YEAR": {
-          "type": "int",
-          "value": 1999
-        },
-        "THAIBMA_OFFICIAL_API_URL": {
-          "type": "str",
-          "value": "https://apiportal.thaibma.or.th"
-        },
-        "THAIBMA_REFUSAL_MARKERS": {
-          "type": "tuple"
-        },
-        "THAIBMA_SUBYEAR_TENORS": {
-          "type": "dict"
-        },
-        "THAIBMA_TENOR_HISTORY_ENDPOINT": {
-          "type": "str",
-          "value": "/yieldcurve/getintpttm"
-        }
-      },
-      "exports": [
-        "BANGKOK_TZ",
-        "THAIBMA_AVAIL_ENDPOINT",
-        "THAIBMA_AVAIL_YEAR_ENDPOINT",
-        "THAIBMA_BASE_URL",
-        "THAIBMA_BOND_HISTORY_ENDPOINT",
-        "THAIBMA_DATE_FORMAT",
-        "THAIBMA_FIRST_BENCHMARK_FLAG_YEAR",
-        "THAIBMA_FIRST_CURVE_DATE",
-        "THAIBMA_FIRST_SYNTHETIC_FLAG_YEAR",
-        "THAIBMA_GOV_CURVE_ENDPOINT",
-        "THAIBMA_MAX_YEAR",
-        "THAIBMA_MIN_YEAR",
-        "THAIBMA_OFFICIAL_API_URL",
-        "THAIBMA_REFUSAL_MARKERS",
-        "THAIBMA_SUBYEAR_TENORS",
-        "THAIBMA_TENOR_HISTORY_ENDPOINT"
-      ],
-      "functions": {}
-    },
-    "settfex.services.thaibma.history": {
-      "all": null,
-      "classes": {
-        "HistoryKind": {
-          "bases": [
-            "enum.StrEnum"
-          ],
-          "kind": "enum",
-          "members": {
-            "BOND": "bond",
-            "TENOR": "tenor"
-          },
-          "methods": {},
-          "mro": [
-            "settfex.services.thaibma.history.HistoryKind",
-            "enum.StrEnum",
-            "builtins.str",
-            "enum.ReprEnum",
-            "enum.Enum",
-            "builtins.object"
-          ]
-        },
-        "HistoryRow": {
-          "bases": [
-            "pydantic.main.BaseModel"
-          ],
-          "computed_fields": {},
-          "fields": {
-            "as_of": {
-              "alias": null,
-              "annotation": "datetime.date",
-              "required": true
-            },
-            "values": {
-              "alias": null,
-              "annotation": "dict[str, float | None]",
-              "default_factory": "dict",
-              "required": false
-            }
-          },
-          "kind": "pydantic_model",
-          "methods": {
-            "get": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "str",
-                  "name": "column",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                }
-              ],
-              "returns": "float | None"
-            },
-            "has": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "str",
-                  "name": "column",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                }
-              ],
-              "returns": "bool"
-            }
-          },
-          "model_config": {
-            "populate_by_name": true
-          },
-          "mro": [
-            "settfex.services.thaibma.history.HistoryRow",
-            "pydantic.main.BaseModel",
-            "builtins.object"
-          ],
-          "properties": [
-            "model_extra",
-            "model_fields_set"
-          ]
-        },
-        "YieldCurveHistory": {
-          "bases": [
-            "pydantic.main.BaseModel"
-          ],
-          "computed_fields": {},
-          "fields": {
-            "columns": {
-              "alias": null,
-              "annotation": "list[str]",
-              "default_factory": "list",
-              "required": false
-            },
-            "end_date": {
-              "alias": null,
-              "annotation": "datetime.date | None",
-              "default": "None",
-              "required": false
-            },
-            "kind": {
-              "alias": null,
-              "annotation": "settfex.services.thaibma.history.HistoryKind",
-              "required": true
-            },
-            "missing_years": {
-              "alias": null,
-              "annotation": "list[int]",
-              "default_factory": "list",
-              "required": false
-            },
-            "rows": {
-              "alias": null,
-              "annotation": "list[settfex.services.thaibma.history.HistoryRow]",
-              "default_factory": "list",
-              "required": false
-            },
-            "start_date": {
-              "alias": null,
-              "annotation": "datetime.date | None",
-              "default": "None",
-              "required": false
-            },
-            "unavailable_years": {
-              "alias": null,
-              "annotation": "list[int]",
-              "default_factory": "list",
-              "required": false
-            }
-          },
-          "kind": "pydantic_model",
-          "methods": {
-            "columns_by_year": {
-              "kind": "function",
-              "params": [],
-              "returns": "dict[int, list[str]]"
-            },
-            "coverage": {
-              "kind": "function",
-              "params": [],
-              "returns": "dict[str, int]"
-            },
-            "row_for": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "date | datetime | str",
-                  "name": "day",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                }
-              ],
-              "returns": "HistoryRow | None"
-            },
-            "series": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "str",
-                  "name": "column",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "bool",
-                  "default": "True",
-                  "name": "dropna",
-                  "param_kind": "KEYWORD_ONLY"
-                }
-              ],
-              "returns": "list[tuple[date, float | None]]"
-            },
-            "slice": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "date | datetime | str | None",
-                  "default": "None",
-                  "name": "start",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "date | datetime | str | None",
-                  "default": "None",
-                  "name": "end",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                }
-              ],
-              "returns": "YieldCurveHistory"
-            },
-            "to_dataframe": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "str",
-                  "default": "'wide'",
-                  "name": "layout",
-                  "param_kind": "KEYWORD_ONLY"
-                }
-              ],
-              "returns": "pd.DataFrame"
-            },
-            "to_long": {
-              "kind": "function",
-              "params": [],
-              "returns": "list[tuple[date, str, float]]"
-            }
-          },
-          "model_config": {
-            "populate_by_name": true
-          },
-          "mro": [
-            "settfex.services.thaibma.history.YieldCurveHistory",
-            "pydantic.main.BaseModel",
-            "builtins.object"
-          ],
-          "properties": [
-            "count",
-            "dates",
-            "latest",
-            "model_extra",
-            "model_fields_set"
-          ]
-        },
-        "YieldCurveHistoryService": {
-          "bases": [
-            "builtins.object"
-          ],
-          "kind": "class",
-          "methods": {
-            "__init__": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "FetcherConfig | None",
-                  "default": "None",
-                  "name": "config",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                }
-              ],
-              "returns": "None"
-            },
-            "fetch_history": {
-              "kind": "coroutine",
-              "params": [
-                {
-                  "annotation": "date | datetime | str | None",
-                  "default": "None",
-                  "name": "start_date",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "date | datetime | str | None",
-                  "default": "None",
-                  "name": "end_date",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "HistoryKind | str",
-                  "default": "<HistoryKind.TENOR: 'tenor'>",
-                  "name": "kind",
-                  "param_kind": "KEYWORD_ONLY"
-                },
-                {
-                  "annotation": "int",
-                  "default": "5",
-                  "name": "max_concurrency",
-                  "param_kind": "KEYWORD_ONLY"
-                },
-                {
-                  "annotation": "bool",
-                  "default": "True",
-                  "name": "continue_on_error",
-                  "param_kind": "KEYWORD_ONLY"
-                },
-                {
-                  "annotation": "bool",
-                  "default": "True",
-                  "name": "check_availability",
-                  "param_kind": "KEYWORD_ONLY"
-                },
-                {
-                  "annotation": "bool",
-                  "default": "False",
-                  "name": "progress",
-                  "param_kind": "KEYWORD_ONLY"
-                }
-              ],
-              "returns": "YieldCurveHistory"
-            },
-            "fetch_history_raw": {
-              "kind": "coroutine",
-              "params": [
-                {
-                  "annotation": "date | datetime | str | None",
-                  "default": "None",
-                  "name": "start_date",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "date | datetime | str | None",
-                  "default": "None",
-                  "name": "end_date",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "HistoryKind | str",
-                  "default": "<HistoryKind.TENOR: 'tenor'>",
-                  "name": "kind",
-                  "param_kind": "KEYWORD_ONLY"
-                },
-                {
-                  "annotation": "bool",
-                  "default": "True",
-                  "name": "check_availability",
-                  "param_kind": "KEYWORD_ONLY"
-                }
-              ],
-              "returns": "list[dict[str, Any]]"
-            },
-            "fetch_year": {
-              "kind": "coroutine",
-              "params": [
-                {
-                  "annotation": "int",
-                  "name": "year",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "HistoryKind | str",
-                  "default": "<HistoryKind.TENOR: 'tenor'>",
-                  "name": "kind",
-                  "param_kind": "KEYWORD_ONLY"
-                }
-              ],
-              "returns": "YieldCurveHistory"
-            },
-            "fetch_year_raw": {
-              "kind": "coroutine",
-              "params": [
-                {
-                  "annotation": "int",
-                  "name": "year",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "HistoryKind | str",
-                  "default": "<HistoryKind.TENOR: 'tenor'>",
-                  "name": "kind",
-                  "param_kind": "KEYWORD_ONLY"
-                }
-              ],
-              "returns": "list[dict[str, Any]]"
-            }
-          },
-          "mro": [
-            "settfex.services.thaibma.history.YieldCurveHistoryService",
-            "builtins.object"
-          ],
-          "properties": []
-        }
-      },
-      "constants": {
-        "BANGKOK_TZ": {
-          "type": "ZoneInfo"
-        },
-        "DEFAULT_MAX_CONCURRENCY": {
-          "type": "int",
-          "value": 5
-        },
-        "THAIBMA_BASE_URL": {
-          "type": "str",
-          "value": "https://www.thaibma.or.th"
-        },
-        "THAIBMA_BOND_HISTORY_ENDPOINT": {
-          "type": "str",
-          "value": "/yieldcurve/getbyyear"
-        },
-        "THAIBMA_TENOR_HISTORY_ENDPOINT": {
-          "type": "str",
-          "value": "/yieldcurve/getintpttm"
-        },
-        "TYPE_CHECKING": {
-          "type": "bool",
-          "value": false
-        }
-      },
-      "exports": [
-        "Any",
-        "AsyncDataFetcher",
-        "BANGKOK_TZ",
-        "BlockedError",
-        "DEFAULT_MAX_CONCURRENCY",
-        "FetchError",
-        "FetcherConfig",
-        "HistoryKind",
-        "HistoryRow",
-        "ResponseParseError",
-        "THAIBMA_BASE_URL",
-        "THAIBMA_BOND_HISTORY_ENDPOINT",
-        "THAIBMA_TENOR_HISTORY_ENDPOINT",
-        "TYPE_CHECKING",
-        "YieldCurveAvailabilityService",
-        "YieldCurveHistory",
-        "YieldCurveHistoryService",
-        "build_column_union",
-        "fetch_thaibma_json",
-        "get_bond_yield_history",
-        "get_yield_curve_history",
-        "normalize_curve_date",
-        "normalize_year",
-        "sort_tenor_columns",
-        "stateless_config"
-      ],
-      "functions": {
-        "build_column_union": {
-          "kind": "function",
-          "params": [
-            {
-              "annotation": "list[HistoryRow]",
-              "name": "rows",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            },
-            {
-              "annotation": "HistoryKind",
-              "name": "kind",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            }
-          ],
-          "returns": "list[str]"
-        },
-        "get_bond_yield_history": {
-          "kind": "coroutine",
-          "params": [
-            {
-              "annotation": "date | datetime | str | None",
-              "default": "None",
-              "name": "start_date",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            },
-            {
-              "annotation": "date | datetime | str | None",
-              "default": "None",
-              "name": "end_date",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            },
-            {
-              "annotation": "int",
-              "default": "5",
-              "name": "max_concurrency",
-              "param_kind": "KEYWORD_ONLY"
-            },
-            {
-              "annotation": "bool",
-              "default": "True",
-              "name": "check_availability",
-              "param_kind": "KEYWORD_ONLY"
-            },
-            {
-              "annotation": "bool",
-              "default": "False",
-              "name": "progress",
-              "param_kind": "KEYWORD_ONLY"
-            },
-            {
-              "annotation": "FetcherConfig | None",
-              "default": "None",
-              "name": "config",
-              "param_kind": "KEYWORD_ONLY"
-            }
-          ],
-          "returns": "YieldCurveHistory"
-        },
-        "get_yield_curve_history": {
-          "kind": "coroutine",
-          "params": [
-            {
-              "annotation": "date | datetime | str | None",
-              "default": "None",
-              "name": "start_date",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            },
-            {
-              "annotation": "date | datetime | str | None",
-              "default": "None",
-              "name": "end_date",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            },
-            {
-              "annotation": "int",
-              "default": "5",
-              "name": "max_concurrency",
-              "param_kind": "KEYWORD_ONLY"
-            },
-            {
-              "annotation": "bool",
-              "default": "True",
-              "name": "check_availability",
-              "param_kind": "KEYWORD_ONLY"
-            },
-            {
-              "annotation": "bool",
-              "default": "False",
-              "name": "progress",
-              "param_kind": "KEYWORD_ONLY"
-            },
-            {
-              "annotation": "FetcherConfig | None",
-              "default": "None",
-              "name": "config",
-              "param_kind": "KEYWORD_ONLY"
-            }
-          ],
-          "returns": "YieldCurveHistory"
-        }
-      }
-    },
-    "settfex.services.thaibma.thaibma": {
-      "all": null,
-      "classes": {
-        "ThaiBMA": {
-          "bases": [
-            "builtins.object"
-          ],
-          "kind": "class",
-          "methods": {
-            "__init__": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "FetcherConfig | None",
-                  "default": "None",
-                  "name": "config",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                }
-              ],
-              "returns": "None"
-            },
-            "get_availability": {
-              "kind": "coroutine",
-              "params": [
-                {
-                  "annotation": "bool",
-                  "default": "True",
-                  "name": "include_years",
-                  "param_kind": "KEYWORD_ONLY"
-                }
-              ],
-              "returns": "YieldCurveAvailability"
-            },
-            "get_bond_history": {
-              "kind": "coroutine",
-              "params": [
-                {
-                  "annotation": "date | datetime | str | None",
-                  "default": "None",
-                  "name": "start_date",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "date | datetime | str | None",
-                  "default": "None",
-                  "name": "end_date",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "int",
-                  "default": "5",
-                  "name": "max_concurrency",
-                  "param_kind": "KEYWORD_ONLY"
-                },
-                {
-                  "annotation": "bool",
-                  "default": "True",
-                  "name": "check_availability",
-                  "param_kind": "KEYWORD_ONLY"
-                },
-                {
-                  "annotation": "bool",
-                  "default": "False",
-                  "name": "progress",
-                  "param_kind": "KEYWORD_ONLY"
-                }
-              ],
-              "returns": "YieldCurveHistory"
-            },
-            "get_history": {
-              "kind": "coroutine",
-              "params": [
-                {
-                  "annotation": "date | datetime | str | None",
-                  "default": "None",
-                  "name": "start_date",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "date | datetime | str | None",
-                  "default": "None",
-                  "name": "end_date",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "HistoryKind | str",
-                  "default": "<HistoryKind.TENOR: 'tenor'>",
-                  "name": "kind",
-                  "param_kind": "KEYWORD_ONLY"
-                },
-                {
-                  "annotation": "int",
-                  "default": "5",
-                  "name": "max_concurrency",
-                  "param_kind": "KEYWORD_ONLY"
-                },
-                {
-                  "annotation": "bool",
-                  "default": "True",
-                  "name": "check_availability",
-                  "param_kind": "KEYWORD_ONLY"
-                },
-                {
-                  "annotation": "bool",
-                  "default": "False",
-                  "name": "progress",
-                  "param_kind": "KEYWORD_ONLY"
-                }
-              ],
-              "returns": "YieldCurveHistory"
-            },
-            "get_yield_curve": {
-              "kind": "coroutine",
-              "params": [
-                {
-                  "annotation": "date | datetime | str | None",
-                  "default": "None",
-                  "name": "curve_date",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "RollbackPolicy",
-                  "default": "'warn'",
-                  "name": "on_rollback",
-                  "param_kind": "KEYWORD_ONLY"
-                }
-              ],
-              "returns": "YieldCurve"
-            }
-          },
-          "mro": [
-            "settfex.services.thaibma.thaibma.ThaiBMA",
-            "builtins.object"
-          ],
-          "properties": [
-            "availability_service",
-            "curve_service",
-            "history_service"
-          ]
-        }
-      },
-      "constants": {
-        "DEFAULT_MAX_CONCURRENCY": {
-          "type": "int",
-          "value": 5
-        }
-      },
-      "exports": [
-        "DEFAULT_MAX_CONCURRENCY",
-        "FetcherConfig",
-        "HistoryKind",
-        "RollbackPolicy",
-        "ThaiBMA",
-        "YieldCurve",
-        "YieldCurveAvailability",
-        "YieldCurveAvailabilityService",
-        "YieldCurveHistory",
-        "YieldCurveHistoryService",
-        "YieldCurveService"
-      ],
-      "functions": {}
-    },
-    "settfex.services.thaibma.utils": {
-      "all": null,
-      "classes": {},
-      "constants": {
-        "THAIBMA_DATE_FORMAT": {
-          "type": "str",
-          "value": "%Y-%m-%d"
-        },
-        "THAIBMA_MAX_YEAR": {
-          "type": "int",
-          "value": 2100
-        },
-        "THAIBMA_MIN_YEAR": {
-          "type": "int",
-          "value": 1999
-        },
-        "THAIBMA_OFFICIAL_API_URL": {
-          "type": "str",
-          "value": "https://apiportal.thaibma.or.th"
-        },
-        "THAIBMA_REFUSAL_MARKERS": {
-          "type": "tuple"
-        },
-        "THAIBMA_SUBYEAR_TENORS": {
-          "type": "dict"
-        }
-      },
-      "exports": [
-        "Any",
-        "AsyncDataFetcher",
-        "BlockedError",
-        "FetcherConfig",
-        "InvalidDateError",
-        "THAIBMA_DATE_FORMAT",
-        "THAIBMA_MAX_YEAR",
-        "THAIBMA_MIN_YEAR",
-        "THAIBMA_OFFICIAL_API_URL",
-        "THAIBMA_REFUSAL_MARKERS",
-        "THAIBMA_SUBYEAR_TENORS",
-        "build_thaibma_headers",
-        "decode_json",
-        "fetch_thaibma_json",
-        "format_curve_date",
-        "looks_like_thaibma_refusal",
-        "normalize_curve_date",
-        "normalize_year",
-        "parse_tenor",
-        "raise_for_status",
-        "sort_tenor_columns",
-        "stateless_config",
-        "tenor_label",
-        "tenor_sort_key"
-      ],
-      "functions": {
-        "build_thaibma_headers": {
-          "kind": "function",
-          "params": [],
-          "returns": "dict[str, str]"
-        },
-        "fetch_thaibma_json": {
-          "kind": "coroutine",
-          "params": [
-            {
-              "annotation": "AsyncDataFetcher",
-              "name": "fetcher",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            },
-            {
-              "annotation": "str",
-              "name": "url",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            },
-            {
-              "annotation": "str",
-              "name": "context",
-              "param_kind": "KEYWORD_ONLY"
-            }
-          ],
-          "returns": "Any"
-        },
-        "format_curve_date": {
-          "kind": "function",
-          "params": [
-            {
-              "annotation": "date",
-              "name": "day",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            }
-          ],
-          "returns": "str"
-        },
-        "looks_like_thaibma_refusal": {
-          "kind": "function",
-          "params": [
-            {
-              "annotation": "bytes",
-              "name": "content",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            }
-          ],
-          "returns": "bool"
-        },
-        "normalize_curve_date": {
-          "kind": "function",
-          "params": [
-            {
-              "annotation": "date | datetime | str",
-              "name": "value",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            }
-          ],
-          "returns": "date"
-        },
-        "normalize_year": {
-          "kind": "function",
-          "params": [
-            {
-              "annotation": "int",
-              "name": "year",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            }
-          ],
-          "returns": "int"
-        },
-        "parse_tenor": {
-          "kind": "function",
-          "params": [
-            {
-              "annotation": "str",
-              "name": "label",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            }
-          ],
-          "returns": "float"
-        },
-        "sort_tenor_columns": {
-          "kind": "function",
-          "params": [
-            {
-              "annotation": "list[str]",
-              "name": "labels",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            }
-          ],
-          "returns": "list[str]"
-        },
-        "stateless_config": {
-          "kind": "function",
-          "params": [
-            {
-              "annotation": "FetcherConfig | None",
-              "name": "config",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            }
-          ],
-          "returns": "FetcherConfig"
-        },
-        "tenor_label": {
-          "kind": "function",
-          "params": [
-            {
-              "annotation": "float",
-              "name": "tenor_years",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            }
-          ],
-          "returns": "str"
-        },
-        "tenor_sort_key": {
-          "kind": "function",
-          "params": [
-            {
-              "annotation": "str",
-              "name": "label",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            }
-          ],
-          "returns": "float"
-        }
-      }
-    },
-    "settfex.services.thaibma.yield_curve": {
-      "all": null,
-      "classes": {
-        "BondQuote": {
-          "bases": [
-            "pydantic.main.BaseModel"
-          ],
-          "computed_fields": {},
-          "fields": {
-            "as_of": {
-              "alias": "Asof",
-              "annotation": "datetime.date",
-              "required": true
-            },
-            "change_bps": {
-              "alias": "Change",
-              "annotation": "float | None",
-              "default": "None",
-              "required": false
-            },
-            "group_order": {
-              "alias": "GroupOrder",
-              "annotation": "int",
-              "required": true
-            },
-            "is_benchmark": {
-              "alias": "IsBenchmark",
-              "annotation": "bool",
-              "required": true
-            },
-            "is_plot": {
-              "alias": "IsPlot",
-              "annotation": "bool",
-              "required": true
-            },
-            "is_synthetic": {
-              "alias": "IsSynthetic",
-              "annotation": "bool",
-              "required": true
-            },
-            "maturity_date": {
-              "alias": "MaturityDate",
-              "annotation": "datetime.date | None",
-              "default": "None",
-              "required": false
-            },
-            "spread": {
-              "alias": "Spread",
-              "annotation": "float",
-              "required": true
-            },
-            "symbol": {
-              "alias": "Symbol",
-              "annotation": "str",
-              "required": true
-            },
-            "ttm_years": {
-              "alias": "Ttm",
-              "annotation": "float",
-              "required": true
-            },
-            "yield_percent": {
-              "alias": "Yield",
-              "annotation": "float",
-              "required": true
-            }
-          },
-          "kind": "pydantic_model",
-          "methods": {},
-          "model_config": {
-            "populate_by_name": true,
-            "str_strip_whitespace": true
-          },
-          "mro": [
-            "settfex.services.thaibma.yield_curve.BondQuote",
-            "pydantic.main.BaseModel",
-            "builtins.object"
-          ],
-          "properties": [
-            "change_percent",
-            "is_tbill",
-            "model_extra",
-            "model_fields_set"
-          ]
-        },
-        "CurvePoint": {
-          "bases": [
-            "pydantic.main.BaseModel"
-          ],
-          "computed_fields": {},
-          "fields": {
-            "as_of": {
-              "alias": "Asof",
-              "annotation": "datetime.date",
-              "required": true
-            },
-            "tenor_years": {
-              "alias": "X",
-              "annotation": "float",
-              "required": true
-            },
-            "yield_percent": {
-              "alias": "Y",
-              "annotation": "float",
-              "required": true
-            }
-          },
-          "kind": "pydantic_model",
-          "methods": {},
-          "model_config": {
-            "populate_by_name": true
-          },
-          "mro": [
-            "settfex.services.thaibma.yield_curve.CurvePoint",
-            "pydantic.main.BaseModel",
-            "builtins.object"
-          ],
-          "properties": [
-            "model_extra",
-            "model_fields_set",
-            "tenor_label"
-          ]
-        },
-        "YieldCurve": {
-          "bases": [
-            "pydantic.main.BaseModel"
-          ],
-          "computed_fields": {
-            "is_rolled_back": {
-              "annotation": "bool"
-            },
-            "rollback_days": {
-              "annotation": "int | None"
-            }
-          },
-          "fields": {
-            "as_of": {
-              "alias": null,
-              "annotation": "datetime.date",
-              "required": true
-            },
-            "points": {
-              "alias": null,
-              "annotation": "list[settfex.services.thaibma.yield_curve.CurvePoint]",
-              "default_factory": "list",
-              "required": false
-            },
-            "quotes": {
-              "alias": null,
-              "annotation": "list[settfex.services.thaibma.yield_curve.BondQuote]",
-              "default_factory": "list",
-              "required": false
-            },
-            "requested_date": {
-              "alias": null,
-              "annotation": "datetime.date | None",
-              "default": "None",
-              "required": false
-            }
-          },
-          "kind": "pydantic_model",
-          "methods": {
-            "interpolate": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "float",
-                  "name": "tenor_years",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                }
-              ],
-              "returns": "float"
-            },
-            "quote": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "str",
-                  "name": "symbol",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                }
-              ],
-              "returns": "BondQuote | None"
-            },
-            "slope_bps": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "str | float",
-                  "name": "short_tenor",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "str | float",
-                  "name": "long_tenor",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                }
-              ],
-              "returns": "float"
-            },
-            "to_dataframe": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "Literal['curve', 'quotes']",
-                  "default": "'curve'",
-                  "name": "kind",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                }
-              ],
-              "returns": "pd.DataFrame"
-            },
-            "to_dict": {
-              "kind": "function",
-              "params": [],
-              "returns": "dict[str, float]"
-            },
-            "yield_at": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "str | float",
-                  "name": "tenor",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                }
-              ],
-              "returns": "float | None"
-            }
-          },
-          "model_config": {
-            "populate_by_name": true
-          },
-          "mro": [
-            "settfex.services.thaibma.yield_curve.YieldCurve",
-            "pydantic.main.BaseModel",
-            "builtins.object"
-          ],
-          "properties": [
-            "benchmarks",
-            "bills",
-            "bonds",
-            "count",
-            "model_extra",
-            "model_fields_set",
-            "tenor_labels",
-            "tenors"
-          ]
-        },
-        "YieldCurveService": {
-          "bases": [
-            "builtins.object"
-          ],
-          "kind": "class",
-          "methods": {
-            "__init__": {
-              "kind": "function",
-              "params": [
-                {
-                  "annotation": "FetcherConfig | None",
-                  "default": "None",
-                  "name": "config",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                }
-              ],
-              "returns": "None"
-            },
-            "fetch_curve": {
-              "kind": "coroutine",
-              "params": [
-                {
-                  "annotation": "date | datetime | str | None",
-                  "default": "None",
-                  "name": "curve_date",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "RollbackPolicy",
-                  "default": "'warn'",
-                  "name": "on_rollback",
-                  "param_kind": "KEYWORD_ONLY"
-                }
-              ],
-              "returns": "YieldCurve"
-            },
-            "fetch_curve_raw": {
-              "kind": "coroutine",
-              "params": [
-                {
-                  "annotation": "date | datetime | str | None",
-                  "default": "None",
-                  "name": "curve_date",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                }
-              ],
-              "returns": "dict[str, Any]"
-            },
-            "fetch_curves": {
-              "kind": "coroutine",
-              "params": [
-                {
-                  "annotation": "list[date | datetime | str]",
-                  "name": "curve_dates",
-                  "param_kind": "POSITIONAL_OR_KEYWORD"
-                },
-                {
-                  "annotation": "RollbackPolicy",
-                  "default": "'allow'",
-                  "name": "on_rollback",
-                  "param_kind": "KEYWORD_ONLY"
-                },
-                {
-                  "annotation": "int",
-                  "default": "5",
-                  "name": "max_concurrency",
-                  "param_kind": "KEYWORD_ONLY"
-                },
-                {
-                  "annotation": "bool",
-                  "default": "True",
-                  "name": "continue_on_error",
-                  "param_kind": "KEYWORD_ONLY"
-                }
-              ],
-              "returns": "list[YieldCurve]"
-            }
-          },
-          "mro": [
-            "settfex.services.thaibma.yield_curve.YieldCurveService",
-            "builtins.object"
-          ],
-          "properties": []
-        }
-      },
-      "constants": {
-        "BANGKOK_TZ": {
-          "type": "ZoneInfo"
-        },
-        "DEFAULT_MAX_CONCURRENCY": {
-          "type": "int",
-          "value": 5
-        },
-        "THAIBMA_BASE_URL": {
-          "type": "str",
-          "value": "https://www.thaibma.or.th"
-        },
-        "THAIBMA_FIRST_CURVE_DATE": {
-          "type": "date"
-        },
-        "THAIBMA_GOV_CURVE_ENDPOINT": {
-          "type": "str",
-          "value": "/yieldcurve/gov"
-        },
-        "TYPE_CHECKING": {
-          "type": "bool",
-          "value": false
-        }
-      },
-      "exports": [
-        "Any",
-        "AsyncDataFetcher",
-        "BANGKOK_TZ",
-        "BlockedError",
-        "BondQuote",
-        "CurvePoint",
-        "DEFAULT_MAX_CONCURRENCY",
-        "FetchError",
-        "FetcherConfig",
-        "Literal",
-        "RollbackPolicy",
-        "StaleDataError",
-        "THAIBMA_BASE_URL",
-        "THAIBMA_FIRST_CURVE_DATE",
-        "THAIBMA_GOV_CURVE_ENDPOINT",
-        "TYPE_CHECKING",
-        "YieldCurve",
-        "YieldCurveService",
-        "bangkok_today",
-        "fetch_thaibma_json",
-        "format_curve_date",
-        "get_government_yield_curve",
-        "normalize_curve_date",
-        "stateless_config",
-        "tenor_label",
-        "validate_or_raise"
-      ],
-      "functions": {
-        "bangkok_today": {
-          "kind": "function",
-          "params": [],
-          "returns": "date"
-        },
-        "get_government_yield_curve": {
-          "kind": "coroutine",
-          "params": [
-            {
-              "annotation": "date | datetime | str | None",
-              "default": "None",
-              "name": "curve_date",
-              "param_kind": "POSITIONAL_OR_KEYWORD"
-            },
-            {
-              "annotation": "RollbackPolicy",
-              "default": "'warn'",
-              "name": "on_rollback",
-              "param_kind": "KEYWORD_ONLY"
-            },
-            {
-              "annotation": "FetcherConfig | None",
-              "default": "None",
-              "name": "config",
-              "param_kind": "KEYWORD_ONLY"
-            }
-          ],
-          "returns": "YieldCurve"
         }
       }
     },
