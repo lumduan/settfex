@@ -343,6 +343,7 @@ being wrong, so none of them will announce itself.
 | **A market-wide sign scan via index compositions sees COMMON STOCKS only** (929 of 3,954 symbols) | suspended warrants/DWs/DRs are invisible to it — check those with `get_stock_info()` |
 | **A SET financial statement's `download_url` is the same zip as SEC's `Download?FILEID=`** (identical bytes), but the SET API lists only **five periods** | for older periods or other filing types use `get_sec_documents()`. While the SEC listing raises `BotChallengeError`, the SET link still serves the latest statements |
 | **A BOT table can answer 200 with rows but no data**: external rates, spot rate, swap points and THB implied rates have been empty since 2024-12-27 | check `report.has_values`, not `len(report)` |
+| **BOT rates are in PERCENT, not fractions**: BIBOR `1.15` is 1.15 %; a THOR or yield `StatObservation.value` of `0.99566` is 0.99566 % (`StatSeries.unit_eng == "Percent"`) | divide by 100 before using it as a fraction |
 | **BOT government T-bill/bond yields are MONTHLY averages**, and `search_stat_series` lists discontinued codes first | for a daily short rate use THOR (`KNOWN_SERIES["thor"]`) or BIBOR; check a code's `observation_end` |
 | **An SEC download can come from SET (0.29.0):** when SEC cannot serve a `dat/news/` or `dat/f56/` file, SET's identical copy is fetched and `DownloadedFile.source == "set_weblink"` | quote `source` / `fallback_reason` when provenance matters; pass `set_fallback=False` if the bytes must come from SEC |
 

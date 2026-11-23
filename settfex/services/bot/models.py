@@ -133,7 +133,10 @@ class PolicyRate(BotModel):
 
 
 class BiborRate(BotModel):
-    """One day of BIBOR, for one bank (``bibor_rate``) or the average (``bibor_avg_rate``)."""
+    """One day of BIBOR, for one bank (``bibor_rate``) or the average (``bibor_avg_rate``).
+
+    Every tenor is in PERCENT per annum: ``1.15`` means 1.15 % (a fraction of 0.0115).
+    """
 
     period: Day = None
     bank_name_th: Text = Field(default=None, alias="bankname_th")
@@ -344,14 +347,23 @@ class StatSeriesInfo(BotModel):
 
 
 class StatObservation(BotModel):
-    """One value of a series; ``period`` is BOT's text (``2026-11-23``, ``2026-10``...)."""
+    """One value of a series; ``period`` is BOT's text (``2026-11-23``, ``2026-10``...).
+
+    ``value`` is in the series' unit, :attr:`StatSeries.unit_eng`. For THOR, the THOR averages
+    and the government yields that unit is ``"Percent"``: ``0.99566`` means 0.99566 %, so divide
+    by 100 for a fraction (0.0099566).
+    """
 
     period: str = Field(alias="period_start")
     value: Number = None
 
 
 class StatSeries(BotModel):
-    """A series with its observations over the requested window."""
+    """A series with its observations over the requested window.
+
+    ``unit_eng`` / ``unit_th`` give the unit of every observation's ``value``: ``"Percent"`` for
+    rates (a value of ``0.99566`` is 0.99566 %, not a fraction).
+    """
 
     series_code: str
     series_name_th: Text = None

@@ -122,6 +122,14 @@ Most calls return a `BotReport[Row]`:
 - `rows`: the product's row model.
 - a computed `has_values`: some row carries a number.
 
+**Units: rates are in PERCENT, not fractions.**
+- Interest rates (policy rate, BIBOR, deposit, loan, interbank) are percent per annum: `1.15`
+  means 1.15 %.
+- A Statistics `value` is in its series' `unit_eng`, which is `"Percent"` for THOR, the THOR
+  averages and the government yields: `0.99566` means 0.99566 %, i.e. `0.0099566` as a fraction.
+- Exchange rates are baht per unit of foreign currency.
+- **If your code expects a fraction, divide by 100.** A missed `/100` is the classic bug here.
+
 **Every BOT value arrives as a string, and a missing one as `""`.**
 - Numeric fields are `float | None` (`""` and `"-"` become `None`).
 - Text stays text: `BondAuctionResult.coupon_rate` is `'2.44'`, `'Discount'` or

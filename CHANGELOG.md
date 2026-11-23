@@ -136,6 +136,8 @@ use and compare the fields you read. That is how the verification above was done
     `docs/settfex/services/bot/bank_of_thailand.md`.
   - Four Interest Rates tables have been empty since 2024-12-27 and still answer 200;
     `has_values` says so.
+- **Rates are in percent, not fractions.** BIBOR `1.15` is 1.15 %; a THOR or yield
+  `StatObservation.value` of `0.99566` is 0.99566 % (the series' `unit_eng` is `"Percent"`).
 
 ### Migration
 
