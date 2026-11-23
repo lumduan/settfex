@@ -101,8 +101,10 @@ class BlockedError(ResponseParseError, UnexpectedPageError):
             are credentials and are never kept. See
             :attr:`settfex.exceptions.UnexpectedPageError.set_cookie_names`.
 
-    Only the BIG-IP ASM page observed on SEC is recognised (see :func:`looks_like_block_page`).
-    No SET/Incapsula block page has been captured, so none is classified.
+    Only the BIG-IP ASM page observed on SEC is recognised here (see
+    :func:`looks_like_block_page`). No SET/Incapsula block page has been captured, so none is
+    classified. Since 0.30.1 the ThaiBMA service also raises this for ThaiBMA's "automated access
+    is not permitted" page (``settfex.services.thaibma.utils.looks_like_thaibma_refusal``).
     """
 
     def __init__(

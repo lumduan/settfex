@@ -273,6 +273,12 @@ async def test_live_sec_executive_trade_report():
     _record("sec_executive_trade_report", report, elapsed)
 
 
+@pytest.mark.skip(
+    reason=(
+        "www.thaibma.or.th forbids automated access since ~2026-11-21 (HTTP 403, 'Automated access "
+        "is not permitted'); running this probe would be a violation, not a check (0.30.1)"
+    )
+)
 @pytest.mark.asyncio
 async def test_live_thaibma_yield_curve():
     t0 = time.perf_counter()

@@ -15637,6 +15637,13 @@
           "type": "int",
           "value": 1999
         },
+        "THAIBMA_OFFICIAL_API_URL": {
+          "type": "str",
+          "value": "https://apiportal.thaibma.or.th"
+        },
+        "THAIBMA_REFUSAL_MARKERS": {
+          "type": "tuple"
+        },
         "THAIBMA_SUBYEAR_TENORS": {
           "type": "dict"
         },
@@ -15658,6 +15665,8 @@
         "THAIBMA_GOV_CURVE_ENDPOINT",
         "THAIBMA_MAX_YEAR",
         "THAIBMA_MIN_YEAR",
+        "THAIBMA_OFFICIAL_API_URL",
+        "THAIBMA_REFUSAL_MARKERS",
         "THAIBMA_SUBYEAR_TENORS",
         "THAIBMA_TENOR_HISTORY_ENDPOINT"
       ],
@@ -16352,6 +16361,13 @@
           "type": "int",
           "value": 1999
         },
+        "THAIBMA_OFFICIAL_API_URL": {
+          "type": "str",
+          "value": "https://apiportal.thaibma.or.th"
+        },
+        "THAIBMA_REFUSAL_MARKERS": {
+          "type": "tuple"
+        },
         "THAIBMA_SUBYEAR_TENORS": {
           "type": "dict"
         }
@@ -16359,16 +16375,20 @@
       "exports": [
         "Any",
         "AsyncDataFetcher",
+        "BlockedError",
         "FetcherConfig",
         "InvalidDateError",
         "THAIBMA_DATE_FORMAT",
         "THAIBMA_MAX_YEAR",
         "THAIBMA_MIN_YEAR",
+        "THAIBMA_OFFICIAL_API_URL",
+        "THAIBMA_REFUSAL_MARKERS",
         "THAIBMA_SUBYEAR_TENORS",
         "build_thaibma_headers",
         "decode_json",
         "fetch_thaibma_json",
         "format_curve_date",
+        "looks_like_thaibma_refusal",
         "normalize_curve_date",
         "normalize_year",
         "parse_tenor",
@@ -16415,6 +16435,17 @@
             }
           ],
           "returns": "str"
+        },
+        "looks_like_thaibma_refusal": {
+          "kind": "function",
+          "params": [
+            {
+              "annotation": "bytes",
+              "name": "content",
+              "param_kind": "POSITIONAL_OR_KEYWORD"
+            }
+          ],
+          "returns": "bool"
         },
         "normalize_curve_date": {
           "kind": "function",

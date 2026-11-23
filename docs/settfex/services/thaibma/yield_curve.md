@@ -1,5 +1,23 @@
 # ThaiBMA Government Bond Yield Curve (www.thaibma.or.th)
 
+> ### 🔴 Not usable since about 2026-11-21: ThaiBMA forbids automated access
+>
+> **What the website answers:** `www.thaibma.or.th` now answers every automated request with
+> HTTP 403 and a page reading *"Automated access is not permitted. www.thaibma.or.th is provided
+> for viewing through a web browser only. … For system-to-system access to data, please use the
+> ThaiBMA API service at https://apiportal.thaibma.or.th"*.
+> - Observed from two networks, on settfex 0.27.0 and 0.30.0 alike. The last success seen was
+>   2026-11-20 18:05 ICT.
+> - **These are the data owner's terms, and settfex does not work around them.** It does not
+>   change headers, keep cookies, try other endpoints or drive a browser.
+>
+> **What settfex does since 0.30.1:** it recognises the page and raises `BlockedError` (a
+> `FetchError`) with that explanation, and the batches stop at the first one. **Retrying cannot
+> help.**
+>
+> **What to do instead:** use ThaiBMA's official API, under ThaiBMA's own terms, or another lawful
+> source. The rest of this page documents the service as it worked until 2026-11-20.
+
 ## Overview
 
 Fetches the **official Thai government bond yield curve** published by ThaiBMA (the Thai Bond
