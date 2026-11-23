@@ -79,7 +79,33 @@ use and compare the fields you read. That is how the verification above was done
 
 ## [Unreleased]
 
+## [0.30.1] - 2026-11-23
+
+**ThaiBMA has started refusing automated access, and settfex now says so.** Since about
+2026-11-21, `www.thaibma.or.th` answers every automated request with HTTP 403 and a page reading
+"Automated access is not permitted … please use the ThaiBMA API service at
+https://apiportal.thaibma.or.th". These are the data owner's terms, so settfex does not work around
+them. The ThaiBMA service cannot fetch data any more; this release makes that clear instead of
+leaving a bare "HTTP 403".
+
+### Fixed
+
+- **The ThaiBMA service raises `BlockedError` for the refusal page, naming the prohibition and the
+  official API.** It used to raise a bare `FetchError("… HTTP 403 …")`.
+  - **Detection:** `looks_like_thaibma_refusal()` matches the page's own sentence, in English or
+    Thai.
+  - **Compatible:** `BlockedError` is a strict subclass of `FetchError`, so every existing handler
+    still catches it.
+  - **Batches stop:** `fetch_curves` and the history calls stop at the first one, as they do for
+    any block page.
+  - **Evidence kept:** the page is kept on `exc.body`.
+  - **Other statuses:** any other 403 is still a plain `FetchError`.
+
 ### Documentation
+
+- **A "not usable since about 2026-11-21" notice** in the ThaiBMA doc, the README, AGENTS.md and
+  CLAUDE.md. The live ThaiBMA integration probe is **skipped**: running it would be automated
+  access the site forbids.
 
 - **`FinancialStatement.status` is localized by `lang`; the quarter code is not.** The field
   described itself as "Audited/Reviewed/Unaudited", as if English-only.

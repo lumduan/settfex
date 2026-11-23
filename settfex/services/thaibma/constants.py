@@ -75,3 +75,16 @@ THAIBMA_SUBYEAR_TENORS: dict[str, float] = {
     "3M": 91 / 365,  # 0.249315...
     "6M": 182 / 365,  # 0.498630...
 }
+
+
+# ThaiBMA's refusal of automated access (0.30.1). Since a change between 2026-11-20 18:05 and
+# 2026-11-23 09:18 ICT, www.thaibma.or.th answers settfex (any version, any node) with HTTP 403 from
+# Cloudflare and a bilingual page reading "Automated access is not permitted ... please use the
+# ThaiBMA API service at https://apiportal.thaibma.or.th". It is the data owner's TERMS, not a
+# transient block, and settfex does not work around it. Both markers must appear; they are matched
+# on bytes, so the Thai half alone also counts.
+THAIBMA_REFUSAL_MARKERS: tuple[bytes, ...] = (
+    b"Automated access is not permitted",
+    "ไม่อนุญาตให้ดึงข้อมูลด้วยโปรแกรมอัตโนมัติ".encode(),
+)
+THAIBMA_OFFICIAL_API_URL = "https://apiportal.thaibma.or.th"

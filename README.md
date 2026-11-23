@@ -203,7 +203,7 @@ Want to dig deeper? Check out our detailed guides:
 
 ### ThaiBMA Services (www.thaibma.or.th)
 
-- **[Government Bond Yield Curve](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/thaibma/yield_curve.md)** - The official Thai government bond yield curve for any date back to 1999, the bond quotes behind it, and daily history at **one request per year** (the whole 27-year record in 28 requests)
+- **[Government Bond Yield Curve](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/thaibma/yield_curve.md)** - 🔴 *not usable since ~2026-11-21: ThaiBMA forbids automated access (`BlockedError` since 0.30.1)*. The official Thai government bond yield curve for any date back to 1999, the bond quotes behind it, and daily history at **one request per year** (the whole 27-year record in 28 requests)
 
 ### Utilities
 
@@ -785,6 +785,12 @@ print(f"Can trade {max_contracts} contracts with {capital:,.0f} THB")
 ---
 
 ### ThaiBMA (Thai Bond Market Association)
+
+> 🔴 **Not usable since about 2026-11-21.** `www.thaibma.or.th` now forbids automated access: every
+> request gets HTTP 403 and a notice pointing at ThaiBMA's official API
+> (https://apiportal.thaibma.or.th). Since 0.30.1 settfex raises `BlockedError` with that
+> explanation and does not work around it. The examples below show how the service worked until
+> 2026-11-20.
 
 #### 🏦 Get the Government Bond Yield Curve
 

@@ -28,10 +28,17 @@ from settfex.services.thaibma.constants import (
     THAIBMA_DATE_FORMAT,
     THAIBMA_MAX_YEAR,
     THAIBMA_MIN_YEAR,
+    THAIBMA_OFFICIAL_API_URL,
+    THAIBMA_REFUSAL_MARKERS,
     THAIBMA_SUBYEAR_TENORS,
 )
 from settfex.utils.data_fetcher import AsyncDataFetcher, FetcherConfig
-from settfex.utils.parsing import decode_json
+from settfex.utils.parsing import (
+    _MAX_BLOCK_PAGE_BYTES,
+    BlockedError,
+    _page_evidence,
+    decode_json,
+)
 
 # Tolerance for matching a wire ``X`` value to a sub-year tenor label. The grid values carry ~15
 # significant digits (0.076712328767123), so anything this close is the same point.
@@ -293,6 +300,16 @@ def sort_tenor_columns(labels: list[str]) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
+def looks_like_thaibma_refusal(content: bytes) -> bool:
+    """Whether ``content`` is ThaiBMA's "automated access is not permitted" page (0.30.1).
+
+    Matched on the page's own sentence, in English or in Thai, within the first 8 KB (the page
+    is 2.7 KB). A Cloudflare marker alone is not enough: Cloudflare fronts the whole site.
+    """
+    head = content[:_MAX_BLOCK_PAGE_BYTES]
+    return any(marker in head for marker in THAIBMA_REFUSAL_MARKERS)
+
+
 async def fetch_thaibma_json(fetcher: AsyncDataFetcher, url: str, *, context: str) -> Any:
     """
     GET a ThaiBMA endpoint, checking the status explicitly, and decode the JSON body.
@@ -312,10 +329,31 @@ async def fetch_thaibma_json(fetcher: AsyncDataFetcher, url: str, *, context: st
         before its first available date with a body of literal ``null``; callers must handle it.
 
     Raises:
-        FetchError: On any non-2xx status.
+        BlockedError: ThaiBMA refused automated access (0.30.1). Since about 2026-11-21 the website
+            answers every automated request with HTTP 403 and a page saying that automated access
+            is not permitted and pointing at its official API. It is the data owner's terms:
+            settfex does not work around it, and retrying cannot help. A ``FetchError`` subclass,
+            so existing handlers still catch it, and the batches (``fetch_curves``, history) stop
+            at the first one.
+        FetchError: On any other non-2xx status.
         ResponseParseError: If the body is not valid JSON, or contains NaN/Infinity.
     """
     response = await fetcher.fetch(url, headers=build_thaibma_headers())
+
+    if response.status_code != 200 and looks_like_thaibma_refusal(response.content):
+        logger.error(
+            f"www.thaibma.or.th refuses automated access (HTTP {response.status_code}) for "
+            f"{context}. settfex does not work around it."
+        )
+        raise BlockedError(
+            f"www.thaibma.or.th refuses automated access (HTTP {response.status_code}) for "
+            f"{context}: its page says automated access is not permitted and points at the "
+            f"official ThaiBMA API ({THAIBMA_OFFICIAL_API_URL}). settfex does not work around "
+            f"this, and retrying cannot help: the ThaiBMA service can no longer fetch from the "
+            f"website ({url})",
+            url=url,
+            **_page_evidence(response),
+        )
 
     if response.status_code != 200:
         error_msg = f"ThaiBMA request failed for {context}: HTTP {response.status_code} ({url})"

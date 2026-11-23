@@ -253,6 +253,11 @@ As JSON (`result.model_dump(mode="json")`), the completeness fields travel with 
 
 ### ThaiBMA bonds — `from settfex.services.thaibma import ...`
 
+> 🔴 **Not usable since about 2026-11-21:** `www.thaibma.or.th` forbids automated access (HTTP 403,
+> "Automated access is not permitted", pointing at https://apiportal.thaibma.or.th). Every call
+> raises `BlockedError` since 0.30.1. **Do not retry and do not work around it.** Tell the user
+> that the data needs ThaiBMA's official API or another lawful source.
+
 | I want… | Call |
 |---|---|
 | the government yield curve on a date | `get_government_yield_curve(curve_date=None)` |

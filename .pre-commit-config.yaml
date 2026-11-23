@@ -22,11 +22,12 @@ repos:
       # server sent, with their sha256 recorded in fixtures_sec/README.md. These two hooks rewrite
       # a file's trailing bytes, which would break both the byte-exactness and those hashes. The
       # live pages genuinely end without a newline; that is data, not untidiness. The Form 59
-      # detail fixtures (r59/*.json) are verbatim API bodies on the same terms.
+      # detail fixtures (r59/*.json) are verbatim API bodies on the same terms. So is ThaiBMA's
+      # refusal page (fixtures_thaibma/, 0.30.1; sha256 pinned in its test module).
       - id: trailing-whitespace
-        exclude: ^tests/services/sec/fixtures_sec/.*\.(html|json)$
+        exclude: ^tests/services/(sec/fixtures_sec|thaibma/fixtures_thaibma)/.*\.(html|json)$
       - id: end-of-file-fixer
-        exclude: ^tests/services/sec/fixtures_sec/.*\.(html|json)$
+        exclude: ^tests/services/(sec/fixtures_sec|thaibma/fixtures_thaibma)/.*\.(html|json)$
       - id: check-yaml
       - id: check-toml
       - id: check-added-large-files
