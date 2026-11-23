@@ -1,0 +1,55 @@
+{
+ "result": {
+  "timestamp": "2026-11-23 11:56:12",
+  "api": "Min-Max Deposit Interest Rates for Individuals of Commercial Banks (Percent per annum)",
+  "data": {
+   "data_detail": [
+    {
+     "period": "2026-11-16",
+     "name_th": "ต่ำสุด - สูงสุดของ ธนาคารพาณิชย์จดทะเบียนในประเทศ",
+     "name_eng": "Min-Max of Commercial Banks registered in Thailand",
+     "saving_min": "0.1000",
+     "saving_max": "1.7500",
+     "fix_3_mths_min": "0.4000",
+     "fix_3_mths_max": "0.9000",
+     "fix_6_mths_min": "0.5000",
+     "fix_6_mths_max": "1.1000",
+     "fix_12_mths_min": "0.6000",
+     "fix_12_mths_max": "1.4000",
+     "fix_24_mths_min": "0.7000",
+     "fix_24_mths_max": "1.1500"
+    },
+    {
+     "period": "2026-11-16",
+     "name_th": "ต่ำสุด - สูงสุดของ สาขาธนาคารต่างประเทศ",
+     "name_eng": "Min-Max of Foreign Bank Branches",
+     "saving_min": "0.0000",
+     "saving_max": "0.4500",
+     "fix_3_mths_min": "0.0000",
+     "fix_3_mths_max": "0.9000",
+     "fix_6_mths_min": "0.0000",
+     "fix_6_mths_max": "1.1500",
+     "fix_12_mths_min": "0.0000",
+     "fix_12_mths_max": "1.1500",
+     "fix_24_mths_min": "0.0000",
+     "fix_24_mths_max": "1.4500"
+    },
+    {
+     "period": "2026-11-17",
+     "name_th": "ต่ำสุด - สูงสุดของ ธนาคารพาณิชย์จดทะเบียนในประเทศ",
+     "name_eng": "Min-Max of Commercial Banks registered in Thailand",
+     "saving_min": "0.1000",
+     "saving_max": "1.7500",
+     "fix_3_mths_min": "0.4000",
+     "fix_3_mths_max": "0.9000",
+     "fix_6_mths_min": "0.5000",
+     "fix_6_mths_max": "1.1000",
+     "fix_12_mths_min": "0.6000",
+     "fix_12_mths_max": "1.4000",
+     "fix_24_mths_min": "0.7000",
+     "fix_24_mths_max": "1.1500"
+    }
+   ]
+  }
+ }
+}

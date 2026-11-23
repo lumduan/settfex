@@ -100,9 +100,12 @@ logger.enable("settfex")          # AFTER `import settfex` — see the note abov
 
 ## Versioning policy
 
-- **0.x:** a minor bump may break. Pin `settfex>=0.23,<0.24` until you have migrated.
-- **1.0 guarantees:** every public entry point passes the fault-injection contract (no silent data
-  loss), and breaking changes require a major bump.
+- **1.0 (from 1.0.0):** breaking changes require a major bump, and every public entry point passes
+  the fault-injection contract (no silent data loss).
+- **Coming from 0.x?** 1.0.0 removed only the ThaiBMA service (its website now forbids automated
+  access) and `StaleDataError`, and added the Bank of Thailand API. If you still import
+  `settfex.services.thaibma`, pin `settfex<1.0`.
+- **0.x (until 0.30.1):** a minor bump could break.
 - **From 0.24 on:** a `DeprecationWarning` one minor release before any removal or behaviour change.
 - **Stored results from before 0.24.0?** Earlier versions could return incomplete data, or for a
   name lookup another company's data, without an error. Check them against the
@@ -201,9 +204,9 @@ Want to dig deeper? Check out our detailed guides:
 - **[SEC Document Service](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/sec/financial_report.md)** - List and download the raw disclosure documents filed with the Thai SEC (the original financial-statement Excel package, Form 56-1, Form 56-2, Key Financial Ratio, MD&A)
 - **[SEC Form 59: Executive Trades](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/sec/executive_trades.md)** - Directors' and executives' reported trades (แบบ 59), with the report behind each row: holdings before and after, unrounded price, channel and counterparty. Marks spouse duplicates and revoked filings instead of counting them
 
-### ThaiBMA Services (www.thaibma.or.th)
+### Bank of Thailand Services (gateway.api.bot.or.th): needs your own free token
 
-- **[Government Bond Yield Curve](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/thaibma/yield_curve.md)** - 🔴 *not usable since ~2026-11-21: ThaiBMA forbids automated access (`BlockedError` since 0.30.1)*. The official Thai government bond yield curve for any date back to 1999, the bond quotes behind it, and daily history at **one request per year** (the whole 27-year record in 28 requests)
+- **[Bank of Thailand API](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/bot/bank_of_thailand.md)** - The policy rate, BIBOR, deposit/loan and interbank rates, any BOT statistics series (THOR, government yields...), THB exchange rates, debt securities auctions, financial institutions' holidays, and the BOT licence register. 6 products, 32 endpoints, 1.0.0
 
 ### Utilities
 
@@ -784,46 +787,67 @@ print(f"Can trade {max_contracts} contracts with {capital:,.0f} THB")
 
 ---
 
-### ThaiBMA (Thai Bond Market Association)
+### Bank of Thailand (BOT API)
 
-> 🔴 **Not usable since about 2026-11-21.** `www.thaibma.or.th` now forbids automated access: every
-> request gets HTTP 403 and a notice pointing at ThaiBMA's official API
-> (https://apiportal.thaibma.or.th). Since 0.30.1 settfex raises `BlockedError` with that
-> explanation and does not work around it. The examples below show how the service worked until
-> 2026-11-20.
+New in 1.0.0. It replaces the ThaiBMA service, which was removed because `www.thaibma.or.th` now
+forbids automated access.
 
-#### 🏦 Get the Government Bond Yield Curve
+#### 🔑 Get your tokens (free, a few minutes)
 
-The official Thai risk-free curve — for today, for any date back to 1999, or as daily history.
+The Bank of Thailand gives each user their own tokens; settfex only connects. Full guide:
+**https://portal.api.bot.or.th/manual**
 
-```python
-from settfex.services.thaibma import ThaiBMA, get_government_yield_curve
+1. Go to https://portal.api.bot.or.th, click **Log in**, then **Sign up Now**. Register with your
+   email (a code is sent to it), a password and your name.
+2. Open **[Catalogues](https://portal.api.bot.or.th/portal/catalogue-products)**, pick a product,
+   choose its plan and click **Access with this plan**.
+3. Click the cart icon, **create an application** (any name), and submit it for approval.
+4. Once approved, open the app's page and **copy each credential's *Token*** (not *Token Hash*).
 
-curve = await get_government_yield_curve()       # the latest published curve
-print(f"as of {curve.as_of}: 10Y = {curve.yield_at('10Y')}%")
-print(f"2s10s slope: {curve.slope_bps('2Y', '10Y'):.1f} bp")
-print(curve.interpolate(7.5))                    # linear between grid points
+**Each token works for ONE product.** Subscribe the app to every product you want; each gets its
+own credential.
 
-# The endpoint NEVER 404s on a date — a weekend, a holiday, or a future date
-# silently returns an earlier curve. settfex always tells you when that happened:
-saturday = await ThaiBMA().get_yield_curve("2026-08-08")
-print(saturday.is_rolled_back, saturday.as_of, saturday.rollback_days)  # True 2026-08-07 1
+#### 🗝️ Give settfex the tokens
+
+Put them in a `.env` file in your working directory (copy
+[`.env.example`](https://github.com/lumduan/settfex/blob/main/.env.example)), or in the environment:
+
+```bash
+BANK_OF_THAILAND_TOKEN_INTEREST_RATES=...
+BANK_OF_THAILAND_TOKEN_STATISTICS=...
+BANK_OF_THAILAND_TOKEN_EXCHANGE_RATES=...
+BANK_OF_THAILAND_TOKEN_DEBT_SECURITIES_AUCTION=...
+BANK_OF_THAILAND_TOKEN_OTHERS=...           # financial institutions' holidays
+BANK_OF_THAILAND_TOKEN_LICENSE_CHECK=...
+# BANK_OF_THAILAND_TOKEN=...                # fallback for any product without its own key
 ```
 
-History costs **one request per year**, not one per business day — the whole 27-year record is
-28 requests instead of ~6,600:
+Or pass one in code, e.g. `await get_policy_rate(token="...")`. settfex never logs a token.
+
+#### 🏦 Use it
 
 ```python
-from settfex.services.thaibma import get_yield_curve_history
+from settfex.services.bot import (
+    KNOWN_SERIES, get_bibor, get_exchange_rates, get_policy_rate, get_stat_observations,
+)
 
-history = await get_yield_curve_history("2020-01-01")    # 7 requests
-print(history.count, len(history.columns))               # 1608 business days x 54 tenors
+rate = await get_policy_rate()
+print(rate.rate, rate.announcement_date)                  # 1.0 2026-10-28
 
-df = history.to_dataframe()                              # requires: pip install "settfex[dataframe]"
-df["10Y"].plot(title="Thai 10Y government yield")
+bibor = await get_bibor("2026-11-16", "2026-11-20")       # the average fixing, O/N .. 1Y
+print(bibor.rows[0].three_months, bibor.rows[0].six_months)
+
+thor = await get_stat_observations(KNOWN_SERIES["thor_average_3m"], "2026-11-01")
+print(thor.latest)                                        # period='2026-11-23' value=0.99566
+
+usd = await get_exchange_rates("monthly", "2026-08", "2026-10", currency="USD")
+print([(r.period, r.mid_rate) for r in usd.rows])
 ```
 
-**👉 [Learn more about the ThaiBMA Yield Curve](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/thaibma/yield_curve.md)**
+Every BOT value arrives as text. settfex returns numbers, and `None` where BOT sent nothing. Some
+BOT tables answer with empty rows: check `report.has_values`.
+
+**👉 [Learn more about the Bank of Thailand API](https://github.com/lumduan/settfex/blob/main/docs/settfex/services/bot/bank_of_thailand.md)**
 
 ---
 

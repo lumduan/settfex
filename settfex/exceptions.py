@@ -17,19 +17,21 @@ Example:
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from datetime import date
 from typing import Any, NoReturn
 
 __all__ = [
     "FetchError",
     "NotFoundError",
     "SymbolNotFoundError",
-    "StaleDataError",
     "ParseError",
     "IncompleteListingError",
     "HTTPStatusError",
     "SeriesNotFoundError",
     "NewsNotFoundError",
+    "BotTokenMissingError",
+    "BotAccessDeniedError",
+    "BotApiError",
+    "BotSeriesNotFoundError",
     "UnexpectedPageError",
     "SoftNotFoundError",
     "OffHostRedirectError",
@@ -134,32 +136,6 @@ class SymbolNotFoundError(FetchError, NotFoundError):
         if suggestion:
             message = f"{message} — did you mean '{suggestion}'?"
         super().__init__(message, status_code=status_code, symbol=symbol)
-
-
-class StaleDataError(FetchError):
-    """An API answered HTTP 200 with data for a **different date** than was requested.
-
-    ThaiBMA's yield-curve endpoint rolls back silently: a weekend, a Thai public holiday, or any
-    **future** date all return the most recent curve on or before the request, with HTTP 200 and
-    no signal of the substitution. Raised only when the caller opts in with ``on_rollback="raise"``
-    — the default is to warn and set :attr:`~settfex.services.thaibma.YieldCurve.is_rolled_back`.
-
-    Subclasses :class:`FetchError` because the input was valid and the *response* was not, so
-    existing ``except FetchError`` handlers keep working.
-    """
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        requested_date: date | None = None,
-        as_of: date | None = None,
-        rollback_days: int | None = None,
-    ) -> None:
-        super().__init__(message)
-        self.requested_date = requested_date
-        self.as_of = as_of
-        self.rollback_days = rollback_days
 
 
 class ParseError(FetchError):
@@ -300,6 +276,29 @@ class NewsNotFoundError(FetchError, NotFoundError):
     ) -> None:
         super().__init__(message, status_code=status_code, symbol=symbol)
         self.news_id = news_id
+
+
+class BotTokenMissingError(ValueError):
+    """No Bank of Thailand API token was found for the product being called (1.0.0).
+
+    The BOT API needs a token per product, issued to each user at https://portal.api.bot.or.th
+    (see the README for the steps). settfex looks, in order, at:
+    1. the ``token=`` argument;
+    2. the product's environment variable (e.g. ``BANK_OF_THAILAND_TOKEN_INTEREST_RATES``);
+    3. ``BANK_OF_THAILAND_TOKEN``;
+    4. the same two names in a ``.env`` file in the working directory.
+
+    A :class:`ValueError`, like the other input errors: nothing was sent, so retrying cannot help.
+
+    Attributes:
+        product: The BOT product that needed a token (e.g. ``"interest_rates"``).
+        env_keys: The variable names that were checked, most specific first.
+    """
+
+    def __init__(self, message: str, *, product: str, env_keys: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.product = product
+        self.env_keys = env_keys
 
 
 class UnexpectedPageError(FetchError):
@@ -448,6 +447,62 @@ class OffHostRedirectError(UnexpectedPageError):
         super().__init__(message, **evidence)
         self.location = location
         self.target_host = target_host
+
+
+class BotAccessDeniedError(HTTPStatusError):
+    """The BOT gateway refused the token for this product (HTTP 401/403, 1.0.0).
+
+    Each portal credential is bound to ONE product plan, so a token that works for Interest Rates
+    is refused by Statistics with ``{"error": "Access to this API has been disallowed"}``. Also seen
+    when the "Token Hash" is copied instead of the "Token". The message names the product and the
+    environment variable that was used.
+
+    Attributes:
+        product: The BOT product that refused the token.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        url: str | None = None,
+        product: str | None = None,
+    ) -> None:
+        super().__init__(message, status_code=status_code, url=url)
+        self.product = product
+
+
+class BotApiError(FetchError):
+    """The BOT API answered HTTP 200 with an error instead of data (1.0.0).
+
+    Some products report a bad request inside a successful response, e.g. Debt Securities Auction
+    without its periods: ``{"result": {"success": "false", "error": [{"code": "es001", "message":
+    "Parameter: start_period must not be null"}]}}``.
+
+    Attributes:
+        errors: The API's error entries, verbatim (each usually has ``code`` and ``message``).
+    """
+
+    def __init__(self, message: str, *, errors: list[dict[str, Any]] | None = None) -> None:
+        super().__init__(message)
+        self.errors = list(errors or [])
+
+
+class BotSeriesNotFoundError(FetchError, NotFoundError):
+    """The BOT Statistics API does not know this series code (1.0.0).
+
+    The observations endpoint does not 404 an unknown code. It answers HTTP 200 with a series whose
+    every field is ``null`` and no observations, which would otherwise read as "no data in the
+    window". A :class:`NotFoundError`: fix the code, do not retry.
+
+    Attributes:
+        series_code: The code that was asked for.
+    """
+
+    def __init__(self, message: str, *, series_code: str | None = None) -> None:
+        super().__init__(message)
+        self.series_code = series_code
 
 
 class CompanyNotFoundError(ValueError, NotFoundError):

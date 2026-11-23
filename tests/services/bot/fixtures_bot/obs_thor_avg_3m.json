@@ -1,0 +1,32 @@
+{
+ "result": {
+  "api": "Observations",
+  "timestamp": "2026-11-23 11:57:56",
+  "series": [
+   {
+    "series_code": "FMRTTHORAVG3MD00005",
+    "series_name_th": "อัตราดอกเบี้ย THOR Average : 3 Months",
+    "series_name_eng": "THOR Average : 3 Months",
+    "unit_th": "ร้อยละ",
+    "unit_eng": "Percent",
+    "series_type": "Rate",
+    "frequency": "Daily",
+    "last_update_date": "2026-11-23",
+    "observations": [
+     {
+      "period_start": "2026-11-19",
+      "value": "0.99566"
+     },
+     {
+      "period_start": "2026-11-20",
+      "value": "0.99565"
+     },
+     {
+      "period_start": "2026-11-23",
+      "value": "0.99566"
+     }
+    ]
+   }
+  ]
+ }
+}

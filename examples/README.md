@@ -41,13 +41,12 @@ Complete tutorial series covering the SET services:
 2. **02_executive_trades.ipynb** - Form 59 (แบบ 59) directors' and executives' trades, and the
    report behind each row (holdings before/after)
 
-### ThaiBMA (Thai Bond Market Association) Examples
+### Bank of Thailand (BOT API) Examples
 
-**Location**: `examples/thaibma/`
+**Location**: `examples/bot/`, which needs your own free tokens (see the main README)
 
-1. **Government Bond Yield Curve** - The official Thai risk-free curve: latest and historical
-   curves, the silent roll-back trap, percent vs basis points, daily history at one request per
-   year (1999→today), term-structure and 2s10s plots, and the per-bond matrix
+1. **Bank of Thailand API** - the policy rate, BIBOR, THOR and government yields from Statistics,
+   THB exchange rates, and how to tell an empty table (`has_values`) from data
 
 **Total**: 1 notebook
 

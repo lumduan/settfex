@@ -1,4 +1,4 @@
-# Live smoke — the integration probes against the real SET / TFEX / SEC / ThaiBMA hosts, weekly.
+# Live smoke — the integration probes against the real SET / TFEX / SEC hosts, weekly.
 #
 # INERT BY DESIGN. Nothing runs until BOTH of these are true:
 #   1. a self-hosted runner labelled `thailand` is registered for this repository, and

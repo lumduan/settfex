@@ -33,6 +33,15 @@ GOLDEN_DIR = Path(__file__).parent / "golden" / "model_contract"
 # golden name -> dotted model class. The registry is the source of truth; each golden
 # file also records the model path and the test asserts the two agree.
 REGISTRY: dict[str, str] = {
+    "bot_bibor_rate": "settfex.services.bot.models.BiborRate",
+    "bot_bond_auction_result": "settfex.services.bot.models.BondAuctionResult",
+    "bot_exchange_rate": "settfex.services.bot.models.ExchangeRate",
+    "bot_fi_holiday": "settfex.services.bot.models.FinancialInstitutionHoliday",
+    "bot_licensed_entity": "settfex.services.bot.models.LicensedEntity",
+    "bot_loan_rate": "settfex.services.bot.models.LoanRate",
+    "bot_policy_rate": "settfex.services.bot.models.PolicyRate",
+    "bot_report_header": "settfex.services.bot.models.ReportHeader",
+    "bot_stat_series": "settfex.services.bot.models.StatSeries",
     "analyst_consensus": "settfex.services.set.stock.analyst_consensus.AnalystConsensus",
     "dr_profile": "settfex.services.set.stock.profile_dr.DrProfile",
     "earnings_call_item": "settfex.services.set.earnings_call.EarningsCallItem",
@@ -49,7 +58,6 @@ REGISTRY: dict[str, str] = {
     "tfex_series_list_response": "settfex.services.tfex.list.TFEXSeriesListResponse",
     "tfex_trading_statistics": "settfex.services.tfex.trading_statistics.TradingStatistics",
     "tfex_underlying_price": "settfex.services.tfex.underlying_price.UnderlyingPrice",
-    "yield_curve": "settfex.services.thaibma.yield_curve.YieldCurve",
 }
 
 

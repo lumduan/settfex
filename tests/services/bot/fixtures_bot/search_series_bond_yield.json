@@ -1,0 +1,92 @@
+{
+ "result": {
+  "api": "Search Stat APIs",
+  "timestamp": "2026-11-23 11:56:37",
+  "series_details": [
+   {
+    "series_code": "FMRTINTM00027",
+    "observation_start": "2005-01",
+    "observation_end": "2025-07",
+    "series_name_th": "อัตราผลตอบแทนตั๋วเงินคลังและพันธบัตรรัฐบาล 1 เดือน",
+    "series_name_eng": "T-Bill & Government Bond Yield : 1 month",
+    "series_categories": [
+     {
+      "category": null
+     }
+    ],
+    "frequency": "Monthly",
+    "frequency_short": "M",
+    "unit_th": "ร้อยละ",
+    "unit_eng": "Percent",
+    "data_type": "Rate",
+    "seasonal_adjustment_flag": "N",
+    "last_updated_date": "2025-08-08",
+    "source_of_data_th": "ธนาคารแห่งประเทศไทย",
+    "source_of_data_eng": "Bank of Thailand",
+    "lag_time": "10 Days",
+    "release_schedule_th": "ทุกวันที่ 10 ของเดือนถัดจากงวดข้อมูล กรณีตรงกับวันหยุดจะเผยแพร่วันทำการก่อนหน้า",
+    "release_schedule_eng": "The 10th day of the following month. In case it falls on a holiday, it will publish the previous business day.",
+    "annotation_th": "",
+    "annotation_eng": "",
+    "description_th": "อัตราผลตอบแทนเสนอซื้อเฉลี่ย (Average Bid Yield) ของตั๋วเงินคลังและพันธบัตรแต่ละรุ่น และนำมาคำนวณเพื่อหาค่าผลตอบแทนระยะเวลา 1 เดือน ",
+    "description_eng": "Average Bid Yield of Treasury Bills and Bonds Calculated for 1-month return."
+   },
+   {
+    "series_code": "FMRTINTM00028",
+    "observation_start": "2005-01",
+    "observation_end": "2025-07",
+    "series_name_th": "อัตราผลตอบแทนตั๋วเงินคลังและพันธบัตรรัฐบาล 3 เดือน",
+    "series_name_eng": "T-Bill & Government Bond Yield : 3 months",
+    "series_categories": [
+     {
+      "category": null
+     }
+    ],
+    "frequency": "Monthly",
+    "frequency_short": "M",
+    "unit_th": "ร้อยละ",
+    "unit_eng": "Percent",
+    "data_type": "Rate",
+    "seasonal_adjustment_flag": "N",
+    "last_updated_date": "2025-08-08",
+    "source_of_data_th": "ธนาคารแห่งประเทศไทย",
+    "source_of_data_eng": "Bank of Thailand",
+    "lag_time": "10 Days",
+    "release_schedule_th": "ทุกวันที่ 10 ของเดือนถัดจากงวดข้อมูล กรณีตรงกับวันหยุดจะเผยแพร่วันทำการก่อนหน้า",
+    "release_schedule_eng": "The 10th day of the following month. In case it falls on a holiday, it will publish the previous business day.",
+    "annotation_th": "",
+    "annotation_eng": "",
+    "description_th": "อัตราผลตอบแทนเสนอซื้อเฉลี่ย (Average Bid Yield) ของตั๋วเงินคลังและพันธบัตรแต่ละรุ่น และนำมาคำนวณเพื่อหาค่าผลตอบแทนระยะเวลา 3 เดือน ",
+    "description_eng": "Average Bid Yield of Treasury Bills and Bonds Calculated for 3-month return."
+   },
+   {
+    "series_code": "FMRTINTM00029",
+    "observation_start": "2005-01",
+    "observation_end": "2025-07",
+    "series_name_th": "อัตราผลตอบแทนตั๋วเงินคลังและพันธบัตรรัฐบาล 6 เดือน",
+    "series_name_eng": "T-Bill & Government Bond Yield : 6 months",
+    "series_categories": [
+     {
+      "category": null
+     }
+    ],
+    "frequency": "Monthly",
+    "frequency_short": "M",
+    "unit_th": "ร้อยละ",
+    "unit_eng": "Percent",
+    "data_type": "Rate",
+    "seasonal_adjustment_flag": "N",
+    "last_updated_date": "2025-08-08",
+    "source_of_data_th": "ธนาคารแห่งประเทศไทย",
+    "source_of_data_eng": "Bank of Thailand",
+    "lag_time": "10 Days",
+    "release_schedule_th": "ทุกวันที่ 10 ของเดือนถัดจากงวดข้อมูล กรณีตรงกับวันหยุดจะเผยแพร่วันทำการก่อนหน้า",
+    "release_schedule_eng": "The 10th day of the following month. In case it falls on a holiday, it will publish the previous business day.",
+    "annotation_th": "",
+    "annotation_eng": "",
+    "description_th": "อัตราผลตอบแทนเสนอซื้อเฉลี่ย (Average Bid Yield) ของตั๋วเงินคลังและพันธบัตรแต่ละรุ่น และนำมาคำนวณเพื่อหาค่าผลตอบแทนระยะเวลา 6 เดือน ",
+    "description_eng": "Average Bid Yield of Treasury Bills and Bonds Calculated for 6-month return."
+   }
+  ]
+ }
+}

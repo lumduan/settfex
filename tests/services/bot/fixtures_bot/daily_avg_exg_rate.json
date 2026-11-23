@@ -1,0 +1,59 @@
+{
+ "result": {
+  "timestamp": "2026-11-23 11:56:23",
+  "api": "Daily Weighted-average Interbank Exchange Rate - THB / USD",
+  "data": {
+   "data_header": {
+    "report_name_eng": "Rates of Exchange of Commercial Banks in Bangkok Metropolis (2002-present)",
+    "report_name_th": "อัตราแลกเปลี่ยนเฉลี่ยของธนาคารพาณิชย์ในกรุงเทพมหานคร (2545-ปัจจุบัน)",
+    "report_uoq_name_eng": "(Unit: Baht / 1 Unit of Foreign Currency)",
+    "report_uoq_name_th": "(หน่วย: บาท ต่อ 1 หน่วยเงินตราต่างประเทศ)",
+    "report_source_of_data": [
+     {
+      "source_of_data_eng": "Bank of Thailand",
+      "source_of_data_th": "ธนาคารแห่งประเทศไทย"
+     }
+    ],
+    "report_remark": [
+     {
+      "report_remark_eng": "Since Nov 16, 2015 the data regarding Buying Transfer Rate of PKR has been changed to Buying Rate using Foreign Exchange Rates (LSEG) with Bangkok Market Crossing.",
+      "report_remark_th": "ตั้งแต่วันที่ 16 พ.ย. 2558 ข้อมูลในอัตราซื้อเงินโอนของสกุล PKR ได้เปลี่ยนเป็นอัตราซื้อที่ใช้อัตราในตลาดต่างประเทศ (LSEG) คำนวณผ่านอัตราซื้อขายเงินดอลลาร์ สรอ. ในตลาดกรุงเทพฯ"
+     }
+    ],
+    "last_updated": "2026-11-20"
+   },
+   "data_detail": [
+    {
+     "period": "2026-11-20",
+     "currency_id": "USD",
+     "currency_name_th": "สหรัฐอเมริกา : ดอลลาร์ (USD)",
+     "currency_name_eng": "USA : DOLLAR (USD) ",
+     "buying_sight": "33.7376000",
+     "buying_transfer": "33.8065000",
+     "selling": "34.1252000",
+     "mid_rate": "33.9659000"
+    },
+    {
+     "period": "2026-11-19",
+     "currency_id": "USD",
+     "currency_name_th": "สหรัฐอเมริกา : ดอลลาร์ (USD)",
+     "currency_name_eng": "USA : DOLLAR (USD) ",
+     "buying_sight": "33.7106000",
+     "buying_transfer": "33.7971000",
+     "selling": "34.1263000",
+     "mid_rate": "33.9617000"
+    },
+    {
+     "period": "2026-11-18",
+     "currency_id": "USD",
+     "currency_name_th": "สหรัฐอเมริกา : ดอลลาร์ (USD)",
+     "currency_name_eng": "USA : DOLLAR (USD) ",
+     "buying_sight": "33.6105000",
+     "buying_transfer": "33.6920000",
+     "selling": "34.0179000",
+     "mid_rate": "33.8550000"
+    }
+   ]
+  }
+ }
+}

@@ -79,7 +79,78 @@ use and compare the fields you read. That is how the verification above was done
 
 ## [Unreleased]
 
-## [0.30.1] - 2026-11-23
+## [1.0.0] - 2026-11-23
+
+**settfex 1.0: ThaiBMA out, Bank of Thailand in.**
+- `www.thaibma.or.th` now forbids automated access (see 0.30.1), so its service is removed.
+- In its place: the Bank of Thailand's official API, six products and 32 endpoints, with each user's
+  own free tokens.
+- From 1.0, breaking changes need a major version.
+
+### Removed
+
+- **`settfex.services.thaibma`**, entirely:
+  - `ThaiBMA`, `get_government_yield_curve`, `get_yield_curve_history`, `get_bond_yield_history`
+    and `get_yield_curve_availability`;
+  - the `YieldCurve`, `YieldCurveHistory`, `YieldCurveAvailability`, `CurvePoint` and `BondQuote`
+    models, and the top-level re-exports of all of these.
+  - **Why:** since about 2026-11-21 the site answers every automated request with HTTP 403 and
+    "Automated access is not permitted … please use the ThaiBMA API service at
+    https://apiportal.thaibma.or.th". It cannot work again, and settfex does not work around a data
+    owner's prohibition. The operator decided not to apply for ThaiBMA's API (2026-11-23).
+  - **No warning release:** the service had already stopped working, so a warning would protect
+    only an import that was about to fail anyway.
+- **`StaleDataError`** (`settfex.exceptions` and the top level). Only ThaiBMA's roll-back raised
+  it.
+
+### Added
+
+- **`settfex.services.bot`: the Bank of Thailand API** (`gateway.api.bot.or.th`), six products:
+  - **Interest Rates:** `get_policy_rate`, `get_bibor` (average or per bank), `get_deposit_rates`,
+    `get_loan_rates`, `get_interbank_rates`, plus service methods for the external, spot, swap
+    and implied tables;
+  - **Statistics:** `get_stat_categories`, `get_stat_series_list`, `search_stat_series`,
+    `get_stat_observations`. This is any BOT series: THOR, THOR averages, monthly government
+    T-bill/bond yields... `KNOWN_SERIES` holds verified codes;
+  - **Exchange Rates:** `get_exchange_rates`, `get_reference_rates` (daily, monthly, quarterly,
+    annual);
+  - **Debt Securities Auction:** `get_bond_auction_results`;
+  - **Others:** `get_financial_institution_holidays` (bank holidays, not the SET calendar);
+  - **License Check:** `search_licensed_entities`, `get_licensed_entity`, `get_license_document`.
+  - Also: the `BankOfThailand` facade, one service class per product (each with `fetch_raw`), and
+    the `BotReport` container (`rows`, `header`, computed `has_values`).
+- **Tokens: each user's own, one per product.**
+  - Free from https://portal.api.bot.or.th; the README has the steps.
+  - **Resolved in this order:** `token=` → `BANK_OF_THAILAND_TOKEN_<PRODUCT>` →
+    `BANK_OF_THAILAND_TOKEN` → the same names in `.env` (built in; no new dependency).
+  - **Never shown:** never logged, never in a repr or an error. A template is in `.env.example`.
+- **Exceptions:**
+  - `BotTokenMissingError` (`ValueError`);
+  - `BotAccessDeniedError` (`HTTPStatusError`): the token is not for this product;
+  - `BotApiError` (`FetchError`): an error under HTTP 200;
+  - `BotSeriesNotFoundError` (`FetchError`, `NotFoundError`): an unknown series, which BOT answers
+    with HTTP 200 and every field null.
+- **Verified:** live on 2026-11-23, with one token per product, all 32 operations against the 17
+  official OpenAPI documents.
+  - The docs get several shapes wrong, so the models follow the API. Details are in
+    `docs/settfex/services/bot/bank_of_thailand.md`.
+  - Four Interest Rates tables have been empty since 2024-12-27 and still answer 200;
+    `has_values` says so.
+- **Rates are in percent, not fractions.** BIBOR `1.15` is 1.15 %; a THOR or yield
+  `StatObservation.value` of `0.99566` is 0.99566 % (the series' `unit_eng` is `"Percent"`).
+
+### Migration
+
+- **If you used ThaiBMA:** stay on `settfex<1.0` (0.30.1 raises a clear `BlockedError`), or move to
+  a lawful source.
+- **BOT equivalents for short-term rates:**
+  - government T-bill and bond yields, but **monthly** averages
+    (`KNOWN_SERIES["government_yield_3m"]`, ...);
+  - the daily THOR and THOR averages;
+  - daily BIBOR.
+- **Nothing else changed** for SET, TFEX or SEC callers.
+
+ - 2026-11-23
 
 **ThaiBMA has started refusing automated access, and settfex now says so.** Since about
 2026-11-21, `www.thaibma.or.th` answers every automated request with HTTP 403 and a page reading

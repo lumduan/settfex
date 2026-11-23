@@ -1,0 +1,62 @@
+{
+ "result": {
+  "timestamp": "2026-11-23 11:56:20",
+  "api": "Swap point - Onshore (in Satangs)",
+  "data": {
+   "data_header": {
+    "report_name_eng": "Spot Rate and Swap Point",
+    "report_name_th": "Spot Rate and Swap Point",
+    "report_uoq_name_eng": "",
+    "report_uoq_name_th": "",
+    "report_source_of_data": [
+     {
+      "source_of_data_eng": "Thomson Reuters (Refinitiv)",
+      "source_of_data_th": "Thomson Reuters (Refinitiv)"
+     },
+     {
+      "source_of_data_eng": "Bank of Thailand",
+      "source_of_data_th": "ธนาคารแห่งประเทศไทย"
+     }
+    ],
+    "report_remark": [
+     {
+      "report_remark_eng": "Forward exchange rate can be derived from the addition of spot rate and swap point.",
+      "report_remark_th": "อัตราแลกเปลี่ยนล่วงหน้าคำนวณได้จากอัตราแลกเปลี่ยนทันที และ SWAP POINT"
+     },
+     {
+      "report_remark_eng": "This table has been discontinued  due to redundancy with other tables on the BOT website or original sources.",
+      "report_remark_th": "ตารางนี้ถูกยกเลิกการเผยแพร่ เนื่องจากข้อมูลมีการเผยแพร่ในตารางอื่นของ ธปท. หรือหน่วยงานอื่นที่เป็นเจ้าของข้อมูลอยู่แล้ว"
+     },
+     {
+      "report_remark_eng": "1 Satang = 0.01 Baht.",
+      "report_remark_th": "1 สตางค์ = 0.01 บาท   "
+     }
+    ],
+    "last_updated": "2024-12-27"
+   },
+   "data_detail": [
+    {
+     "period": "",
+     "term_type_name_th": "1 Month",
+     "term_type_name_eng": "1 Month",
+     "bid_rate": "",
+     "offer_rate": ""
+    },
+    {
+     "period": "",
+     "term_type_name_th": "3 Months",
+     "term_type_name_eng": "3 Months",
+     "bid_rate": "",
+     "offer_rate": ""
+    },
+    {
+     "period": "",
+     "term_type_name_th": "6 Months",
+     "term_type_name_eng": "6 Months",
+     "bid_rate": "",
+     "offer_rate": ""
+    }
+   ]
+  }
+ }
+}

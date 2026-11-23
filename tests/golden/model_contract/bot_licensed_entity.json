@@ -1,0 +1,29 @@
+{
+  "expected_dump": {
+    "address": "20  อาคารบุปผจิต ชั้น 3  ถนนสาทรเหนือ แขวงสีลม เขตบางรัก กรุงเทพมหานคร 10500",
+    "authorized_name": "ธนาคาร เจพีมอร์แกน เชส",
+    "branch_name": "ธนาคาร เจพีมอร์แกน เชส",
+    "hire_purchase_leasing": null,
+    "id": "55",
+    "last_update": null,
+    "lends": true,
+    "takes_deposits": true,
+    "telephone": null,
+    "type_id": "สาขาธนาคารต่างประเทศ",
+    "type_name": "สาขาธนาคารต่างประเทศ"
+  },
+  "input": {
+    "Address": "20  อาคารบุปผจิต ชั้น 3  ถนนสาทรเหนือ แขวงสีลม เขตบางรัก กรุงเทพมหานคร 10500",
+    "AuthorizedName": "ธนาคาร เจพีมอร์แกน เชส",
+    "BranchName": "ธนาคาร เจพีมอร์แกน เชส",
+    "DepositFlag": "T",
+    "HPLSFlag": "",
+    "Id": "55",
+    "LastUpdate": "",
+    "LoanFlag": "T",
+    "Telephone": "",
+    "TypeId": "สาขาธนาคารต่างประเทศ",
+    "TypeName": "สาขาธนาคารต่างประเทศ"
+  },
+  "model": "settfex.services.bot.models.LicensedEntity"
+}

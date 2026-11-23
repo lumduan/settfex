@@ -1,0 +1,19 @@
+{
+ "result": {
+  "api": "Observations",
+  "timestamp": "2026-11-23 11:58:34",
+  "series": [
+   {
+    "series_code": null,
+    "series_name_th": null,
+    "series_name_eng": null,
+    "unit_th": null,
+    "unit_eng": null,
+    "series_type": null,
+    "frequency": null,
+    "last_update_date": null,
+    "observations": []
+   }
+  ]
+ }
+}

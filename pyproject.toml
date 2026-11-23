@@ -1,7 +1,7 @@
 [project]
 name = "settfex"
-version = "0.30.1"
-description = "Async Python library for fetching real-time and historical data from the Stock Exchange of Thailand (SET) and Thailand Futures Exchange (TFEX)"
+version = "1.0.0"
+description = "Async Python library for Thai market data: the Stock Exchange of Thailand (SET), Thailand Futures Exchange (TFEX), Thai SEC filings, and the Bank of Thailand API"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -31,7 +31,7 @@ keywords = [
     "thai-stocks",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Financial and Insurance Industry",
     "License :: OSI Approved :: MIT License",
@@ -79,7 +79,7 @@ python_functions = ["test_*"]
 # runs exactly the probes (--no-cov because the 85% floor is calibrated for the full suite).
 addopts = '-v --strict-markers --cov=settfex --cov-branch --cov-report=term-missing --cov-fail-under=85 -m "not integration"'
 markers = [
-    "integration: live-endpoint probes against real SET/TFEX/ThaiBMA hosts; run with: uv run pytest -m integration --no-cov",
+    "integration: live-endpoint probes against real SET/TFEX/SEC hosts; run with: uv run pytest -m integration --no-cov",
 ]
 # Pin pytest-asyncio's fixture loop scope explicitly (its unset-value deprecation path); the
 # suite has no async fixtures today, so "function" simply freezes current behavior.

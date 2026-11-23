@@ -74,6 +74,9 @@ _ALLOWED_ELSEWHERE: dict[str, str] = {
     "BaseException": "builtin",
     "ValidationError": "pydantic",
     "JSONDecodeError": "stdlib json",
+    # Removed with the ThaiBMA service in 1.0.0; CLAUDE.md names it once, as history. The
+    # "shadowed" check below fails if it is ever exported again.
+    "StaleDataError": "removed in 1.0.0",
 }
 
 

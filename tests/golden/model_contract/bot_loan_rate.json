@@ -1,0 +1,33 @@
+{
+  "expected_dump": {
+    "bank_name_eng": "Bangkok Bank",
+    "bank_name_th": "กรุงเทพ",
+    "bank_type_name_eng": "Commercial Banks registered in Thailand",
+    "bank_type_name_th": "ธนาคารพาณิชย์จดทะเบียนในประเทศ",
+    "ceiling_rate": 18.0,
+    "creditcard_max": 16.0,
+    "creditcard_min": 16.0,
+    "default_rate": 21.5,
+    "mlr": 6.35,
+    "mor": 6.5,
+    "mrr": 6.5,
+    "name_eng": null,
+    "name_th": null,
+    "period": "2026-11-16"
+  },
+  "input": {
+    "bank_name_eng": "Bangkok Bank",
+    "bank_name_th": "กรุงเทพ",
+    "bank_type_name_eng": "Commercial Banks registered in Thailand",
+    "bank_type_name_th": "ธนาคารพาณิชย์จดทะเบียนในประเทศ",
+    "ceiling_rate": "18.0000",
+    "creditcard_max": "16.0000",
+    "creditcard_min": "16.0000",
+    "default_rate": "21.5000",
+    "mlr": "6.3500",
+    "mor": "6.5000",
+    "mrr": "6.5000",
+    "period": "2026-11-16"
+  },
+  "model": "settfex.services.bot.models.LoanRate"
+}

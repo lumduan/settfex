@@ -8,7 +8,7 @@ succeeds an hour later, so nothing in the result or the logs marks the gap. For 
 window is then recorded as covered.
 
 settfex already had the answer everywhere else — ``raise_for_status`` at ~25 call sites across SET
-and ThaiBMA, and an explicit check in ``download.py``. ``financial_report.py`` was the one module
+(and, until 1.0.0, ThaiBMA), and an explicit check in ``download.py``. ``financial_report.py`` was the one module
 that did neither.
 
 Two rules, because one status code cannot see everything:

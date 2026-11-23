@@ -1,0 +1,11 @@
+{
+ "result": {
+  "timestamp": "2026-11-23 11:56:07",
+  "api": "Policy Rate (Percent per annum)",
+  "data": "1.00",
+  "announcement_date": "2026/10/28",
+  "news_text_en": "On 28 October 2026, the MPC voted unanimously to maintain the policy rate at 1.00 percent. One MPC member was unable to attend the meeting.",
+  "news_text_th": "วันที่ 28 ตุลาคม 2569 กนง. มีมติเป็นเอกฉันท์ ให้คงอัตราดอกเบี้ยนโยบายไว้ที่ร้อยละ 1.00 ต่อปี โดยในการประชุมครั้งนี้ กรรมการ 1 ท่านลาประชุม",
+  "effective_datetime": "2026-10-28 14:00:00"
+ }
+}

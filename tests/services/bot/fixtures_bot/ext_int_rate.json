@@ -1,0 +1,59 @@
+{
+ "result": {
+  "timestamp": "2026-11-23 11:56:16",
+  "api": "External Interest Rates (Percent per annum)",
+  "data": {
+   "data_header": {
+    "report_name_eng": "External Interest Rates",
+    "report_name_th": "อัตราดอกเบี้ยต่างประเทศ",
+    "report_uoq_name_eng": "(Percent per annum)",
+    "report_uoq_name_th": "(อัตราร้อยละต่อปี)",
+    "report_source_of_data": [
+     {
+      "source_of_data_eng": "Thomson Reuters (Refinitiv)",
+      "source_of_data_th": "Thomson Reuters (Refinitiv)"
+     }
+    ],
+    "report_remark": [
+     {
+      "report_remark_eng": "This table has been discontinued  due to redundancy with other tables on the BOT website or original sources.",
+      "report_remark_th": "ตารางนี้ถูกยกเลิกการเผยแพร่ เนื่องจากข้อมูลมีการเผยแพร่ในตารางอื่นของ ธปท. หรือหน่วยงานอื่นที่เป็นเจ้าของข้อมูลอยู่แล้ว"
+     },
+     {
+      "report_remark_eng": "Rates fixed at 11.00 a.m. local time.",
+      "report_remark_th": "อัตราดอกเบี้ยคงที่ เวลา 11.00 น. (เวลาท้องถิ่น)"
+     },
+     {
+      "report_remark_eng": "From June 3, 2013 onwards, closed 9 M Libor at every currency is no longer available.",
+      "report_remark_th": "ตั้งแต่วันที่ 3 มิ.ย. 56 เป็นต้นไป รอยเตอร์ยกเลิกการเผยแพร่อัตราดอกเบี้ยระหว่างธนาคารในตลาดลอนดอน 9 เดือน ทุกสกุลเงิน"
+     },
+     {
+      "report_remark_eng": " From January, 2014 onwards, closed Sibor is no longer available.",
+      "report_remark_th": " ตั้งแต่วันที่ 1 ม.ค. 57 เป็นต้นไป รอยเตอร์ยกเลิกการเผยแพร่อัตราดอกเบี้ยระหว่างธนาคารในตลาดสิงค์โปร์"
+     }
+    ],
+    "last_updated": "2024-12-27"
+   },
+   "data_detail": [
+    {
+     "period": "",
+     "rate_type_name_th": "US Discount Rate",
+     "rate_type_name_eng": "US Discount Rate",
+     "interest_rate": ""
+    },
+    {
+     "period": "",
+     "rate_type_name_th": "US Prime Rate",
+     "rate_type_name_eng": "US Prime Rate",
+     "interest_rate": ""
+    },
+    {
+     "period": "",
+     "rate_type_name_th": "US Federal Funds",
+     "rate_type_name_eng": "US Federal Funds",
+     "interest_rate": ""
+    }
+   ]
+  }
+ }
+}

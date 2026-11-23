@@ -64,7 +64,7 @@ Usage:
     >>> asyncio.run(main())
 """
 
-__version__ = "0.30.1"
+__version__ = "1.0.0"
 __author__ = "batt"
 __license__ = "MIT"
 
@@ -78,11 +78,18 @@ from settfex.exceptions import (
     InvalidSymbolError,
     NotFoundError,
     SeriesNotFoundError,
-    StaleDataError,
     SymbolNotFoundError,
 )
 
 # SEC IDISC document services (market.sec.or.th) — disclosure document retrieval
+# Bank of Thailand API services (gateway.api.bot.or.th) — each user's own token per product (1.0.0)
+from settfex.services.bot import (
+    BankOfThailand,
+    get_bibor,
+    get_exchange_rates,
+    get_policy_rate,
+    get_stat_observations,
+)
 from settfex.services.sec import (
     DocumentCategory,
     DownloadedFile,
@@ -135,20 +142,6 @@ from settfex.services.set import (
     get_profile,
     get_stock_info,
     get_stock_list,
-)
-
-# ThaiBMA government bond yield curve services (www.thaibma.or.th) — Thai fixed income
-from settfex.services.thaibma import (
-    BondQuote,
-    CurvePoint,
-    ThaiBMA,
-    YieldCurve,
-    YieldCurveAvailability,
-    YieldCurveHistory,
-    get_bond_yield_history,
-    get_government_yield_curve,
-    get_yield_curve_availability,
-    get_yield_curve_history,
 )
 
 # Utility exports
@@ -211,17 +204,12 @@ __all__ = [
     "ExecutiveTradeDetail",
     "ExecutiveTradeList",
     "ExecutiveTradeReport",
-    # ThaiBMA government bond yield curve (www.thaibma.or.th)
-    "ThaiBMA",
-    "get_government_yield_curve",
-    "get_yield_curve_history",
-    "get_bond_yield_history",
-    "get_yield_curve_availability",
-    "YieldCurve",
-    "YieldCurveHistory",
-    "YieldCurveAvailability",
-    "CurvePoint",
-    "BondQuote",
+    # Bank of Thailand API (gateway.api.bot.or.th)
+    "BankOfThailand",
+    "get_policy_rate",
+    "get_bibor",
+    "get_stat_observations",
+    "get_exchange_rates",
     # Data Models
     "StockListResponse",
     "StockHighlightData",
@@ -247,7 +235,6 @@ __all__ = [
     "NotFoundError",
     "SeriesNotFoundError",
     "SymbolNotFoundError",
-    "StaleDataError",
     "InvalidSymbolError",
     "InvalidLanguageError",
     "InvalidDateError",

@@ -1,0 +1,19 @@
+{
+  "expected_dump": {
+    "date_thai": "01/01/2569",
+    "description": "New Year’s Day",
+    "description_th": "วันขึ้นปีใหม่",
+    "holiday_date": "2026-01-01",
+    "weekday": "Thursday",
+    "weekday_th": "วันพฤหัสบดี"
+  },
+  "input": {
+    "Date": "2026-01-01",
+    "DateThai": "01/01/2569",
+    "HolidayDescription": "New Year’s Day",
+    "HolidayDescriptionThai": "วันขึ้นปีใหม่",
+    "HolidayWeekDay": "Thursday",
+    "HolidayWeekDayThai": "วันพฤหัสบดี"
+  },
+  "model": "settfex.services.bot.models.FinancialInstitutionHoliday"
+}
