@@ -14,6 +14,7 @@ at ``AsyncDataFetcher._make_request``, so the fetcher runs as in production.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock, patch
@@ -43,6 +44,7 @@ def _refusal(url: str = "https://www.thaibma.or.th/yieldcurve/gov") -> Mock:
 class TestTheDetector:
     def test_the_real_page_is_recognised(self) -> None:
         assert len(PAGE) == 2731
+        assert hashlib.sha256(PAGE).hexdigest().startswith("f68bce9f392d31f5"), "byte-exact"
         assert looks_like_thaibma_refusal(PAGE)
 
     @pytest.mark.parametrize(
