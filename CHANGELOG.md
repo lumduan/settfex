@@ -79,6 +79,36 @@ use and compare the fields you read. That is how the verification above was done
 
 ## [Unreleased]
 
+### Internal
+
+These change no runtime code and no dependency floor.
+
+- **Lock refresh (PR #202, supersedes Dependabot #187, #188, #189 and #201):**
+  - **Bumps** (one commit per package; each lock diff moved only that package and its closure):
+    - loguru 0.7.3 → 0.8.0;
+    - pydantic 2.14.3 → 2.14.4, with pydantic-core 2.50.4 → 2.50.5;
+    - youtube-transcript-api 1.2.4 → 1.2.5;
+    - pytest-asyncio 1.4.0 → 1.5.0.
+  - **#188's floor raise was not taken.** It also raised the dev floor to `pytest-asyncio>=1.5.0`.
+    The floor stays at `>=1.2.0`, because the policy raises a floor only for a proven
+    incompatibility.
+  - **loguru 0.8.0 changes its own defaults**, not settfex's formats:
+    - its default format now shows the timezone offset;
+    - it honours `NO_COLOR`/`FORCE_COLOR`, and `TERM=dumb` disables colour.
+- **`astral-sh/setup-uv` v10.3.3 → v10.4.0** in all nine steps (Dependabot #200).
+- **ruff 0.16.8 → 0.17.6:**
+  - The two-place bump: `uv.lock` and the `.pre-commit-config.yaml` rev, moved in lockstep.
+  - 0.17's changes to the default rule set and default target version do not apply, because
+    settfex sets `select` and `target-version` itself.
+  - Zero findings and zero reformats over the tree.
+- **The CI uv pin 0.12.17 → 0.13.9**, in all nine `version:` inputs:
+  - **How it was checked:** every uv command CI runs was replayed under 0.13.9 before the flip,
+    in a scratch environment: `lock --check` (lock accepted unchanged), `sync --frozen` (dev, and
+    dev + all extras), ruff, mypy, pytest (1698 passed, 92.71%), `python -m build` with the
+    `py.typed` assertion, bandit and pip-audit.
+  - **Why nothing breaks:** none of 0.13's breaking changes applies. Its default Python is now 3.15,
+    but `.python-version` pins the interpreter, and CI uses no included constraints files.
+
 ## [1.0.0] - 2026-11-23
 
 **settfex 1.0: ThaiBMA out, Bank of Thailand in.**
