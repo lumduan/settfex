@@ -92,7 +92,7 @@ jobs:
           # Pinned for reproducible builds — "latest" silently adopts whatever uv shipped
           # that day. Dependabot does not bump action *inputs*, so bump this by hand.
           # This is the release path: the uv that builds the published artifact.
-          version: "0.12.17"
+          version: "0.13.9"
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
@@ -119,7 +119,7 @@ jobs:
           # Pinned for reproducible builds — "latest" silently adopts whatever uv shipped
           # that day. Dependabot does not bump action *inputs*, so bump this by hand.
           # This is the release path: the uv that builds the published artifact.
-          version: "0.12.17"
+          version: "0.13.9"
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 

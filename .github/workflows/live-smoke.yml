@@ -58,7 +58,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.4.0
         with:
           # Pinned by hand like every other setup-uv step; the monthly drift report checks them all.
-          version: "0.12.17"
+          version: "0.13.9"
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
