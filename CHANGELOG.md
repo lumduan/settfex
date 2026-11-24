@@ -108,6 +108,25 @@ These change no runtime code and no dependency floor.
     `py.typed` assertion, bandit and pip-audit.
   - **Why nothing breaks:** none of 0.13's breaking changes applies. Its default Python is now 3.15,
     but `.python-version` pins the interpreter, and CI uses no included constraints files.
+- **CI now really tests 3.11 and 3.12.**
+  - **The defect:** the matrix labelled py3.11/py3.12/py3.13 ran CPython 3.13.15 in all three
+    jobs. `uv sync` follows `.python-version` (3.13), not the `uv python install` step before it.
+    So the 3.11 floor in `requires-python` had never been tested in CI.
+  - **The fix:** the test job sets `UV_PYTHON` from the matrix, and a new step fails the job when
+    the interpreter differs from the matrix version.
+  - **What actually running 3.11/3.12 found:** one test failed, the L1 golden. It was generated on
+    3.13 and recorded two 3.13-only renderings:
+    - 3.13 moved `Path` into the private `pathlib._local`;
+    - a type alias reports a different `__module__` on each version, so the `Day`/`Number`/
+      `Text`/`Flag` aliases counted as exports on 3.13 only.
+  - **The snapshot is now version-stable:**
+    - `pathlib._local.` is normalized to `pathlib.`;
+    - aliases are recorded on every version.
+  - **The golden diff is exactly those two changes:**
+    - five annotations now read `pathlib.Path`;
+    - `DayLike` (two modules) and `PeriodLike` were added;
+    - nothing was removed.
+  - **Result:** the full suite passes on 3.11.18, 3.12.16 and 3.13.11 (1698 passed, 92.71% each).
 
 ## [1.0.0] - 2026-11-23
 
