@@ -29,6 +29,7 @@ import inspect
 import json
 import pkgutil
 import sys
+import typing
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -54,6 +55,8 @@ def _fmt_ann(ann: Any) -> str | None:
         return None
     s = ann if isinstance(ann, str) else inspect.formatannotation(ann)
     s = s.replace("typing.", "").replace("collections.abc.", "").replace("NoneType", "None")
+    # 3.13 moved Path into the private ``pathlib._local``; 3.11/3.12 report ``pathlib.Path``.
+    s = s.replace("pathlib._local.", "pathlib.")
     return " ".join(s.split())
 
 
@@ -171,8 +174,12 @@ def _module_entry(module: Any) -> dict[str, Any]:
         obj_module = getattr(obj, "__module__", "")
         is_settfex = isinstance(obj_module, str) and obj_module.startswith("settfex")
         is_typing_form = obj_module == "typing"
+        # A type alias (``Annotated[...]``, ``Literal[...]``, ``X | Y``) reports a different
+        # ``__module__`` per Python version (3.13: the defining module; 3.11/3.12: ``typing`` or
+        # ``types``). It is recorded on every version, so the golden matches on all three.
+        is_alias = typing.get_origin(obj) is not None and not inspect.isclass(obj)
         is_simple_const = name.isupper() and isinstance(obj, (str, int, float, bool))
-        if not (is_settfex or is_typing_form or is_simple_const or name.isupper()):
+        if not (is_settfex or is_typing_form or is_alias or is_simple_const or name.isupper()):
             continue
         exports.append(name)
         defined_here = obj_module == module.__name__

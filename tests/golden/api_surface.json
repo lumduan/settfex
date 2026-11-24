@@ -1889,6 +1889,7 @@
         "BotProduct",
         "BotReport",
         "DEFAULT_ENV_FILE",
+        "DayLike",
         "DebtSecuritiesAuctionService",
         "FetcherConfig",
         "build_report",
@@ -2072,6 +2073,7 @@
         "FetcherConfig",
         "Frequency",
         "Literal",
+        "PeriodLike",
         "REFERENCE_RATE_PATH",
         "ReferenceRate",
         "build_report",
@@ -2659,6 +2661,7 @@
         "DEFAULT_ENV_FILE",
         "DEPOSIT_RATE_PATH",
         "DEPOSIT_RATE_RANGE_PATH",
+        "DayLike",
         "DepositRate",
         "EXTERNAL_RATE_PATH",
         "FetcherConfig",
@@ -5827,7 +5830,7 @@
             },
             "path": {
               "alias": null,
-              "annotation": "pathlib._local.Path | None",
+              "annotation": "pathlib.Path | None",
               "default": "None",
               "required": false
             },
@@ -20063,7 +20066,7 @@
               "param_kind": "POSITIONAL_OR_KEYWORD"
             },
             {
-              "annotation": "str | pathlib._local.Path | None",
+              "annotation": "str | pathlib.Path | None",
               "default": "None",
               "name": "log_file",
               "param_kind": "POSITIONAL_OR_KEYWORD"
@@ -20459,7 +20462,7 @@
               "kind": "function",
               "params": [
                 {
-                  "annotation": "str | pathlib._local.Path | None",
+                  "annotation": "str | pathlib.Path | None",
                   "default": "None",
                   "name": "cache_dir",
                   "param_kind": "POSITIONAL_OR_KEYWORD"
@@ -20574,7 +20577,7 @@
           "kind": "coroutine",
           "params": [
             {
-              "annotation": "str | pathlib._local.Path | None",
+              "annotation": "str | pathlib.Path | None",
               "default": "None",
               "name": "cache_dir",
               "param_kind": "POSITIONAL_OR_KEYWORD"
@@ -20609,7 +20612,7 @@
                   "param_kind": "POSITIONAL_OR_KEYWORD"
                 },
                 {
-                  "annotation": "str | pathlib._local.Path | None",
+                  "annotation": "str | pathlib.Path | None",
                   "default": "None",
                   "name": "cache_dir",
                   "param_kind": "POSITIONAL_OR_KEYWORD"

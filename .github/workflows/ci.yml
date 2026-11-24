@@ -59,6 +59,11 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
+    env:
+      # Without this, `uv sync` and `uv run` follow `.python-version` (3.13), not the
+      # `uv python install` below, so every leg of this matrix ran CPython 3.13 until
+      # 2026-11-24. The assert step makes a regression of that visible.
+      UV_PYTHON: ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v7
 
@@ -73,6 +78,11 @@ jobs:
 
       - run: uv python install ${{ matrix.python-version }}
       - run: uv sync --group dev --frozen
+      - name: Assert the interpreter is the matrix version
+        run: >-
+          uv run python -c "import sys; want = '${{ matrix.python-version }}';
+          got = '%d.%d' % sys.version_info[:2]; print('python', sys.version.split()[0]);
+          assert got == want, f'matrix asks for {want}, running {got}'"
 
       - run: uv run pytest --cov=settfex --cov-branch --cov-report=xml --cov-report=term-missing -v
 
